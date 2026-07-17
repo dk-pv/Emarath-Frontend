@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/**
+ * Workpex renders in a geometric sans with a single-storey 'a'. Poppins matches that
+ * skeleton, and its 0.70 cap-height ratio reproduces the measured cap heights (12px
+ * at 17px nav text, 19px at 27px page titles) — but the licensed face itself has not
+ * been supplied. See "Assets Required" for FND-02.2.
+ */
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -23,11 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className={`${poppins.variable} h-full antialiased`}>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }

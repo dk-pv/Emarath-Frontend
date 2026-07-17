@@ -1,4 +1,5 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "./probe.html";
 
 /*
  * Workpex shell tokens.
@@ -26,19 +27,10 @@
   --color-badge: #fb8585;
   --color-toggle-glyph: #eef8ef;
   --color-surface: #ffffff;
-  --color-success: #4bb863;
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-info: #3b82f6;
   --color-scrollbar: #d1d5db;
-
-  /*
-   * The navbar notification count is smaller than the text-xs floor. Named "count",
-   * not "badge": `--color-badge` already exists and `text-badge` would resolve to the
-   * colour utility instead of a font size.
-   */
-  --text-count: 10px;
-  --text-count--line-height: 1;
 
   /* Controls — shared by the ui/ system */
   --radius-control: 8px;
@@ -84,14 +76,6 @@
 
   /* Motion — Workpex timings are not measurable from stills. See ADR-0005. */
   --ease-shell: cubic-bezier(0.2, 0, 0, 1);
-}
-
-/*
- * Tailwind v4 has no `--duration-*` theme namespace, so a `duration-shell` utility
- * would compile to nothing and silently fall back to 150ms. Declaring it here and
- * reading it as `duration-(--duration-shell)` keeps the value tokenised.
- */
-:root {
   --duration-shell: 200ms;
 }
 

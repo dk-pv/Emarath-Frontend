@@ -5,16 +5,31 @@ import {
   IconChevronUp,
   IconSelector,
 } from "@tabler/icons-react";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import type { SortDirection, SortState, TableColumn } from "@/types";
 
+/** Row selection wiring (FND-03.1 AC3). Supply it to grow a leading checkbox column. */
+export type TableSelection<TRow> = {
+  selectedIds: ReadonlySet<string>;
+  onToggleRow: (id: string) => void;
+  /** Receives the ids of every row currently rendered — never rows still on the server. */
+  onToggleAll: (ids: string[]) => void;
+  /** Accessible name for a row's checkbox. Falls back to the row id. */
+  rowLabel?: (row: TRow) => string;
+  /** Accessible name for the header checkbox. */
+  allLabel?: string;
+};
+
 type TableProps<TRow> = {
-  columns: TableColumn<TRow>[];
-  rows: TRow[];
+  columns: readonly TableColumn<TRow>[];
+  /** One page of rows. A `ListResult` hands its page straight in. */
+  rows: readonly TRow[];
   getRowId: (row: TRow) => string;
   sort?: SortState;
   onSortChange?: (sort: SortState) => void;
+  selection?: TableSelection<TRow>;
   isLoading?: boolean;
   emptyState?: React.ReactNode;
   errorState?: React.ReactNode;
@@ -36,6 +51,9 @@ const HEADER_ALIGN: Record<Align, string> = {
 
 /** Cells never wrap, so the table grows past a narrow ResponsiveTableContainer and scrolls. */
 const CELL_CLASS = "px-4 py-3 whitespace-nowrap";
+
+/** `w-px` collapses the checkbox column to its content — the data columns take the slack. */
+const SELECT_CELL_CLASS = "w-px px-4 py-3";
 
 const SKELETON_ROW_COUNT = 5;
 
@@ -95,17 +113,33 @@ export function Table<TRow>({
   getRowId,
   sort,
   onSortChange,
+  selection,
   isLoading,
   emptyState,
   errorState,
 }: TableProps<TRow>) {
+  const pageIds = rows.map(getRowId);
+  const selectedOnPage = selection
+    ? pageIds.filter((id) => selection.selectedIds.has(id)).length
+    : 0;
+  const allOnPageSelected =
+    pageIds.length > 0 && selectedOnPage === pageIds.length;
+
+  /** The header spans the columns plus the checkbox, so message rows must too. */
+  const columnCount = columns.length + (selection ? 1 : 0);
+
   let body: React.ReactNode;
 
   if (errorState) {
-    body = <MessageRow columnCount={columns.length}>{errorState}</MessageRow>;
+    body = <MessageRow columnCount={columnCount}>{errorState}</MessageRow>;
   } else if (isLoading) {
     body = Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
       <tr key={index} className="border-b border-hairline last:border-b-0">
+        {selection && (
+          <td className={SELECT_CELL_CLASS}>
+            <Skeleton className="size-5" />
+          </td>
+        )}
         {columns.map((column) => (
           <td key={column.key} className={cn(CELL_CLASS, column.className)}>
             <Skeleton className="h-4 w-full" />
@@ -115,34 +149,61 @@ export function Table<TRow>({
     ));
   } else if (rows.length === 0) {
     body = emptyState ? (
-      <MessageRow columnCount={columns.length}>{emptyState}</MessageRow>
+      <MessageRow columnCount={columnCount}>{emptyState}</MessageRow>
     ) : null;
   } else {
-    body = rows.map((row) => (
-      <tr
-        key={getRowId(row)}
-        className="border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas"
-      >
-        {columns.map((column) => (
-          <td
-            key={column.key}
-            className={cn(
-              CELL_CLASS,
-              CELL_ALIGN[column.align ?? "left"],
-              column.className,
-            )}
-          >
-            {column.render(row)}
-          </td>
-        ))}
-      </tr>
-    ));
+    body = rows.map((row) => {
+      const id = getRowId(row);
+
+      return (
+        <tr
+          key={id}
+          className="border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas"
+        >
+          {selection && (
+            <td className={SELECT_CELL_CLASS}>
+              <Checkbox
+                checked={selection.selectedIds.has(id)}
+                onChange={() => selection.onToggleRow(id)}
+                aria-label={selection.rowLabel?.(row) ?? `Select ${id}`}
+              />
+            </td>
+          )}
+          {columns.map((column) => (
+            <td
+              key={column.key}
+              className={cn(
+                CELL_CLASS,
+                CELL_ALIGN[column.align ?? "left"],
+                column.className,
+              )}
+            >
+              {column.render(row)}
+            </td>
+          ))}
+        </tr>
+      );
+    });
   }
 
   return (
     <table className="w-full border-collapse text-sm text-ink">
       <thead>
         <tr className="border-b border-hairline">
+          {selection && (
+            <th scope="col" className={SELECT_CELL_CLASS}>
+              <Checkbox
+                checked={allOnPageSelected}
+                indeterminate={selectedOnPage > 0 && !allOnPageSelected}
+                disabled={pageIds.length === 0}
+                onChange={() => selection.onToggleAll(pageIds)}
+                aria-label={
+                  selection.allLabel ?? "Select all rows on this page"
+                }
+              />
+            </th>
+          )}
+
           {columns.map((column) => {
             const align = column.align ?? "left";
             const active = sort?.key === column.key;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip } from "@/components/ui/Chip";
-import { describeCondition } from "@/hooks/use-filters";
+import { describeCondition } from "@/lib/filters";
 import type { FilterCondition, FilterField } from "@/types";
 
 type AppliedFilterChipsProps = {

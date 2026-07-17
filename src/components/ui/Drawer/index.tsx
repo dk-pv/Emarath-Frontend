@@ -7,8 +7,14 @@ import { cn } from "@/lib/cn";
 import { useDismissable } from "@/hooks/use-dismissable";
 import { useDialogA11y, useMounted } from "@/components/ui/Modal";
 
+/**
+ * Workpex hangs the close control off the panel's outer edge rather than putting it in the
+ * header — see `leads-manage-columns-drawer-open.png` and
+ * `leads-add-new-lead-drawer-scroll-1-top.png`. It rides inside the dialog element so the
+ * focus trap still reaches it.
+ */
 const CLOSE_CLASS =
-  "-mt-1 -mr-1 inline-flex size-control-sm shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring";
+  "absolute top-5 right-full inline-flex size-control-lg items-center justify-center rounded-l-control bg-surface text-ink shadow-md transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring";
 
 export type DrawerProps = {
   open: boolean;
@@ -31,12 +37,11 @@ function DrawerPanel({
   title,
   children,
   footer,
-  width = "max-w-md",
+  width = "max-w-2xl",
 }: DrawerPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
-  // The ref is the panel, so a backdrop press reads as "outside" and closes.
   useDismissable(panel, true, onClose);
   useDialogA11y(panel, true);
 
@@ -48,15 +53,10 @@ function DrawerPanel({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-0 bg-ink/50 transition-opacity duration-(--duration-shell) ease-shell",
-          slidIn ? "opacity-100" : "opacity-0",
-        )}
-      />
-
+    // Workpex tucks the drawer under the navbar and dims nothing behind it: the list stays
+    // legible while columns are rearranged against it. With no backdrop to absorb them, the
+    // frame must let pointer events fall through to the page it is sitting on.
+    <div className="pointer-events-none fixed top-navbar right-0 bottom-0 left-0 z-50 flex justify-end">
       <div
         ref={panel}
         role="dialog"
@@ -64,34 +64,37 @@ function DrawerPanel({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "relative flex h-full w-full flex-col border-l border-hairline bg-surface shadow-xl transition-transform duration-(--duration-shell) ease-shell focus:outline-none",
+          "pointer-events-auto relative flex h-full w-full transition-transform duration-(--duration-shell) ease-shell focus:outline-none",
           width,
           slidIn ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-hairline p-5">
-          <h2 id={titleId} className="text-lg font-semibold text-ink">
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className={CLOSE_CLASS}
-          >
-            <IconX aria-hidden="true" stroke={2} className="size-4" />
-          </button>
-        </header>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className={CLOSE_CLASS}
+        >
+          <IconX aria-hidden="true" stroke={2} className="size-5" />
+        </button>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 text-sm text-ink scrollbar-slim">
-          {children}
+        <div className="flex h-full w-full flex-col border-l border-hairline bg-surface shadow-xl">
+          <header className="p-5">
+            <h2 id={titleId} className="text-lg font-medium text-ink">
+              {title}
+            </h2>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 text-sm text-ink scrollbar-slim">
+            {children}
+          </div>
+
+          {footer && (
+            <footer className="flex items-center justify-end gap-3 border-t border-hairline p-5">
+              {footer}
+            </footer>
+          )}
         </div>
-
-        {footer && (
-          <footer className="flex items-center justify-end gap-3 border-t border-hairline p-5">
-            {footer}
-          </footer>
-        )}
       </div>
     </div>
   );

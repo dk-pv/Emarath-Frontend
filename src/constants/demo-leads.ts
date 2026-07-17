@@ -1,3 +1,4 @@
+import { createMemorySource } from "@/lib/list-source";
 import type { FilterField } from "@/types";
 
 /** Mock rows only — no backend exists yet. */
@@ -49,36 +50,83 @@ export const LEAD_FILTER_FIELDS: readonly FilterField[] = [
   { key: "amount", label: "Minimum amount", type: "number" },
 ];
 
-const NAMES = [
-  "Ahmed Hassan",
-  "Fatima Ali",
-  "Mohammed Rashid",
-  "Layla Ibrahim",
-  "Omar Khalid",
-  "Noor Abdullah",
-  "Yusuf Karim",
-  "Maryam Saeed",
-  "Hamza Nasser",
-  "Zainab Farid",
-  "Bilal Ahmed",
-  "Huda Mansour",
-  "Tariq Aziz",
-  "Salma Younis",
-  "Rami Haddad",
-  "Dina Barakat",
-  "Khalil Osman",
-  "Amira Sultan",
-  "Faisal Noor",
-  "Rania Jaber",
+const FIRST_NAMES = [
+  "Ahmed",
+  "Fatima",
+  "Mohammed",
+  "Layla",
+  "Omar",
+  "Noor",
+  "Yusuf",
+  "Maryam",
+  "Hamza",
+  "Zainab",
+  "Bilal",
+  "Huda",
+  "Tariq",
+  "Salma",
+  "Rami",
+  "Dina",
+  "Khalil",
+  "Amira",
+  "Faisal",
+  "Rania",
 ];
 
-/** Deterministic so server and client render identically — no Math.random(). */
-export const DEMO_LEADS: readonly DemoLead[] = NAMES.map((name, i) => ({
-  id: String(i + 1),
-  name,
-  phone: `05${String(50000000 + i * 137911).slice(0, 8)}`,
-  source: LEAD_SOURCES[i % LEAD_SOURCES.length].value,
-  status: LEAD_STATUSES[i % LEAD_STATUSES.length].value,
-  agent: LEAD_AGENTS[i % LEAD_AGENTS.length].value,
-  amount: 1500 + i * 1275,
-}));
+const LAST_NAMES = [
+  "Hassan",
+  "Ali",
+  "Rashid",
+  "Ibrahim",
+  "Khalid",
+  "Abdullah",
+  "Karim",
+  "Saeed",
+  "Nasser",
+  "Farid",
+  "Mansour",
+  "Aziz",
+  "Younis",
+  "Haddad",
+  "Barakat",
+  "Osman",
+  "Sultan",
+  "Jaber",
+  "Salem",
+  "Mubarak",
+];
+
+/** FND-03.1 AC5 sets the floor at 15,000; the real Leads list is expected to exceed it. */
+const ROW_COUNT = 15_000;
+
+/**
+ * Deterministic so server and client render identically — no Math.random(). Generated
+ * rather than written out so the size is a constant, not 15,000 lines of bundle.
+ *
+ * Co-prime strides against the list lengths keep every field from marching in lockstep,
+ * which would make filters look like they work when they only ever hit one bucket.
+ */
+export const DEMO_LEADS: readonly DemoLead[] = Array.from(
+  { length: ROW_COUNT },
+  (_, i) => ({
+    id: String(i + 1),
+    name: `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[(i * 7) % LAST_NAMES.length]}`,
+    phone: `05${50000000 + i * 137}`,
+    source: LEAD_SOURCES[(i * 3) % LEAD_SOURCES.length].value,
+    status: LEAD_STATUSES[(i * 2) % LEAD_STATUSES.length].value,
+    agent: LEAD_AGENTS[(i * 5) % LEAD_AGENTS.length].value,
+    amount: 1500 + ((i * 1275) % 400_000),
+  }),
+);
+
+/**
+ * Stands in for the Leads list endpoint until one exists. Everything past `size` stays in
+ * here, so the table only ever receives one page — the point of AC1.
+ */
+export const queryDemoLeads = createMemorySource({
+  rows: DEMO_LEADS,
+  fields: LEAD_FILTER_FIELDS,
+  getValue: (row, key) =>
+    (row[key as keyof DemoLead] ?? null) as string | number | null,
+  searchFields: ["name", "phone"],
+});

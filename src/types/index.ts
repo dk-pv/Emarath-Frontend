@@ -24,9 +24,45 @@ export type TableColumn<TRow> = {
   align?: "left" | "right" | "center";
   className?: string;
   render: (row: TRow) => React.ReactNode;
-  /** Value used when the table sorts this column client-side. */
-  sortValue?: (row: TRow) => string | number;
 };
+
+/**
+ * A user's column arrangement for one module (FND-03.1 AC4).
+ *
+ * `hidden` rather than `visible`: a column shipped after the user last saved must default
+ * to shown. Storing the visible set would silently swallow it.
+ */
+export type ColumnPrefs = {
+  /** Column keys in display order. Keys absent here fall back to declaration order. */
+  order: string[];
+  hidden: string[];
+};
+
+/**
+ * What a list endpoint receives (FND-03.1 AC1/AC2).
+ *
+ * Paging and sorting are the server's job — Leads holds 15,000+ rows, so the browser must
+ * never receive the full set. Every list module drives its table through this shape.
+ */
+export type ListQuery = {
+  /** 1-based, matching what the pager displays. */
+  page: number;
+  size: number;
+  sort?: SortState;
+  search?: string;
+  filters?: readonly FilterCondition[];
+};
+
+/** One page plus the total, so the pager can size itself without a second request. */
+export type ListResult<TRow> = {
+  rows: readonly TRow[];
+  total: number;
+};
+
+/** Resolves a query to a page. The API client implements this; tests supply their own. */
+export type ListSource<TRow> = (
+  query: ListQuery,
+) => Promise<ListResult<TRow>> | ListResult<TRow>;
 
 /** A filterable field a module contributes to the shared filter panel (FND-03.2 AC5). */
 export type FilterField = {

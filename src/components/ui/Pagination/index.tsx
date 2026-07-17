@@ -2,6 +2,7 @@
 
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
+import { PAGE_SIZE_OPTIONS } from "@/constants/table";
 
 type PaginationProps = {
   page: number;
@@ -13,8 +14,6 @@ type PaginationProps = {
 };
 
 type PageItem = number | "start-gap" | "end-gap";
-
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 /** Pages shown either side of the current page before an ellipsis takes over. */
 const SIBLINGS = 1;

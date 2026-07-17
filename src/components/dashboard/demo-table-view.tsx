@@ -1,23 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { IconFileExport, IconSearchOff } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Table } from "@/components/ui/Table";
 import { Tag } from "@/components/ui/Tag";
+import { ManageColumns } from "@/components/table/manage-columns";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { MetricCardsRow } from "@/components/layout/MetricCardsRow";
 import { StatCard } from "@/components/ui/StatCard";
-import { matchesFilters, useFilters } from "@/hooks/use-filters";
+import { useColumnPrefs } from "@/hooks/use-column-prefs";
+import { useFilters } from "@/hooks/use-filters";
+import { useListQuery } from "@/hooks/use-list-query";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
-  DEMO_LEADS,
   LEAD_FILTER_FIELDS,
+  queryDemoLeads,
   type DemoLead,
 } from "@/constants/demo-leads";
 import { SUMMARY_CARDS } from "@/constants/dashboard";
 import { SUMMARY_ICONS } from "./summary-cards";
-import type { SortState, TableColumn, Tone } from "@/types";
+import type { TableColumn, Tone } from "@/types";
 
 const AED = new Intl.NumberFormat("en-AE", {
   style: "currency",
@@ -33,23 +37,22 @@ const STATUS_TONE: Record<string, Tone> = {
   Cancelled: "neutral",
 };
 
-const PAGE_SIZE = 6;
+const MODULE_ID = "demo-leads";
 
-const SEARCH_FIELDS = ["name", "phone"] as const;
-
-const getValue = (row: DemoLead, key: string) =>
-  (row[key as keyof DemoLead] ?? null) as string | number | null;
+/** Small enough that paging, sorting and select-all are all visible on one screen. */
+const PAGE_SIZE = 10;
 
 /**
- * Demo composition proving the shared layout system end to end: metric cards, page
- * header, toolbar with search + filters, applied chips, table, pagination.
+ * Demo composition proving the shared table system end to end against a 15,000-row source
+ * (FND-03.1 AC5): server-shaped paging and sorting, row selection, and column management.
  *
- * Mock data only. This is not the Leads module — it exists to verify the layout.
+ * Mock data only. This is not the Leads module — it exists to exercise the shared pieces
+ * and is replaced by the real list at LEAD-01.1.
  */
 export function DemoTableView() {
   const filters = useFilters(LEAD_FILTER_FIELDS);
-  const [sort, setSort] = useState<SortState | undefined>();
-  const [page, setPage] = useState(1);
+  const list = useListQuery({ size: PAGE_SIZE, filters: filters.state });
+  const selection = useRowSelection();
 
   const columns: TableColumn<DemoLead>[] = useMemo(
     () => [
@@ -57,7 +60,6 @@ export function DemoTableView() {
         key: "name",
         header: "Lead",
         sortable: true,
-        sortValue: (row) => row.name,
         render: (row) => (
           <span className="flex flex-col">
             <span className="font-medium text-ink">{row.name}</span>
@@ -69,7 +71,6 @@ export function DemoTableView() {
         key: "status",
         header: "Status",
         sortable: true,
-        sortValue: (row) => row.status,
         render: (row) => (
           <Tag tone={STATUS_TONE[row.status] ?? "neutral"}>{row.status}</Tag>
         ),
@@ -78,14 +79,12 @@ export function DemoTableView() {
         key: "source",
         header: "Source",
         sortable: true,
-        sortValue: (row) => row.source,
         render: (row) => row.source,
       },
       {
         key: "agent",
         header: "Assigned Agent",
         sortable: true,
-        sortValue: (row) => row.agent,
         render: (row) => row.agent,
       },
       {
@@ -93,44 +92,25 @@ export function DemoTableView() {
         header: "Amount",
         align: "right",
         sortable: true,
-        sortValue: (row) => row.amount,
         render: (row) => AED.format(row.amount),
       },
     ],
     [],
   );
 
-  const filtered = useMemo(
-    () =>
-      DEMO_LEADS.filter((row) =>
-        matchesFilters(
-          row,
-          filters.state,
-          LEAD_FILTER_FIELDS,
-          getValue,
-          SEARCH_FIELDS,
-        ),
-      ),
-    [filters.state],
+  const { prefs, setPrefs, visibleColumns } = useColumnPrefs(
+    MODULE_ID,
+    columns,
   );
 
-  const sorted = useMemo(() => {
-    if (!sort) return filtered;
-    const column = columns.find((c) => c.key === sort.key);
-    if (!column?.sortValue) return filtered;
-    const factor = sort.direction === "asc" ? 1 : -1;
-    return [...filtered].sort((a, b) => {
-      const av = column.sortValue!(a);
-      const bv = column.sortValue!(b);
-      if (typeof av === "number" && typeof bv === "number")
-        return (av - bv) * factor;
-      return String(av).localeCompare(String(bv)) * factor;
-    });
-  }, [filtered, sort, columns]);
+  // Where a real module awaits its API client. The source resolves synchronously here, so
+  // the query is the only dependency — exactly what the fetch would key on.
+  const { rows, total } = useMemo(
+    () => queryDemoLeads(list.query),
+    [list.query],
+  );
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const rows = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageCount = Math.max(1, Math.ceil(total / list.size));
 
   return (
     <TablePageLayout
@@ -141,7 +121,7 @@ export function DemoTableView() {
         value: filters.state.search,
         onChange: (value) => {
           filters.setSearch(value);
-          setPage(1);
+          list.resetPage();
         },
         placeholder: "Search name or phone",
       }}
@@ -153,33 +133,47 @@ export function DemoTableView() {
         fieldOf: filters.fieldOf,
         onChange: (key, value) => {
           filters.setCondition(key, value);
-          setPage(1);
+          list.resetPage();
         },
-        onRemove: filters.removeCondition,
+        onRemove: (key) => {
+          filters.removeCondition(key);
+          list.resetPage();
+        },
         onClear: () => {
           filters.clearAll();
-          setPage(1);
+          list.resetPage();
         },
       }}
       toolbarActions={
-        <Button variant="secondary" size="md">
-          <IconFileExport size={18} stroke={1.75} />
-          Export
-        </Button>
+        <>
+          <ManageColumns columns={columns} prefs={prefs} onChange={setPrefs} />
+          <Button variant="secondary" size="md">
+            <IconFileExport size={18} stroke={1.75} />
+            Export
+          </Button>
+        </>
       }
       pagination={{
-        page: safePage,
+        page: list.page,
         pageCount,
-        total: sorted.length,
-        onPageChange: setPage,
+        total,
+        onPageChange: list.setPage,
+        pageSize: list.size,
+        onPageSizeChange: list.setSize,
       }}
     >
       <Table
-        columns={columns}
+        columns={visibleColumns}
         rows={rows}
         getRowId={(row) => row.id}
-        sort={sort}
-        onSortChange={setSort}
+        sort={list.sort}
+        onSortChange={list.setSort}
+        selection={{
+          selectedIds: selection.selectedIds,
+          onToggleRow: selection.toggleRow,
+          onToggleAll: selection.toggleAll,
+          rowLabel: (row) => `Select ${row.name}`,
+        }}
         emptyState={
           <EmptyState
             icon={IconSearchOff}

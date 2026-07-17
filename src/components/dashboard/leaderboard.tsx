@@ -13,8 +13,10 @@ import { Select } from "@/components/ui/Select";
 import { FilterBar } from "@/components/layout/FilterBar";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { Toolbar } from "@/components/layout/Toolbar";
-import { useTableControls } from "@/hooks/use-table-controls";
-import type { LeaderboardRow, TableColumn } from "@/types";
+import { useFilters } from "@/hooks/use-filters";
+import { useListQuery } from "@/hooks/use-list-query";
+import { createMemorySource } from "@/lib/list-source";
+import type { FilterField, LeaderboardRow, TableColumn } from "@/types";
 
 const AED = new Intl.NumberFormat("en-AE", {
   style: "currency",
@@ -31,6 +33,14 @@ const RATE_FILTERS = [
   { label: "Below 60%", value: "low" },
 ];
 
+/** The rate select is a bespoke predicate, not a field condition — nothing to declare. */
+const NO_FIELDS: readonly FilterField[] = [];
+
+const PAGE_SIZE = 5;
+
+const getValue = (row: LeaderboardRow, key: string) =>
+  (row[key as keyof LeaderboardRow] ?? null) as string | number | null;
+
 type LeaderboardProps = {
   rows: readonly LeaderboardRow[];
   isLoading?: boolean;
@@ -45,6 +55,8 @@ export function Leaderboard({
   onRetry,
 }: LeaderboardProps) {
   const [rateFilter, setRateFilter] = useState("all");
+  const filters = useFilters(NO_FIELDS);
+  const list = useListQuery({ size: PAGE_SIZE, filters: filters.state });
 
   const filteredByRate = useMemo(() => {
     if (rateFilter === "high")
@@ -59,7 +71,6 @@ export function Leaderboard({
         key: "agent",
         header: "Agent",
         sortable: true,
-        sortValue: (row) => row.agent,
         render: (row) => (
           <span className="flex items-center gap-3">
             <Avatar name={row.agent} size="sm" />
@@ -72,7 +83,6 @@ export function Leaderboard({
         header: "Leads",
         align: "right",
         sortable: true,
-        sortValue: (row) => row.leads,
         render: (row) => row.leads.toLocaleString("en-AE"),
       },
       {
@@ -80,7 +90,6 @@ export function Leaderboard({
         header: "Calls",
         align: "right",
         sortable: true,
-        sortValue: (row) => row.calls,
         render: (row) => row.calls.toLocaleString("en-AE"),
       },
       {
@@ -88,7 +97,6 @@ export function Leaderboard({
         header: "Converted Amount",
         align: "right",
         sortable: true,
-        sortValue: (row) => row.convertedAmount,
         render: (row) => AED.format(row.convertedAmount),
       },
       {
@@ -96,19 +104,26 @@ export function Leaderboard({
         header: "Total Conversion Rate",
         align: "right",
         sortable: true,
-        sortValue: (row) => row.conversionRate,
         render: (row) => `${PERCENT.format(row.conversionRate)}%`,
       },
     ],
     [],
   );
 
-  const table = useTableControls({
-    rows: filteredByRate,
-    columns,
-    pageSize: 5,
-    searchFields: (row) => [row.agent],
-  });
+  // These rows are already in the browser — the dashboard ships them with the page — but
+  // they still go through the list contract so the table has one way of being driven.
+  const source = useMemo(
+    () =>
+      createMemorySource({
+        rows: filteredByRate,
+        getValue,
+        searchFields: ["agent"],
+      }),
+    [filteredByRate],
+  );
+
+  const page = useMemo(() => source(list.query), [source, list.query]);
+  const pageCount = Math.max(1, Math.ceil(page.total / list.size));
 
   if (error) {
     return (
@@ -131,8 +146,11 @@ export function Leaderboard({
         <Toolbar
           left={
             <SearchInput
-              value={table.query}
-              onChange={(e) => table.setQuery(e.target.value)}
+              value={filters.state.search}
+              onChange={(e) => {
+                filters.setSearch(e.target.value);
+                list.resetPage();
+              }}
               placeholder="Search agents"
               aria-label="Search agents"
             />
@@ -141,7 +159,10 @@ export function Leaderboard({
             <Select
               aria-label="Filter by conversion rate"
               value={rateFilter}
-              onChange={(e) => setRateFilter(e.target.value)}
+              onChange={(e) => {
+                setRateFilter(e.target.value);
+                list.resetPage();
+              }}
               options={RATE_FILTERS}
             />
           }
@@ -151,13 +172,13 @@ export function Leaderboard({
       <ResponsiveTableContainer>
         <Table
           columns={columns}
-          rows={table.rows}
+          rows={page.rows}
           getRowId={(row) => row.id}
-          sort={table.sort}
-          onSortChange={table.setSort}
+          sort={list.sort}
+          onSortChange={list.setSort}
           isLoading={isLoading}
           emptyState={
-            table.query ? (
+            filters.state.search ? (
               <EmptyState
                 icon={IconUsersGroup}
                 title="No agents match your search"
@@ -174,13 +195,13 @@ export function Leaderboard({
         />
       </ResponsiveTableContainer>
 
-      {table.pageCount > 1 && (
+      {pageCount > 1 && (
         <div className="border-t border-hairline px-4 py-3">
           <Pagination
-            page={table.page}
-            pageCount={table.pageCount}
-            total={table.total}
-            onPageChange={table.setPage}
+            page={list.page}
+            pageCount={pageCount}
+            total={page.total}
+            onPageChange={list.setPage}
           />
         </div>
       )}

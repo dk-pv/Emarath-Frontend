@@ -48,6 +48,8 @@ export type TablePageLayoutProps = {
     pageCount: number;
     total?: number;
     onPageChange: (page: number) => void;
+    pageSize?: number;
+    onPageSizeChange?: (size: number) => void;
   };
 
   /** Announced to screen readers as the label of the horizontal scroll region. */
@@ -129,12 +131,16 @@ export function TablePageLayout({
         {children}
       </ResponsiveTableContainer>
 
-      {pagination && pagination.pageCount > 1 && (
+      {/* Workpex keeps the row count and page-size control on screen even for a single
+          page, so the footer tracks `pagination` being supplied rather than page count. */}
+      {pagination && (
         <Pagination
           page={pagination.page}
           pageCount={pagination.pageCount}
           total={pagination.total}
           onPageChange={pagination.onPageChange}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.onPageSizeChange}
         />
       )}
     </PageContainer>

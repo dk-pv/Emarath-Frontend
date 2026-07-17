@@ -43,6 +43,10 @@
   /* Controls — shared by the ui/ system */
   --radius-control: 8px;
   --radius-surface: 12px;
+  /* A 20px checkbox at --radius-control keeps only 4px of flat edge and reads as a circle,
+     which is the radio. Workpex draws a square box — see the header and row checkboxes in
+     leads-list-all-rows-selected-bulk-action-bar.png. */
+  --radius-check: 4px;
   --spacing-control-sm: 32px;
   --spacing-control-md: 40px;
   --spacing-control-lg: 48px;

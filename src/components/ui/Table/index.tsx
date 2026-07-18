@@ -158,7 +158,9 @@ export function Table<TRow>({
       return (
         <tr
           key={id}
-          className="border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas"
+          // `group` lets a sticky column's own background follow the row hover
+          // (via group-hover on that column's className); harmless otherwise.
+          className="group border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas"
         >
           {selection && (
             <td className={SELECT_CELL_CLASS}>

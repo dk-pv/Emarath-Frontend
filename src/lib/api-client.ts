@@ -10,6 +10,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** Field-level validation messages from the API (class-validator returns a list). */
+    readonly messages: string[] = [],
   ) {
     super(message);
     this.name = "ApiError";
@@ -41,6 +43,48 @@ export async function apiGet<T>(
     throw new ApiError(
       response.status,
       `GET ${path} failed with ${response.status}`,
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
+/**
+ * Typed POST against the backend, returning the created resource.
+ *
+ * On a non-2xx it throws an `ApiError` carrying the API's validation messages —
+ * NestJS returns `message` as a string or a string array — so a caller can show
+ * exactly what the server rejected rather than a generic failure.
+ */
+export async function apiPost<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) {
+    let messages: string[] = [];
+    try {
+      const data: unknown = await response.json();
+      const raw = (data as { message?: unknown } | null)?.message;
+      messages = Array.isArray(raw)
+        ? raw.map(String)
+        : raw
+          ? [String(raw)]
+          : [];
+    } catch {
+      // A non-JSON error body leaves messages empty; the status still surfaces.
+    }
+    throw new ApiError(
+      response.status,
+      messages[0] ?? `POST ${path} failed with ${response.status}`,
+      messages,
     );
   }
 

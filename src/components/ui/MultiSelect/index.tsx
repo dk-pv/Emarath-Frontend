@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useId, useRef } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { IconChevronDown, IconSearch } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Chip } from "@/components/ui/Chip";
@@ -16,6 +16,8 @@ export type MultiSelectProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** A type-ahead box in the panel — Workpex's Assigned and Tags dropdowns. */
+  searchable?: boolean;
 };
 
 /** Chips sit inside the control, so the box grows rather than clipping the selection. */
@@ -38,17 +40,28 @@ export function MultiSelect({
   placeholder,
   disabled,
   className,
+  searchable,
 }: MultiSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
   const panelId = useId();
   const { isOpen, close, toggle } = useDisclosure();
+  const [query, setQuery] = useState("");
 
   /** Escape hands focus back to the opener; an outside click must not steal it. */
   const dismiss = useCallback(() => {
     close();
+    setQuery("");
     if (root.current?.contains(document.activeElement)) opener.current?.focus();
   }, [close]);
+
+  const visible = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!searchable || !term) return options;
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(term),
+    );
+  }, [options, query, searchable]);
 
   useDismissable(root, isOpen, dismiss);
 
@@ -122,17 +135,43 @@ export function MultiSelect({
 
       {isOpen && (
         <div id={panelId} className={PANEL_CLASS}>
-          {options.map((option) => (
-            <label key={option.value} className={OPTION_CLASS}>
-              <Checkbox
-                checked={value.includes(option.value)}
-                disabled={option.disabled}
-                onChange={() => toggleValue(option.value)}
-                onKeyDown={onOptionKeyDown}
-              />
-              <span className="truncate">{option.label}</span>
-            </label>
-          ))}
+          {searchable && (
+            <div className="sticky top-0 border-b border-hairline bg-surface p-2">
+              <span className="relative block">
+                <IconSearch
+                  aria-hidden="true"
+                  stroke={1.75}
+                  className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-ink-muted"
+                />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search"
+                  aria-label="Search options"
+                  className="h-control-sm w-full rounded-control border border-hairline bg-surface pr-2 pl-8 text-sm text-ink focus-ring"
+                />
+              </span>
+            </div>
+          )}
+
+          {visible.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-ink-subtle">
+              No results found
+            </p>
+          ) : (
+            visible.map((option) => (
+              <label key={option.value} className={OPTION_CLASS}>
+                <Checkbox
+                  checked={value.includes(option.value)}
+                  disabled={option.disabled}
+                  onChange={() => toggleValue(option.value)}
+                  onKeyDown={onOptionKeyDown}
+                />
+                <span className="truncate">{option.label}</span>
+              </label>
+            ))
+          )}
         </div>
       )}
     </div>

@@ -36,7 +36,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
-      className={`relative flex shrink-0 flex-col bg-sidebar transition-[width] duration-(--duration-shell) ease-shell ${
+      className={`relative flex shrink-0 flex-col overflow-hidden bg-sidebar transition-[width] duration-(--duration-shell) ease-shell ${
         collapsed ? "w-sidebar-collapsed" : "w-sidebar-collapsed lg:w-sidebar"
       }`}
     >
@@ -46,7 +46,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       <nav
         aria-label="Main"
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto scrollbar-slim"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto scrollbar-none"
       >
         {NAV_ITEMS.map((item) => (
           <SidebarNavLink

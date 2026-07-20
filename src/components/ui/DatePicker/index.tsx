@@ -23,12 +23,21 @@ export type DatePickerProps = {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Show the trigger as DD/MM/YYYY — the New Lead drawer's format (LEAD-06.2). */
+  numeric?: boolean;
 };
 
 /** Pinned locale: the server and the browser must format identically or hydration fails. */
 const TRIGGER_FORMAT = new Intl.DateTimeFormat("en-AE", {
   day: "2-digit",
   month: "short",
+  year: "numeric",
+});
+
+/** en-GB renders day/month/year as DD/MM/YYYY, matching Workpex's Booking Date. */
+const NUMERIC_TRIGGER_FORMAT = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
   year: "numeric",
 });
 
@@ -293,7 +302,9 @@ export function DatePicker({
   placeholder,
   disabled,
   className,
+  numeric,
 }: DatePickerProps) {
+  const triggerFormat = numeric ? NUMERIC_TRIGGER_FORMAT : TRIGGER_FORMAT;
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const labelId = useId();
@@ -334,7 +345,7 @@ export function DatePicker({
           className="size-4 shrink-0 text-ink-muted"
         />
         <span className={cn("truncate", value === null && "text-ink-subtle")}>
-          {value === null ? placeholder : TRIGGER_FORMAT.format(value)}
+          {value === null ? placeholder : triggerFormat.format(value)}
         </span>
       </button>
 

@@ -1,5 +1,10 @@
-import { apiGet } from "@/lib/api-client";
-import type { ListQuery, ListResult } from "@/types";
+import { apiGet, apiPost } from "@/lib/api-client";
+import type { FilterCondition, ListQuery, ListResult } from "@/types";
+
+/** The query params the backend accepts as field filters (LEAD-03.2). A filter
+ * condition whose key is not one of these is dropped rather than sent — the API
+ * rejects unknown params, and only these three fields are in scope. */
+const FILTER_PARAM_KEYS = new Set(["source", "status", "assignedAgent"]);
 
 /**
  * One lead as the list endpoint returns it (LEAD-02.1).
@@ -21,6 +26,7 @@ export interface LeadListItem {
   country: string | null;
   source: string | null;
   status: string;
+  pipeline: string;
   category: string | null;
   actualAmount: string | null;
   forecastedAmount: string | null;
@@ -57,5 +63,88 @@ export async function fetchLeads(
     params.set("direction", query.sort.direction);
   }
 
+  // Server-side search over name and phone (LEAD-03.1). The trimmed guard keeps
+  // an empty box from sending `search=`, which would be a redundant parameter;
+  // the backend also treats blank as no search.
+  if (query.search?.trim()) {
+    params.set("search", query.search.trim());
+  }
+
+  // Field filters (LEAD-03.2/03.3): Source, Status and Assigned Agent. Each
+  // active condition's values are appended as a repeated param (`source=A&
+  // source=B`), which the backend reads as an array and matches with IN.
+  for (const condition of query.filters ?? []) {
+    if (!FILTER_PARAM_KEYS.has(condition.key)) continue;
+    for (const value of filterValues(condition)) {
+      params.append(condition.key, value);
+    }
+  }
+
   return apiGet<ListResult<LeadListItem>>("/leads", params, signal);
+}
+
+/** Normalises a condition's value to the string values the API expects. */
+function filterValues(condition: FilterCondition): string[] {
+  const { value } = condition;
+  if (Array.isArray(value)) return value.map(String);
+  if (value === null || value === "") return [];
+  return [String(value)];
+}
+
+/** The values the filter panel offers per field (LEAD-03.3), scoped by role. */
+export interface LeadFilterOptions {
+  sources: string[];
+  statuses: string[];
+  agents: { id: string; name: string }[];
+}
+
+/** Fetches the scoped Source/Status/Assigned Agent options for the filter panel. */
+export async function fetchLeadFilterOptions(
+  signal?: AbortSignal,
+): Promise<LeadFilterOptions> {
+  return apiGet<LeadFilterOptions>("/leads/filter-options", undefined, signal);
+}
+
+/**
+ * The New Lead form's payload (LEAD-06.2), mirroring the backend `CreateLeadDto`.
+ * Amounts and quantities are strings so the Decimal precision survives the wire;
+ * attempts are numbers; ids are the values chosen from the lookups.
+ */
+export interface CreateLeadInput {
+  name: string;
+  primaryPhone: string;
+  firstName?: string;
+  secondaryPhone?: string;
+  assignedAgentIds?: string[];
+  status?: string;
+  pipeline?: string;
+  tagIds?: string[];
+  complaintReason?: string;
+  product: string;
+  productQty?: string;
+  product2?: string;
+  product2Qty?: string;
+  language: string;
+  source?: string;
+  callStatus: string;
+  callAttempts: number;
+  msgAttempts?: number;
+  country: string;
+  state?: string;
+  street?: string;
+  city?: string;
+  nationalCode?: string;
+  bookingDate?: string;
+  category?: string;
+  actualAmount: string;
+  forecastedAmount?: string;
+  paymentMethod: string;
+}
+
+/** Creates a lead (LEAD-06.1). Returns the created row for the list to adopt. */
+export async function createLead(
+  input: CreateLeadInput,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiPost<LeadListItem>("/leads", input, signal);
 }

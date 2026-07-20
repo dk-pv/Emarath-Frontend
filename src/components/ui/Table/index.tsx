@@ -216,7 +216,9 @@ export function Table<TRow>({
                 scope="col"
                 aria-sort={ariaSortFor(column, sort)}
                 className={cn(
-                  "px-4 py-3 text-xs font-medium tracking-wide whitespace-nowrap text-ink-muted uppercase",
+                  // Title case, not uppercase: Workpex shows the column names as
+                  // configured (e.g. "Customer Name"), never transformed.
+                  "px-4 py-3 text-xs font-medium whitespace-nowrap text-ink-muted",
                   CELL_ALIGN[align],
                   column.className,
                 )}

@@ -12,7 +12,13 @@ export function BrandMark({ collapsed }: { collapsed: boolean }) {
       aria-label="Emarath"
     >
       <span className="text-brand">E</span>
-      <span className={collapsed ? "hidden" : "hidden lg:inline"}>marath</span>
+      <span
+        className={`transition-opacity duration-(--duration-shell) ease-shell ${
+          collapsed ? "opacity-0" : "opacity-0 lg:opacity-100"
+        }`}
+      >
+        marath
+      </span>
     </span>
   );
 }

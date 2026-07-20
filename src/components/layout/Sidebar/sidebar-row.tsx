@@ -27,9 +27,17 @@ export function SidebarRowLabel({
   children: React.ReactNode;
   collapsed: boolean;
 }) {
+  // Fades rather than toggling `display`, so collapse and expand track the width
+  // animation smoothly instead of the label popping in or out. The row already
+  // carries an `aria-label`, so the visible text is decorative here — otherwise a
+  // still-in-DOM label would give the row two accessible names. The aside clips
+  // the overflow, so the faded label never bleeds past the rail mid-animation.
   return (
     <span
-      className={`text-nav whitespace-nowrap ${collapsed ? "hidden" : "hidden lg:inline"}`}
+      aria-hidden
+      className={`text-nav whitespace-nowrap transition-opacity duration-(--duration-shell) ease-shell ${
+        collapsed ? "opacity-0" : "opacity-0 lg:opacity-100"
+      }`}
     >
       {children}
     </span>

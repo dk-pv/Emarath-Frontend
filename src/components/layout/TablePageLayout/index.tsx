@@ -77,14 +77,23 @@ export function TablePageLayout({
 }: TablePageLayoutProps) {
   const hasToolbar = Boolean(search || filters || toolbarActions);
 
+  // The Navbar already renders the page <h1> for every route, and Workpex shows
+  // the title only once — in that top bar, with the toolbar directly beneath it.
+  // So the page header is rendered only when it carries something the navbar does
+  // not (a description, actions, or a breadcrumb); a title-only header would be a
+  // duplicate heading Workpex never shows.
+  const hasPageHeader = Boolean(description || actions || breadcrumb);
+
   return (
     <PageContainer>
-      <PageHeader
-        title={title}
-        description={description}
-        actions={actions}
-        breadcrumb={breadcrumb}
-      />
+      {hasPageHeader && (
+        <PageHeader
+          title={title}
+          description={description}
+          actions={actions}
+          breadcrumb={breadcrumb}
+        />
+      )}
 
       {hasToolbar && (
         <Toolbar

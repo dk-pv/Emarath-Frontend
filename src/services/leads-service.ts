@@ -1,10 +1,16 @@
 import { apiGet, apiPost } from "@/lib/api-client";
 import type { FilterCondition, ListQuery, ListResult } from "@/types";
 
-/** The query params the backend accepts as field filters (LEAD-03.2). A filter
- * condition whose key is not one of these is dropped rather than sent — the API
- * rejects unknown params, and only these three fields are in scope. */
-const FILTER_PARAM_KEYS = new Set(["source", "status", "assignedAgent"]);
+/** Multi-value field filters (LEAD-03.2): repeated in the query string. */
+const MULTI_PARAM_KEYS = new Set(["source", "status", "assignedAgent"]);
+
+/** Single-value Quick Filter params (LEAD-04.1): a date window, or a one-shot flag. */
+const SINGLE_PARAM_KEYS = new Set([
+  "createdFrom",
+  "createdTo",
+  "unassigned",
+  "archived",
+]);
 
 /**
  * One lead as the list endpoint returns it (LEAD-02.1).
@@ -57,7 +63,21 @@ export async function fetchLeads(
     page: String(query.page),
     size: String(query.size),
   });
+  appendLeadFilterParams(params, query);
 
+  return apiGet<ListResult<LeadListItem>>("/leads", params, signal);
+}
+
+/**
+ * Writes the sort, search and filter params a Leads query carries onto a
+ * `URLSearchParams` — everything except paging. Shared by the list fetch and the
+ * export URL (LEAD-08.1) so a file requests the identical view the list shows;
+ * duplicating this mapping is exactly how the two would silently drift.
+ */
+export function appendLeadFilterParams(
+  params: URLSearchParams,
+  query: ListQuery,
+): void {
   if (query.sort) {
     params.set("sort", query.sort.key);
     params.set("direction", query.sort.direction);
@@ -70,17 +90,17 @@ export async function fetchLeads(
     params.set("search", query.search.trim());
   }
 
-  // Field filters (LEAD-03.2/03.3): Source, Status and Assigned Agent. Each
-  // active condition's values are appended as a repeated param (`source=A&
-  // source=B`), which the backend reads as an array and matches with IN.
+  // Field filters (LEAD-03.2/03.3) are repeated params matched with IN; Quick
+  // Filter presets (LEAD-04.1) contribute single-value params (a createdAt window,
+  // or an unassigned/archived flag) through the very same condition pipeline.
   for (const condition of query.filters ?? []) {
-    if (!FILTER_PARAM_KEYS.has(condition.key)) continue;
-    for (const value of filterValues(condition)) {
-      params.append(condition.key, value);
+    const values = filterValues(condition);
+    if (MULTI_PARAM_KEYS.has(condition.key)) {
+      for (const value of values) params.append(condition.key, value);
+    } else if (SINGLE_PARAM_KEYS.has(condition.key) && values[0]) {
+      params.set(condition.key, values[0]);
     }
   }
-
-  return apiGet<ListResult<LeadListItem>>("/leads", params, signal);
 }
 
 /** Normalises a condition's value to the string values the API expects. */

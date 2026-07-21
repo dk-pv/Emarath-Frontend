@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { matchNavItem } from "@/constants/navigation";
+import { routeTitle } from "@/constants/navigation";
 import { NavbarActions } from "../NavbarActions";
 
 /**
@@ -10,7 +10,7 @@ import { NavbarActions } from "../NavbarActions";
  */
 export function Navbar() {
   const pathname = usePathname();
-  const title = matchNavItem(pathname)?.title ?? "";
+  const title = routeTitle(pathname);
 
   return (
     <header className="flex h-navbar shrink-0 items-center gap-nav-gap border-b border-hairline bg-surface px-4 lg:pl-navbar-inset lg:pr-navbar-edge">

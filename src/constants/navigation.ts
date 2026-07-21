@@ -130,3 +130,18 @@ export function matchNavItem(pathname: string): NavItem | undefined {
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   ).sort((a, b) => b.href.length - a.href.length)[0];
 }
+
+/**
+ * Navbar titles for routes that are not sidebar destinations. Workpex titles the
+ * Import wizard "Import" while still highlighting Leads in the sidebar, so the
+ * title cannot come from the matched nav item alone.
+ */
+const ROUTE_TITLE_OVERRIDES: Record<string, string> = {
+  "/leads/import": "Import",
+  "/leads/import/history": "Import History",
+};
+
+/** The navbar title for a path — an override wins, else the matched nav item. */
+export function routeTitle(pathname: string): string {
+  return ROUTE_TITLE_OVERRIDES[pathname] ?? matchNavItem(pathname)?.title ?? "";
+}

@@ -68,25 +68,76 @@ export async function apiPost<T>(
     signal,
   });
 
-  if (!response.ok) {
-    let messages: string[] = [];
-    try {
-      const data: unknown = await response.json();
-      const raw = (data as { message?: unknown } | null)?.message;
-      messages = Array.isArray(raw)
-        ? raw.map(String)
-        : raw
-          ? [String(raw)]
-          : [];
-    } catch {
-      // A non-JSON error body leaves messages empty; the status still surfaces.
-    }
-    throw new ApiError(
-      response.status,
-      messages[0] ?? `POST ${path} failed with ${response.status}`,
-      messages,
-    );
-  }
+  if (!response.ok) await throwApiError(response, "POST", path);
 
   return (await response.json()) as T;
+}
+
+/**
+ * Typed PUT against the backend, returning the saved resource.
+ *
+ * Used for idempotent writes such as saving a per-user table layout (LEAD-05.1),
+ * where the same body re-sent produces the same state. Error handling matches
+ * `apiPost`, so a rejected body surfaces the server's exact reason.
+ */
+export async function apiPut<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) await throwApiError(response, "PUT", path);
+
+  return (await response.json()) as T;
+}
+
+/**
+ * Typed multipart POST for file uploads (LEAD-07.1 import).
+ *
+ * The Content-Type header is deliberately left unset: the browser must add it with
+ * the multipart boundary, and setting it by hand breaks the upload. Error handling
+ * matches `apiPost`, so a rejected file surfaces the server's exact reason.
+ */
+export async function apiPostForm<T>(
+  path: string,
+  form: FormData,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    body: form,
+    signal,
+  });
+
+  if (!response.ok) await throwApiError(response, "POST", path);
+
+  return (await response.json()) as T;
+}
+
+/** Reads a NestJS error body and throws a populated `ApiError`. Never returns. */
+async function throwApiError(
+  response: Response,
+  method: string,
+  path: string,
+): Promise<never> {
+  let messages: string[] = [];
+  try {
+    const data: unknown = await response.json();
+    const raw = (data as { message?: unknown } | null)?.message;
+    messages = Array.isArray(raw) ? raw.map(String) : raw ? [String(raw)] : [];
+  } catch {
+    // A non-JSON error body leaves messages empty; the status still surfaces.
+  }
+  throw new ApiError(
+    response.status,
+    messages[0] ?? `${method} ${path} failed with ${response.status}`,
+    messages,
+  );
 }

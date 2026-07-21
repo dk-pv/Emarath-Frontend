@@ -1,6 +1,7 @@
 import { Avatar } from "@/components/ui/Avatar";
 import { Tag } from "@/components/ui/Tag";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { LeadRowActions } from "@/components/leads/lead-row-actions";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import type { LeadListItem } from "@/services/leads-service";
 import type { TableColumn } from "@/types";
@@ -178,5 +179,12 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     key: "callStatus",
     header: "Call Status",
     render: (row) => orDash(row.callStatus),
+  },
+  {
+    // The row action icons sit in the last column in Workpex (LEAD-10.2), always
+    // visible at the right edge of the horizontally scrolling table.
+    key: "actions",
+    header: "Actions",
+    render: () => <LeadRowActions />,
   },
 ];

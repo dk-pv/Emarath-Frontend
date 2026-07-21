@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import type { Icon } from "@tabler/icons-react";
+import { IconCheck, type Icon } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
@@ -13,6 +13,11 @@ export type DropdownItem =
       label: string;
       icon?: Icon;
       onSelect?: () => void;
+      /** Renders greyed and non-interactive; `hint` becomes its tooltip. */
+      disabled?: boolean;
+      hint?: string;
+      /** Marks the item as the current choice with a trailing check. */
+      selected?: boolean;
     }
   | { type: "separator"; id: string }
   | { type: "label"; id: string; label: string }
@@ -77,12 +82,30 @@ export function Dropdown({ trigger, items, align = "start" }: DropdownProps) {
               return <div key={item.id}>{item.content}</div>;
             }
             const ItemIcon = item.icon;
+
+            // A disabled item is inert and skipped by roving focus (no menuitem role).
+            if (item.disabled) {
+              return (
+                <div
+                  key={item.id}
+                  aria-disabled="true"
+                  title={item.hint}
+                  className={cn(ITEM_CLASS, "cursor-not-allowed opacity-45")}
+                >
+                  {ItemIcon && (
+                    <ItemIcon size={20} stroke={1.75} className="shrink-0" />
+                  )}
+                  {item.label}
+                </div>
+              );
+            }
+
             return (
               <button
                 key={item.id}
                 type="button"
                 role="menuitem"
-                className={ITEM_CLASS}
+                className={cn(ITEM_CLASS, "justify-between")}
                 onClick={() => {
                   item.onSelect?.();
                   close();
@@ -98,10 +121,23 @@ export function Dropdown({ trigger, items, align = "start" }: DropdownProps) {
                   }
                 }}
               >
-                {ItemIcon && (
-                  <ItemIcon size={20} stroke={1.75} className="shrink-0" />
+                <span className="flex min-w-0 items-center gap-3">
+                  {ItemIcon && (
+                    <ItemIcon size={20} stroke={1.75} className="shrink-0" />
+                  )}
+                  {item.label}
+                  {item.selected && (
+                    <span className="sr-only"> (selected)</span>
+                  )}
+                </span>
+                {item.selected && (
+                  <IconCheck
+                    size={18}
+                    stroke={2}
+                    className="shrink-0 text-brand-strong"
+                    aria-hidden="true"
+                  />
                 )}
-                {item.label}
               </button>
             );
           })}

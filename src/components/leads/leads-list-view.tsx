@@ -1,13 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { IconFileSearch, IconPlus } from "@tabler/icons-react";
+import Link from "next/link";
+import {
+  IconColumns,
+  IconFileImport,
+  IconFileSearch,
+  IconHistory,
+  IconPlus,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Table } from "@/components/ui/Table";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
+import { LeadAddColumnMenu } from "@/components/leads/lead-add-column-menu";
+import { LeadBulkBar } from "@/components/leads/lead-bulk-bar";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
+import {
+  LeadManageColumnsDrawer,
+  type ManageableColumn,
+} from "@/components/leads/lead-manage-columns-drawer";
+import { LeadExportMenu } from "@/components/leads/lead-export-menu";
+import { LeadQuickFilterMenu } from "@/components/leads/lead-quick-filter-menu";
+import { presetConditions } from "@/components/leads/lead-quick-filters";
 import { LeadSortMenu } from "@/components/leads/lead-sort-menu";
 import { leadColumns } from "@/components/leads/lead-columns";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -20,7 +36,18 @@ import {
   fetchLeads,
   type LeadFilterOptions,
 } from "@/services/leads-service";
-import type { FilterField, FilterState } from "@/types";
+import {
+  downloadLeadsExport,
+  type ExportFormat,
+  type ExportScope,
+} from "@/services/leads-export-service";
+import {
+  fetchColumnLayout,
+  LEADS_VIEW_KEY,
+  reconcileLayout,
+  saveColumnLayout,
+} from "@/services/view-preferences-service";
+import type { FilterCondition, FilterField, FilterState } from "@/types";
 
 const NO_OPTIONS: LeadFilterOptions = { sources: [], statuses: [], agents: [] };
 
@@ -84,17 +111,34 @@ export function LeadsListView() {
 
   const filters = useFilters(filterFields);
 
+  // Quick Filter preset (LEAD-04.1). One preset at a time; its conditions ride the
+  // same list query as the field filters, so no new filter path exists. Kept in its
+  // own state (not the panel's) so the active preset can be indicated and cleared
+  // independently.
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [presetFilters, setPresetFilters] = useState<FilterCondition[]>([]);
+
   // The box tracks the live value; only the value that drives the fetch waits.
   const debouncedSearch = useDebouncedValue(
     filters.state.search,
     SEARCH_DEBOUNCE_MS,
   );
   const queryState = useMemo<FilterState>(
-    () => ({ search: debouncedSearch, conditions: filters.state.conditions }),
-    [debouncedSearch, filters.state.conditions],
+    () => ({
+      search: debouncedSearch,
+      conditions: [...filters.state.conditions, ...presetFilters],
+    }),
+    [debouncedSearch, filters.state.conditions, presetFilters],
   );
 
   const list = useListQuery({ filters: queryState });
+
+  // Apply a preset (or clear with null); the menu resolves a re-select to null.
+  const applyQuickFilter = (id: string | null) => {
+    setActivePreset(id);
+    setPresetFilters(id ? presetConditions(id) : []);
+    list.resetPage();
+  };
   const { rows, total, isLoading, isError, refetch } = useListData(
     fetchLeads,
     list.query,
@@ -102,6 +146,95 @@ export function LeadsListView() {
 
   const newLead = useDisclosure();
   const pageCount = Math.max(1, Math.ceil(total / list.size));
+
+  // Bulk selection (LEAD-09.2). Ids accumulate across pages, so a select-all on
+  // one page adds only that page's rows and the count carries over, matching
+  // Workpex's persistent "N Lead Selected" bar.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const toggleRow = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = (ids: string[]) =>
+    setSelectedIds((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+
+  // Custom columns (LEAD-05.1). Customer Name (the frozen identifier) and the row
+  // actions are fixed; every other column can be reordered and shown or hidden.
+  const manageableColumns = useMemo<ManageableColumn[]>(
+    () =>
+      leadColumns
+        .filter((column) => column.key !== "name" && column.key !== "actions")
+        .map((column) => ({ key: column.key, label: String(column.header) })),
+    [],
+  );
+
+  // The layout starts at the default and is replaced once the caller's saved
+  // layout loads (AC3). Order and the hidden set persist per user server-side.
+  const [columnOrder, setColumnOrder] = useState<string[]>(() =>
+    manageableColumns.map((column) => column.key),
+  );
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const manageColumns = useDisclosure();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchColumnLayout(LEADS_VIEW_KEY, controller.signal)
+      .then((saved) => {
+        const layout = reconcileLayout(
+          saved,
+          manageableColumns.map((column) => column.key),
+        );
+        setColumnOrder(layout.order);
+        setHiddenColumns(layout.hidden);
+      })
+      .catch((error: unknown) => {
+        // A superseded request aborts; expected. Any other failure just leaves
+        // the default layout in place — the table still renders.
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+      });
+    return () => controller.abort();
+  }, [manageableColumns]);
+
+  const visibleColumns = useMemo(() => {
+    const byKey = new Map(leadColumns.map((column) => [column.key, column]));
+    const hidden = new Set(hiddenColumns);
+    const orderedKeys = [
+      "name",
+      ...columnOrder.filter((key) => !hidden.has(key)),
+      "actions",
+    ];
+    return orderedKeys
+      .map((key) => byKey.get(key))
+      .filter((column): column is (typeof leadColumns)[number] =>
+        Boolean(column),
+      );
+  }, [columnOrder, hiddenColumns]);
+
+  // Export (LEAD-08.1). Downloads the current view — the same query the list runs
+  // (search/filter/sort/scope) — in the chosen format. "My Default" sends the
+  // visible data columns in order; Actions is a control, not data, so it is dropped.
+  const handleExport = (format: ExportFormat, scope: ExportScope) => {
+    const columnKeys = visibleColumns
+      .map((column) => column.key)
+      .filter((key) => key !== "actions");
+    downloadLeadsExport(format, scope, list.query, columnKeys);
+  };
 
   return (
     <>
@@ -142,6 +275,34 @@ export function LeadsListView() {
               New Lead
             </Button>
             <LeadSortMenu sort={list.sort} onSortChange={list.setSort} />
+            <LeadQuickFilterMenu
+              active={activePreset}
+              onChange={applyQuickFilter}
+            />
+            <LeadAddColumnMenu />
+            <button
+              type="button"
+              onClick={manageColumns.open}
+              className="focus-ring inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink"
+            >
+              <IconColumns size={18} stroke={1.75} />
+              Manage Columns
+            </button>
+            <Link
+              href="/leads/import"
+              className="focus-ring inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink"
+            >
+              <IconFileImport size={18} stroke={1.75} />
+              Import
+            </Link>
+            <Link
+              href="/leads/import/history"
+              className="focus-ring inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink"
+            >
+              <IconHistory size={18} stroke={1.75} />
+              Import History
+            </Link>
+            <LeadExportMenu onExport={handleExport} />
           </>
         }
         // The footer only belongs on a populated list: during loading, an error,
@@ -161,9 +322,16 @@ export function LeadsListView() {
         }
       >
         <Table
-          columns={leadColumns}
+          columns={visibleColumns}
           rows={rows}
           getRowId={(row) => row.id}
+          selection={{
+            selectedIds,
+            onToggleRow: toggleRow,
+            onToggleAll: toggleAll,
+            rowLabel: (row) => `Select ${row.name}`,
+            allLabel: "Select all leads on this page",
+          }}
           isLoading={isLoading}
           emptyState={
             <EmptyState
@@ -184,6 +352,13 @@ export function LeadsListView() {
         />
       </TablePageLayout>
 
+      {selectedIds.size > 0 && (
+        <LeadBulkBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+        />
+      )}
+
       {/* Mounted only while open, so every New Lead starts from a clean form. */}
       {newLead.isOpen && (
         <LeadFormDrawer
@@ -192,6 +367,26 @@ export function LeadsListView() {
           onCreated={() => {
             newLead.close();
             refetch();
+          }}
+        />
+      )}
+
+      {/* Mounted per-open so the draft always starts from the applied columns. */}
+      {manageColumns.isOpen && (
+        <LeadManageColumnsDrawer
+          open
+          columns={manageableColumns}
+          order={columnOrder}
+          hidden={hiddenColumns}
+          onClose={manageColumns.close}
+          onApply={(order, hidden) => {
+            setColumnOrder(order);
+            setHiddenColumns(hidden);
+            // Persist per user (AC3). Optimistic: the table already reflects the
+            // change, so a failed save only means it won't survive a reload.
+            void saveColumnLayout(LEADS_VIEW_KEY, { order, hidden }).catch(
+              () => {},
+            );
           }}
         />
       )}

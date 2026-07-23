@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 
 /**
  * The field types the Add Column menu offers, from
@@ -47,7 +48,7 @@ export function LeadAddColumnMenu() {
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={toggle}
-        className="inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink focus-ring"
+        className={TOOLBAR_BUTTON_CLASS}
       >
         <IconPlus size={18} stroke={1.75} />
         Add Column

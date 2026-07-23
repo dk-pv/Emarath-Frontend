@@ -2,6 +2,7 @@
 
 import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import { cn } from "@/lib/cn";
 import {
   DISABLED_PRESET_HINT,
@@ -49,10 +50,10 @@ export function LeadQuickFilterMenu({
       trigger={
         <span
           className={cn(
-            "inline-flex h-control-md items-center gap-2 rounded-control border px-field-x text-sm transition-colors duration-(--duration-shell) ease-shell",
-            isActive
-              ? "border-brand/40 bg-brand-subtle text-brand-strong"
-              : "border-hairline bg-surface text-ink",
+            TOOLBAR_BUTTON_CLASS,
+            // A preset turns the control green (AC3), keeping the borderless form.
+            isActive &&
+              "bg-brand-subtle text-brand-strong hover:bg-brand-subtle",
           )}
         >
           <IconFilter size={18} stroke={1.75} />

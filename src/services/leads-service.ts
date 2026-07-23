@@ -1,15 +1,19 @@
 import { apiGet, apiPost } from "@/lib/api-client";
 import type { FilterCondition, ListQuery, ListResult } from "@/types";
 
-/** Multi-value field filters (LEAD-03.2): repeated in the query string. */
-const MULTI_PARAM_KEYS = new Set(["source", "status", "assignedAgent"]);
+/** Multi-value field filters (LEAD-03.2, LEAD-12.1): repeated in the query string. */
+const MULTI_PARAM_KEYS = new Set(["source", "status", "assignedAgent", "tag"]);
 
-/** Single-value Quick Filter params (LEAD-04.1): a date window, or a one-shot flag. */
+/**
+ * Single-value params: the Quick Filter presets (LEAD-04.1 — a date window or a
+ * one-shot flag) and the Kanban pipeline scope (KAN-02.2), each an exact match.
+ */
 const SINGLE_PARAM_KEYS = new Set([
   "createdFrom",
   "createdTo",
   "unassigned",
   "archived",
+  "pipeline",
 ]);
 
 /**
@@ -116,6 +120,8 @@ export interface LeadFilterOptions {
   sources: string[];
   statuses: string[];
   agents: { id: string; name: string }[];
+  /** Tags present on the caller's scoped leads (LEAD-12.1 AC4). */
+  tags: { id: string; name: string }[];
 }
 
 /** Fetches the scoped Source/Status/Assigned Agent options for the filter panel. */

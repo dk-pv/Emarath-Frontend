@@ -16,15 +16,16 @@ import { SIDEBAR_COLLAPSED_KEY } from "@/constants/storage";
  * `children` is passed through from a Server Component layout, so pages stay server
  * components even though the shell needs client state for the collapse toggle.
  *
- * The sidebar is a compact rail by default and expands on the toggle; the choice
- * persists per browser. The default renders on the server and the first client
- * paint (the persistent store reads `null` there), so markup agrees before the
- * stored value is adopted.
+ * The sidebar is expanded by default — Workpex opens with the labelled rail
+ * (leads-list-default-scroll-left-…png) — and collapses to the icon rail on the
+ * toggle; the choice persists per browser. The default renders on the server and
+ * the first client paint (the persistent store reads `null` there), so markup
+ * agrees before the stored value is adopted.
  */
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = usePersistentState(
     SIDEBAR_COLLAPSED_KEY,
-    true,
+    false,
   );
 
   return (

@@ -1,10 +1,12 @@
 "use client";
 
-import { IconFilter } from "@tabler/icons-react";
+import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Popover } from "@/components/ui/Popover";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
+import { cn } from "@/lib/cn";
 import { FilterFieldControl } from "./filter-field-control";
 import type { FilterCondition, FilterField } from "@/types";
 
@@ -34,9 +36,10 @@ export function FilterPanel({
     <Popover
       align="end"
       trigger={
-        <span className="relative inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink">
+        <span className={cn(TOOLBAR_BUTTON_CLASS, "relative")}>
           <IconFilter size={18} stroke={1.75} />
-          Filters
+          Filter
+          <IconChevronDown size={16} stroke={1.75} className="text-ink-muted" />
           {activeCount > 0 && (
             <Badge tone="brand" aria-label={`${activeCount} active filters`}>
               {activeCount}

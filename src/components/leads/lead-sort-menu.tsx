@@ -6,6 +6,7 @@ import {
   IconArrowsSort,
 } from "@tabler/icons-react";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import type { SortState } from "@/types";
 
 /**
@@ -66,7 +67,7 @@ export function LeadSortMenu({ sort, onSortChange }: LeadSortMenuProps) {
       align="end"
       items={items}
       trigger={
-        <span className="inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink">
+        <span className={TOOLBAR_BUTTON_CLASS}>
           <IconArrowsSort size={18} stroke={1.75} />
           Sort
         </span>

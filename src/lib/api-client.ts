@@ -98,6 +98,53 @@ export async function apiPut<T>(
 }
 
 /**
+ * Typed PATCH against the backend, returning the updated resource.
+ *
+ * Used for a partial, idempotent field update such as a Kanban stage change
+ * (KAN-04.1): dropping a card writes one field and re-sending is harmless. Error
+ * handling matches `apiPost`, so a rejected move surfaces the server's exact
+ * reason (400 invalid stage, 404 out of scope) for the caller to roll back on.
+ */
+export async function apiPatch<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok) await throwApiError(response, "PATCH", path);
+
+  return (await response.json()) as T;
+}
+
+/**
+ * Typed DELETE against the backend, returning the server's confirmation body.
+ *
+ * Used for single-resource removal such as a row's delete action (LEAD-10.2),
+ * where the id is in the path and there is no request body. Error handling
+ * matches `apiPost`, so a 404 (out of scope / already gone) surfaces its reason.
+ */
+export async function apiDelete<T>(
+  path: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`${env.apiBaseUrl}${path}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+
+  if (!response.ok) await throwApiError(response, "DELETE", path);
+
+  return (await response.json()) as T;
+}
+
+/**
  * Typed multipart POST for file uploads (LEAD-07.1 import).
  *
  * The Content-Type header is deliberately left unset: the browser must add it with

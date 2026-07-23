@@ -49,11 +49,15 @@ const HEADER_ALIGN: Record<Align, string> = {
   center: "justify-center",
 };
 
-/** Cells never wrap, so the table grows past a narrow ResponsiveTableContainer and scrolls. */
-const CELL_CLASS = "px-4 py-3 whitespace-nowrap";
+/**
+ * Cells never wrap, so the table grows past a narrow ResponsiveTableContainer and
+ * scrolls. `py-1.5` keeps a row at Workpex's measured 44px pitch (the 32px assigned
+ * avatar drives the height): 32 + 2×6 = 44, versus the 57px the old `py-3` produced.
+ */
+const CELL_CLASS = "px-4 py-1.5 whitespace-nowrap";
 
 /** `w-px` collapses the checkbox column to its content — the data columns take the slack. */
-const SELECT_CELL_CLASS = "w-px px-4 py-3";
+const SELECT_CELL_CLASS = "w-px px-4 py-1.5";
 
 const SKELETON_ROW_COUNT = 5;
 
@@ -217,8 +221,10 @@ export function Table<TRow>({
                 aria-sort={ariaSortFor(column, sort)}
                 className={cn(
                   // Title case, not uppercase: Workpex shows the column names as
-                  // configured (e.g. "Customer Name"), never transformed.
-                  "px-4 py-3 text-xs font-medium whitespace-nowrap text-ink-muted",
+                  // configured (e.g. "Customer Name"), never transformed. `py-4`
+                  // keeps the header at Workpex's measured 47px — a touch taller
+                  // than the 44px body rows.
+                  "px-4 py-4 text-xs font-medium whitespace-nowrap text-ink-muted",
                   CELL_ALIGN[align],
                   column.className,
                 )}

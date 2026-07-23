@@ -1,7 +1,8 @@
 "use client";
 
-import { IconChevronDown, IconFileExport } from "@tabler/icons-react";
+import { IconFileExport } from "@tabler/icons-react";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import type {
   ExportFormat,
   ExportScope,
@@ -62,14 +63,9 @@ export function LeadExportMenu({ onExport }: LeadExportMenuProps) {
       align="end"
       items={items}
       trigger={
-        <span className="inline-flex h-control-md items-center gap-2 rounded-control border border-hairline bg-surface px-field-x text-sm text-ink transition-colors duration-(--duration-shell) ease-shell">
+        <span className={TOOLBAR_BUTTON_CLASS}>
           <IconFileExport size={18} stroke={1.75} />
           Export
-          <IconChevronDown
-            size={16}
-            stroke={1.75}
-            className="text-ink-muted"
-          />
         </span>
       }
     />

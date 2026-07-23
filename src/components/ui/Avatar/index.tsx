@@ -50,7 +50,10 @@ export function Avatar({
         ROOT_CLASS,
         SIZE_CLASS[size],
         SHAPE_CLASS[shape],
-        hasInitials ? "bg-brand text-white" : "bg-canvas text-ink-subtle",
+        // Workpex's no-photo placeholder is a visible gray circle (#c4c4c4) with a
+        // mid-gray silhouette (#858585), not the near-white bg-canvas that read as
+        // an empty cell (leads-list-default-scroll-left-…png).
+        hasInitials ? "bg-brand text-white" : "bg-gray-300 text-gray-500",
         className,
       )}
       {...props}

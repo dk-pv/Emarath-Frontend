@@ -5,9 +5,7 @@ import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableCon
 import { Toolbar } from "@/components/layout/Toolbar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { SearchInput } from "@/components/ui/SearchInput";
 import { AppliedFilterChips } from "@/components/filters/applied-filter-chips";
-import { FilterPanel } from "@/components/filters/filter-panel";
 import type { FilterCondition, FilterField } from "@/types";
 
 export type TablePageLayoutProps = {
@@ -75,8 +73,6 @@ export function TablePageLayout({
   pagination,
   tableLabel,
 }: TablePageLayoutProps) {
-  const hasToolbar = Boolean(search || filters || toolbarActions);
-
   // The Navbar already renders the page <h1> for every route, and Workpex shows
   // the title only once — in that top bar, with the toolbar directly beneath it.
   // So the page header is rendered only when it carries something the navbar does
@@ -95,36 +91,10 @@ export function TablePageLayout({
         />
       )}
 
-      {hasToolbar && (
-        <Toolbar
-          left={
-            search ? (
-              <div className="w-full max-w-xs">
-                <SearchInput
-                  value={search.value}
-                  onChange={(event) => search.onChange(event.target.value)}
-                  placeholder={search.placeholder ?? "Search"}
-                  aria-label={search.placeholder ?? "Search"}
-                />
-              </div>
-            ) : null
-          }
-          right={
-            <>
-              {toolbarActions}
-              {filters && (
-                <FilterPanel
-                  fields={filters.fields}
-                  activeCount={filters.activeCount}
-                  valueOf={filters.valueOf}
-                  onChange={filters.onChange}
-                  onClear={filters.onClear}
-                />
-              )}
-            </>
-          }
-        />
-      )}
+      {/* Workpex's toolbar is one right-aligned cluster; the module composes it in
+          order (New Lead · Search · Filter · Sort · …) and passes it whole, so the
+          search and filter controls sit inside the cluster rather than pinned left. */}
+      {toolbarActions && <Toolbar right={toolbarActions} />}
 
       {filters && search && (
         <AppliedFilterChips

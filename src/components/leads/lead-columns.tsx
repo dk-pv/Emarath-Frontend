@@ -1,8 +1,8 @@
 import { Avatar } from "@/components/ui/Avatar";
-import { Tag } from "@/components/ui/Tag";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { LeadRowActions } from "@/components/leads/lead-row-actions";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
+import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
 import type { LeadListItem } from "@/services/leads-service";
 import type { TableColumn } from "@/types";
 
@@ -79,17 +79,6 @@ function AssignedAgents({
   );
 }
 
-function LeadTags({ tags }: { tags: LeadListItem["tags"] }) {
-  if (tags.length === 0) return <span className="text-ink-subtle">—</span>;
-  return (
-    <span className="flex flex-wrap gap-1">
-      {tags.map((tag) => (
-        <Tag key={tag.id}>{tag.name}</Tag>
-      ))}
-    </span>
-  );
-}
-
 /**
  * Customer Name is frozen to the left edge. Workpex proves it: in the
  * scroll-right screenshot every other column has scrolled away but Customer Name
@@ -114,7 +103,15 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     key: "name",
     header: "Customer Name",
     className: STICKY_FIRST,
-    render: (row) => <span className="font-medium text-ink">{row.name}</span>,
+    // Workpex renders the name as an underlined link to the lead
+    // (leads-list-default-scroll-left-…png). The detail/edit screen has no reference
+    // yet (LEAD-13.1/14.1 blocked), so this matches the link's appearance without a
+    // dead navigation; it becomes an anchor when that screen is specified.
+    render: (row) => (
+      <span className="font-medium text-ink underline decoration-1 underline-offset-2">
+        {row.name}
+      </span>
+    ),
   },
   {
     key: "primaryPhone",
@@ -125,7 +122,7 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
   {
     key: "status",
     header: "Lead Status",
-    render: (row) => <LeadStatusBadge status={row.status} />,
+    render: (row) => <LeadStatusBadge lead={row} />,
   },
   {
     key: "assigned",
@@ -139,6 +136,14 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
   },
   { key: "country", header: "Country", render: (row) => orDash(row.country) },
   {
+    // Workpex places Lead Pipeline between Country and First Name
+    // (leads-list-default-scroll-left-…png). Every lead carries a pipeline, so it
+    // never dashes.
+    key: "pipeline",
+    header: "Lead Pipeline",
+    render: (row) => row.pipeline,
+  },
+  {
     key: "firstName",
     header: "First Name",
     render: (row) => orDash(row.firstName),
@@ -146,7 +151,7 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
   {
     key: "tags",
     header: "Tags",
-    render: (row) => <LeadTags tags={row.tags} />,
+    render: (row) => <LeadTagsCell lead={row} />,
   },
   {
     key: "secondaryPhone",
@@ -185,6 +190,6 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     // visible at the right edge of the horizontally scrolling table.
     key: "actions",
     header: "Actions",
-    render: () => <LeadRowActions />,
+    render: (row) => <LeadRowActions lead={row} />,
   },
 ];

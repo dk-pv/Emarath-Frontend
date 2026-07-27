@@ -19,7 +19,9 @@ import type { SortState } from "@/types";
  * not offered because the backend does not sort by them yet — showing them would
  * be a control that cannot work. Each maps to a `sort` key the API accepts.
  */
-const SORT_COLUMNS: readonly { key: string; label: string }[] = [
+export type SortColumn = { key: string; label: string };
+
+const SORT_COLUMNS: readonly SortColumn[] = [
   { key: "name", label: "Customer Name" },
   { key: "primaryPhone", label: "Primary Phone" },
   { key: "source", label: "Source" },
@@ -32,16 +34,28 @@ const SORT_COLUMNS: readonly { key: string; label: string }[] = [
 type LeadSortMenuProps = {
   sort: SortState | undefined;
   onSortChange: (sort: SortState) => void;
+  /**
+   * The columns the menu offers. Defaults to the Leads list set; the Kanban board
+   * (KAN-07.1) passes its own smaller set (Lead Name / Lead Value / Created Date,
+   * from `kanban-sort-dropdown-open-columns-10-15-add-lead.png`) — the sort
+   * behaviour is shared, only the offered columns differ per screen.
+   */
+  columns?: readonly SortColumn[];
 };
 
 /**
- * The Leads "Sort" toolbar control (LEAD-03.3), composed from the shared
- * Dropdown — no new popup primitive. Picking a column sorts by it ascending;
- * picking the active column again flips the direction, and that column carries a
- * direction arrow so the current order is legible.
+ * The "Sort" toolbar control (LEAD-03.3), composed from the shared Dropdown — no
+ * new popup primitive. Picking a column sorts by it ascending; picking the active
+ * column again flips the direction, and that column carries a direction arrow so
+ * the current order is legible. The Leads list and the Kanban board share this one
+ * control, each supplying the columns its own Workpex screen lists.
  */
-export function LeadSortMenu({ sort, onSortChange }: LeadSortMenuProps) {
-  const items: DropdownItem[] = SORT_COLUMNS.map((column) => {
+export function LeadSortMenu({
+  sort,
+  onSortChange,
+  columns = SORT_COLUMNS,
+}: LeadSortMenuProps) {
+  const items: DropdownItem[] = columns.map((column) => {
     const isActive = sort?.key === column.key;
     const icon = !isActive
       ? IconArrowsSort

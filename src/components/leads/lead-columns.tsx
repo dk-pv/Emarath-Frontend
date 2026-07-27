@@ -1,5 +1,6 @@
 import { Avatar } from "@/components/ui/Avatar";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { LeadRowActions } from "@/components/leads/lead-row-actions";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
@@ -103,14 +104,11 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     key: "name",
     header: "Customer Name",
     className: STICKY_FIRST,
-    // Workpex renders the name as an underlined link to the lead
-    // (leads-list-default-scroll-left-…png). The detail/edit screen has no reference
-    // yet (LEAD-13.1/14.1 blocked), so this matches the link's appearance without a
-    // dead navigation; it becomes an anchor when that screen is specified.
+    // ACT-09.1: navigates to /leads/{id} — Workpex shows the same click
+    // behaviour from the Leads list as from Activities. Uses the shared
+    // CustomerNameLink so both lists resolve to the same destination.
     render: (row) => (
-      <span className="font-medium text-ink underline decoration-1 underline-offset-2">
-        {row.name}
-      </span>
+      <CustomerNameLink leadId={row.id} name={row.name} />
     ),
   },
   {

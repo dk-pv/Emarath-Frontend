@@ -3,6 +3,9 @@ import { apiGet, apiPut } from "@/lib/api-client";
 /** The Manage Columns view key for the Leads table (LEAD-05.1). */
 export const LEADS_VIEW_KEY = "leads";
 
+/** The Manage Columns view key for the Activities table (ACT-07.1). */
+export const ACTIVITIES_VIEW_KEY = "activities";
+
 /**
  * A saved table layout: the manageable column ids in the user's chosen order, and
  * the subset currently hidden. Mirrors the backend contract; a shared/generated

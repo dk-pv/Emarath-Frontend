@@ -73,6 +73,18 @@ export async function fetchLeads(
 }
 
 /**
+ * Fetches one scoped lead for the Lead Detail page (`GET /api/leads/:id`).
+ * Throws `ApiError` with status 404 for an out-of-scope, missing or deleted lead,
+ * which the page renders as its graceful not-found state.
+ */
+export function fetchLead(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiGet<LeadListItem>(`/leads/${id}`, undefined, signal);
+}
+
+/**
  * Writes the sort, search and filter params a Leads query carries onto a
  * `URLSearchParams` — everything except paging. Shared by the list fetch and the
  * export URL (LEAD-08.1) so a file requests the identical view the list shows;

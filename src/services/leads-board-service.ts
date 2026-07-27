@@ -1,5 +1,6 @@
 import { apiGet, apiPatch } from "@/lib/api-client";
-import type { LeadListItem } from "@/services/leads-service";
+import { appendLeadFilterParams, type LeadListItem } from "@/services/leads-service";
+import type { FilterCondition } from "@/types";
 
 /**
  * Kanban board data (KAN-02.1 API → KAN-02.2 UI). The board summary gives each
@@ -29,12 +30,37 @@ export interface LeadBoardResponse {
  */
 export const DEFAULT_PIPELINE = "Lead Pipeline";
 
-/** Fetches the per-stage count + value rollup for a pipeline (KAN-02.1 AC1/AC2). */
+/**
+ * The board toolbar's search + field/quick filters (KAN-07.1). Sort is deliberately
+ * absent: it orders a column's cards, never the rollup a groupBy already orders.
+ */
+export interface BoardFilterQuery {
+  search?: string;
+  conditions: readonly FilterCondition[];
+}
+
+/**
+ * Fetches the per-stage count + value rollup for a pipeline (KAN-02.1 AC1/AC2),
+ * narrowed by the board toolbar's search and filters (KAN-07.1 AC1/AC5). The
+ * search/filter params are appended with the very same `appendLeadFilterParams`
+ * the list fetch uses, so the rollup and the cards can never encode a filter
+ * differently. `pipeline` is sent explicitly and is never a user condition.
+ */
 export async function fetchBoard(
   pipeline: string,
+  query?: BoardFilterQuery,
   signal?: AbortSignal,
 ): Promise<LeadBoardResponse> {
   const params = new URLSearchParams({ pipeline });
+  if (query) {
+    // No sort/page for a rollup — pass only the where-shaping params through.
+    appendLeadFilterParams(params, {
+      page: 1,
+      size: 1,
+      search: query.search,
+      filters: query.conditions,
+    });
+  }
   return apiGet<LeadBoardResponse>("/leads/board", params, signal);
 }
 

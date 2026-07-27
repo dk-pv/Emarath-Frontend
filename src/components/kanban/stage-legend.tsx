@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
 import { stageColorClasses } from "@/lib/stage-palette";
 import {
   fetchBoard,
+  type BoardFilterQuery,
   type LeadBoardResponse,
 } from "@/services/leads-board-service";
 
@@ -19,27 +20,54 @@ import {
  * catalogue (`useStages`), counts from the board summary (`GET /leads/board`, the same
  * figures the columns show). Measured at ~180×32px, rounded, segments touching, the
  * dark app tooltip with a caret.
+ *
+ * The counts follow the board toolbar's search + filters (KAN-07.1): the same `query`
+ * the board loads with is passed here, so the legend's proportions narrow with the
+ * cards. It keys only on search + filters, never sort — sort reorders cards without
+ * changing a stage's count, so the legend must not move for it. `reloadKey` lets a
+ * New Lead refresh the bar.
  */
-export function StageLegend({ pipeline }: { pipeline: string }) {
+export function StageLegend({
+  pipeline,
+  query,
+  reloadKey = 0,
+}: {
+  pipeline: string;
+  query: BoardFilterQuery;
+  reloadKey?: number;
+}) {
   const { stages } = useStages();
   const [loaded, setLoaded] = useState<{
-    pipeline: string;
+    key: string;
     summary: LeadBoardResponse;
   } | null>(null);
 
+  // The view this legend is showing: pipeline + the filter that shaped it (+ a New
+  // Lead refresh). A change makes the bar read as "loading" until its fetch lands.
+  const key = useMemo(
+    () =>
+      JSON.stringify({
+        pipeline,
+        search: query.search ?? "",
+        conditions: query.conditions,
+        reloadKey,
+      }),
+    [pipeline, query, reloadKey],
+  );
+
   useEffect(() => {
     const controller = new AbortController();
-    fetchBoard(pipeline, controller.signal)
-      .then((summary) => setLoaded({ pipeline, summary }))
+    fetchBoard(pipeline, query, controller.signal)
+      .then((summary) => setLoaded({ key, summary }))
       .catch(() => {
         // A legend miss leaves the placeholder; the board surfaces the real error.
       });
     return () => controller.abort();
-  }, [pipeline]);
+  }, [pipeline, query, key]);
 
   // Derived, not sequenced (no setState in the effect): a summary for a different
-  // pipeline reads as "loading" until the current one arrives.
-  const summary = loaded?.pipeline === pipeline ? loaded.summary : null;
+  // view reads as "loading" until the current one arrives.
+  const summary = loaded?.key === key ? loaded.summary : null;
 
   if (summary === null) {
     return (

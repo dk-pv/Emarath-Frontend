@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api-client";
 import { fetchLeads, type LeadListItem } from "@/services/leads-service";
@@ -9,10 +16,23 @@ import {
   patchLeadStage,
   type BoardStageSummary,
 } from "@/services/leads-board-service";
-import type { ListQuery } from "@/types";
+import type { FilterCondition, ListQuery, SortState } from "@/types";
 
 /** Cards per column page — first page on mount, more on scroll (KAN-02.2 AC3). */
 const PAGE_SIZE = 20;
+
+/**
+ * The board toolbar's applied view (KAN-07.1): the same search + field/quick-filter
+ * conditions the Leads list carries, plus the sort that orders a column's cards.
+ */
+export interface BoardQuery {
+  search?: string;
+  conditions: readonly FilterCondition[];
+  sort?: SortState;
+}
+
+const isQueryActive = (query: BoardQuery): boolean =>
+  Boolean(query.search?.trim()) || query.conditions.length > 0;
 
 /** One column's live state: its rollup (count/value) and its loaded cards. */
 export type StageColumn = {
@@ -57,15 +77,31 @@ const shiftTotal = (total: string, delta: number): string =>
 const isAbort = (error: unknown): boolean =>
   error instanceof DOMException && error.name === "AbortError";
 
-/** The `fetchLeads` query for one column's page — scoped by stage + pipeline (reuses the list API). */
-function pageQuery(stage: string, pipeline: string, page: number): ListQuery {
+/**
+ * The `fetchLeads` query for one column's page — scoped by stage + pipeline, then
+ * narrowed by the toolbar's search/filters/sort (KAN-07.1), reusing the list API.
+ *
+ * The column's own `status` anchor is the intersection with any Lead Status filter
+ * the user applied, so that user `status` condition is dropped here (keeping it
+ * would OR the two into `status IN (stage, chosen)` — the list param merges same-key
+ * values — and widen the column). The rollup handles the status filter itself: a
+ * stage the filter excludes comes back with no leads, so its column loads none.
+ */
+function pageQuery(
+  stage: string,
+  pipeline: string,
+  page: number,
+  query: BoardQuery,
+): ListQuery {
   return {
     page,
     size: PAGE_SIZE,
-    sort: { key: "createdAt", direction: "desc" },
+    sort: query.sort ?? { key: "createdAt", direction: "desc" },
+    search: query.search,
     filters: [
       { key: "status", value: [stage] },
       { key: "pipeline", value: pipeline },
+      ...query.conditions.filter((condition) => condition.key !== "status"),
     ],
   };
 }
@@ -256,7 +292,12 @@ function reducer(state: BoardState, action: Action): BoardState {
  * `loadMore` and the retries are stable (they read live state through a ref), so
  * the board can hand them to memoised columns/cards without causing re-renders.
  */
-export function useKanbanBoard(pipeline: string, stageNames: string[]) {
+export function useKanbanBoard(
+  pipeline: string,
+  stageNames: string[],
+  query: BoardQuery,
+  reloadKey = 0,
+) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [nonce, setNonce] = useState(0);
   const { toast } = useToast();
@@ -268,13 +309,31 @@ export function useKanbanBoard(pipeline: string, stageNames: string[]) {
     stateRef.current = state;
   }, [state]);
 
+  // Live mirror of the applied query, so the stable page/move callbacks build their
+  // fetch from the current search/filters/sort without being recreated on each
+  // change (which would re-render every memoised column). Kept a content signature
+  // so a change reloads the board; synced before the load effect below runs.
+  const queryRef = useRef(query);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  const queryKey = useMemo(
+    () =>
+      JSON.stringify({
+        search: query.search ?? "",
+        conditions: query.conditions,
+        sort: query.sort ?? null,
+      }),
+    [query],
+  );
+
   // Leads with a move in flight — guards against a second API call for the same
   // card while its first move is still saving (no duplicate requests).
   const inFlight = useRef<Set<string>>(new Set());
 
   const fetchFirstPage = useCallback(
     (stage: string, signal?: AbortSignal) => {
-      fetchLeads(pageQuery(stage, pipeline, 1), signal)
+      fetchLeads(pageQuery(stage, pipeline, 1, queryRef.current), signal)
         .then((result) =>
           dispatch({ type: "page-loaded", stage, rows: [...result.rows] }),
         )
@@ -288,7 +347,12 @@ export function useKanbanBoard(pipeline: string, stageNames: string[]) {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchBoard(pipeline, controller.signal)
+    const applied = queryRef.current;
+    fetchBoard(
+      pipeline,
+      { search: applied.search, conditions: applied.conditions },
+      controller.signal,
+    )
       .then((summary) => {
         dispatch({ type: "board-loaded", stages: summary.stages, order: stageNames });
         for (const s of summary.stages) {
@@ -300,7 +364,9 @@ export function useKanbanBoard(pipeline: string, stageNames: string[]) {
         dispatch({ type: "board-error" });
       });
     return () => controller.abort();
-  }, [pipeline, nonce, fetchFirstPage, stageNames]);
+    // `queryKey`/`reloadKey` reload the board when the toolbar view or a New Lead
+    // changes it; the rollup + every column refetch under the new query.
+  }, [pipeline, nonce, fetchFirstPage, stageNames, queryKey, reloadKey]);
 
   const retryBoard = useCallback(() => {
     dispatch({ type: "board-reset" });
@@ -322,7 +388,7 @@ export function useKanbanBoard(pipeline: string, stageNames: string[]) {
         return;
       }
       dispatch({ type: "page-loading-more", stage });
-      fetchLeads(pageQuery(stage, pipeline, col.nextPage))
+      fetchLeads(pageQuery(stage, pipeline, col.nextPage, queryRef.current))
         .then((result) =>
           dispatch({ type: "page-loaded", stage, rows: [...result.rows] }),
         )
@@ -344,9 +410,17 @@ export function useKanbanBoard(pipeline: string, stageNames: string[]) {
       dispatch({ type: "move", lead, from, to });
 
       patchLeadStage(leadId, to)
-        .then((response) =>
-          dispatch({ type: "move-confirm", stages: response.stages }),
-        )
+        .then((response) => {
+          // The KAN-04.1 recount is unfiltered. With no toolbar filter that is the
+          // authoritative count for the two columns; with a filter applied it would
+          // overstate them, so reload the board instead and let the filtered rollup
+          // recount — the optimistic ±1 already held the columns right in between.
+          if (isQueryActive(queryRef.current)) {
+            setNonce((value) => value + 1);
+          } else {
+            dispatch({ type: "move-confirm", stages: response.stages });
+          }
+        })
         .catch((error: unknown) => {
           dispatch({ type: "move-rollback", lead, from, to, index });
           const description =

@@ -25,7 +25,10 @@ const ICON_CLASS: Record<Tone, string> = {
 type StatCardProps = {
   label: string;
   value: string;
-  caption: string;
+  /** A node so a card can render a coloured delta (CALL-03.2), not only text. */
+  caption: React.ReactNode;
+  /** Small suffix after the value, e.g. "Min" / "%" — the Workpex KPI unit. */
+  unit?: string;
   tone: Tone;
   icon: Icon;
 } & Omit<React.ComponentPropsWithoutRef<"div">, "children">;
@@ -34,6 +37,7 @@ export function StatCard({
   label,
   value,
   caption,
+  unit,
   tone,
   icon: IconComponent,
   className,
@@ -63,7 +67,14 @@ export function StatCard({
           />
         </span>
       </div>
-      <p className="text-3xl leading-none font-semibold text-ink">{value}</p>
+      <p className="text-3xl leading-none font-semibold text-ink">
+        {value}
+        {unit && (
+          <span className="ml-1 text-base font-medium text-ink-muted">
+            {unit}
+          </span>
+        )}
+      </p>
       {/* mt-auto keeps the caption on the baseline when a row of cards stretches. */}
       <p className="mt-auto text-xs text-ink-muted">{caption}</p>
     </div>

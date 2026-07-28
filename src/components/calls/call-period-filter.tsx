@@ -75,7 +75,7 @@ export function CallPeriodFilter({
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={toggle}
-        className="focus-ring inline-flex h-control-sm items-center gap-2 rounded-control bg-brand px-3 text-sm font-medium text-white transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong"
+        className="focus-ring inline-flex h-control-sm items-center gap-2 rounded-control bg-brand px-3 text-sm font-medium text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong"
       >
         <IconFilter size={16} stroke={1.75} aria-hidden="true" />
         Filter

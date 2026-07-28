@@ -1,0 +1,125 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { IconFileSearch } from "@tabler/icons-react";
+import { Table } from "@/components/ui/Table";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
+import { PIN_COLORS, PIN_LABELS } from "@/components/gps/gps-legend";
+import type { GpsPinRecord } from "@/services/gps-service";
+import type { TableColumn } from "@/types";
+
+/** "26-07-2026, 11:30:35 PM" — the Workpex timestamp format (matches the Call log). */
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  return `${dd}-${mm}-${d.getFullYear()}, ${time}`;
+}
+
+const COLUMNS: TableColumn<GpsPinRecord>[] = [
+  {
+    key: "userName",
+    header: "User Name",
+    render: (row) => row.agentName,
+  },
+  {
+    key: "dateTime",
+    header: "Date & Time",
+    render: (row) => formatDateTime(row.timestamp),
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (row) => (
+      <span className="inline-flex items-center gap-2">
+        <span
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: PIN_COLORS[row.type] }}
+        />
+        {PIN_LABELS[row.type]}
+      </span>
+    ),
+  },
+];
+
+/**
+ * The GPS list view (GPS-06.1): the same `/gps/locations` pins the map shows,
+ * as a scannable table. Columns follow ui-reference/gps-map-list-view-table-
+ * empty-state.png; Address, Notes and Actions are deferred (no backing data in
+ * the existing API — see the GPS-06.1 report). Search and scrolling are
+ * client-side, since the locations endpoint returns one capped, unpaged set.
+ */
+export function GpsListView({
+  locations,
+  isLoading,
+  isError,
+  onRetry,
+}: {
+  locations: GpsPinRecord[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  const rows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return locations;
+    return locations.filter(
+      (pin) =>
+        pin.agentName.toLowerCase().includes(query) ||
+        PIN_LABELS[pin.type].toLowerCase().includes(query),
+    );
+  }, [locations, search]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <SearchInput
+          className="sm:w-64"
+          placeholder="Search here..."
+          aria-label="Search field activity"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+
+      <ResponsiveTableContainer
+        label="Field activity"
+        className="max-h-[520px] overflow-y-auto rounded-surface border border-hairline"
+      >
+        <Table
+          columns={COLUMNS}
+          rows={rows}
+          getRowId={(row) => row.id}
+          isLoading={isLoading}
+          emptyState={
+            <EmptyState
+              icon={IconFileSearch}
+              title="No data available"
+              description="There's no data for the selected date range or filters. Try adjusting your filters to see more results."
+            />
+          }
+          errorState={
+            isError ? (
+              <ErrorState
+                title="Couldn't load field activity"
+                description="The list didn't load. Check your connection and try again."
+                onRetry={onRetry}
+              />
+            ) : undefined
+          }
+        />
+      </ResponsiveTableContainer>
+    </div>
+  );
+}

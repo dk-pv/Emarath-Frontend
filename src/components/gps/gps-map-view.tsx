@@ -1,0 +1,229 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GoogleMap, MarkerF, useJsApiLoader } from "@react-google-maps/api";
+import {
+  IconArrowsMaximize,
+  IconArrowsMinimize,
+  IconRefresh,
+} from "@tabler/icons-react";
+import { cn } from "@/lib/cn";
+import { env } from "@/lib/env";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { Spinner } from "@/components/ui/Spinner";
+import { GpsLegend, PIN_COLORS } from "@/components/gps/gps-legend";
+import type { GpsPinRecord } from "@/services/gps-service";
+
+// Kozhikode — the region Workpex centres on; used until pins arrive to fit to.
+const DEFAULT_CENTER = { lat: 11.2588, lng: 75.7804 };
+const DEFAULT_ZOOM = 11;
+
+const MAP_OPTIONS: google.maps.MapOptions = {
+  disableDefaultUI: true,
+  gestureHandling: "greedy",
+  clickableIcons: false,
+};
+
+type MapType = "roadmap" | "satellite";
+
+/** A filled circle in the pin's legend colour. Info windows/hover are deferred
+ * (no populated-map screenshot to match), so the marker is presentational only. */
+function pinIcon(type: GpsPinRecord["type"]): google.maps.Symbol {
+  return {
+    path: google.maps.SymbolPath.CIRCLE,
+    fillColor: PIN_COLORS[type],
+    fillOpacity: 1,
+    strokeColor: "#ffffff",
+    strokeWeight: 2,
+    scale: 7,
+  };
+}
+
+function formatAgo(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"} ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+}
+
+const OVERLAY_PILL =
+  "flex h-control-sm items-center gap-2 rounded-control border border-hairline bg-surface px-3 text-sm text-ink shadow-sm";
+
+/**
+ * The interactive GPS map (GPS-05.1): pins for field activity, a Map/Satellite
+ * toggle, a last-refreshed indicator with manual refresh, and fullscreen — per
+ * ui-reference/gps-map/gps-map-map-view-zero-state-no-markers.png and
+ * GPS-MAP-overview.mp4. Auto-refresh is driven by the parent's `reloadToken`;
+ * this view only reports when it last reloaded and offers a manual refresh.
+ */
+export function GpsMapView({
+  locations,
+  isLoading,
+  refreshedAt,
+  onRefresh,
+}: {
+  /** Shared with the list view (GPS-06.1) so both reflect the same fetch. */
+  locations: GpsPinRecord[];
+  isLoading: boolean;
+  /** When the parent last triggered a refresh — drives the "Last Refreshed" pill. */
+  refreshedAt: number;
+  onRefresh: () => void;
+}) {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: "gps-map-loader",
+    googleMapsApiKey: env.googleMapsApiKey,
+  });
+
+  const [mapType, setMapType] = useState<MapType>("roadmap");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onChange = () =>
+      setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // ponytail: refits to all pins on every load — good enough for a supervision
+  // map; add "follow one agent" only if a task asks for it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || locations.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    for (const pin of locations) bounds.extend({ lat: pin.lat, lng: pin.lng });
+    map.fitBounds(bounds);
+  }, [locations]);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void containerRef.current?.requestFullscreen();
+  };
+
+  const center = useMemo(() => DEFAULT_CENTER, []);
+
+  if (!env.googleMapsApiKey || loadError) {
+    return (
+      <div className="h-[520px]">
+        <ErrorState
+          title="Map unavailable"
+          description={
+            env.googleMapsApiKey
+              ? "The map failed to load. Check your connection and try again."
+              : "The Google Maps API key is not configured for this environment."
+          }
+          onRetry={onRefresh}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      <div
+        ref={containerRef}
+        className={cn(
+          "relative overflow-hidden rounded-surface border border-hairline bg-canvas",
+          isFullscreen ? "h-screen rounded-none border-0" : "h-[520px]",
+        )}
+      >
+        {!isLoaded ? (
+          <div className="flex size-full flex-col items-center justify-center gap-2 text-ink-muted">
+            <Spinner size="lg" label="" />
+            <p className="text-sm">Loading map…</p>
+          </div>
+        ) : (
+          <GoogleMap
+            mapContainerClassName="size-full"
+            center={center}
+            zoom={DEFAULT_ZOOM}
+            mapTypeId={mapType}
+            options={MAP_OPTIONS}
+            onLoad={(map) => {
+              mapRef.current = map;
+            }}
+            onUnmount={() => {
+              mapRef.current = null;
+            }}
+          >
+            {locations.map((pin) => (
+              <MarkerF
+                key={pin.id}
+                position={{ lat: pin.lat, lng: pin.lng }}
+                icon={pinIcon(pin.type)}
+              />
+            ))}
+          </GoogleMap>
+        )}
+
+        {/* Map / Satellite base-layer toggle (AC2), top-left. */}
+        <div
+          role="group"
+          aria-label="Base layer"
+          className="absolute top-4 left-4 flex rounded-control border border-hairline bg-surface p-0.5 shadow-sm"
+        >
+          {(["roadmap", "satellite"] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              aria-pressed={mapType === type}
+              onClick={() => setMapType(type)}
+              className={cn(
+                "focus-ring h-control-sm rounded-[calc(var(--radius-control)-2px)] px-3 text-sm capitalize",
+                mapType === type
+                  ? "bg-canvas font-medium text-ink shadow-sm"
+                  : "text-ink-muted hover:text-ink",
+              )}
+            >
+              {type === "roadmap" ? "Map" : "Satellite"}
+            </button>
+          ))}
+        </div>
+
+        {/* Last-refreshed indicator + manual refresh (AC3/AC4) and fullscreen (AC5). */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onRefresh}
+            className={cn(OVERLAY_PILL, "focus-ring hover:bg-canvas")}
+          >
+            <IconRefresh
+              size={16}
+              stroke={1.75}
+              aria-hidden="true"
+              className={cn(isLoading && "animate-spin")}
+            />
+            Last Refreshed {formatAgo(now - refreshedAt)}
+          </button>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            className={cn(
+              OVERLAY_PILL,
+              "focus-ring aspect-square justify-center px-0 hover:bg-canvas",
+            )}
+          >
+            {isFullscreen ? (
+              <IconArrowsMinimize size={16} stroke={1.75} aria-hidden="true" />
+            ) : (
+              <IconArrowsMaximize size={16} stroke={1.75} aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {!isFullscreen && <GpsLegend />}
+    </div>
+  );
+}

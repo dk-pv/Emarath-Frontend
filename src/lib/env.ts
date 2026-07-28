@@ -15,4 +15,7 @@ export const env = {
   appEnv: (process.env.NEXT_PUBLIC_APP_ENV ?? "development") as AppEnvironment,
   apiBaseUrl:
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000/api",
+  // Google Maps JavaScript API key for the GPS Map (GPS-05.1). Empty when unset,
+  // so the map can render a config error instead of failing the SDK load.
+  googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
 } as const;

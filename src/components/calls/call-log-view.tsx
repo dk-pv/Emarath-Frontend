@@ -18,6 +18,7 @@ import { ManageColumns } from "@/components/table/manage-columns";
 import { FilterPanel } from "@/components/filters/filter-panel";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
+import { fetchAssignableAgents } from "@/services/lookups-service";
 import { useStages } from "@/components/stages/stages-context";
 import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useFilters } from "@/hooks/use-filters";
@@ -64,6 +65,35 @@ function formatDateTime(iso: string): { date: string; time: string } {
       second: "2-digit",
       hour12: true,
     }),
+  };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Local start-of-day for a picked date (the DatePicker stores an ISO instant). */
+function dayStart(iso: string): Date {
+  const d = new Date(iso);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * The log's [from, to) window: the popup Date Range when either bound is set
+ * (inclusive of the "to" day), otherwise the dashboard period. `to` is exclusive
+ * to match the backend's `startedAt < end`.
+ */
+function resolveRange(
+  period: PeriodId,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+): { from: string; to: string } {
+  if (!dateFrom && !dateTo) return rangeFor(period);
+  const base = rangeFor(period);
+  return {
+    from: dateFrom ? dayStart(dateFrom).toISOString() : base.from,
+    to: dateTo
+      ? new Date(dayStart(dateTo).getTime() + DAY_MS).toISOString()
+      : base.to,
   };
 }
 
@@ -183,41 +213,79 @@ export function CallLog({ period }: { period: PeriodId }) {
   const [reloadToken, setReloadToken] = useState(0);
   const { prefs, setPrefs, visibleColumns } = useColumnPrefs("calls", COLUMNS);
 
-  // Lead Status filter runs through the shared filter framework (one field).
+  // Agent + Date Range + Lead Status (CALL-06.1 AC3) run through the shared
+  // filter framework. Agents reuse the assignable-agents source; the dropdown
+  // stays empty (and the log still loads) if that call fails.
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAssignableAgents(controller.signal)
+      .then(setAgents)
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
   const { stages } = useStages();
-  const statusField: FilterField = useMemo(
-    () => ({
-      key: "leadStatus",
-      label: "Lead Status",
-      type: "select",
-      options: stages.map((stage) => ({ label: stage.name, value: stage.name })),
-    }),
-    [stages],
+  const fields = useMemo<FilterField[]>(
+    () => [
+      {
+        key: "agentId",
+        label: "Agent",
+        type: "select",
+        options: agents.map((agent) => ({
+          label: agent.name,
+          value: agent.id,
+        })),
+      },
+      { key: "dateFrom", label: "Date From", type: "date" },
+      { key: "dateTo", label: "Date To", type: "date" },
+      {
+        key: "leadStatus",
+        label: "Lead Status",
+        type: "select",
+        options: stages.map((stage) => ({
+          label: stage.name,
+          value: stage.name,
+        })),
+      },
+    ],
+    [agents, stages],
   );
-  const filters = useFilters([statusField]);
-  const leadStatusValue = filters.valueOf("leadStatus");
-  const leadStatus =
-    typeof leadStatusValue === "string" ? leadStatusValue : undefined;
+  const filters = useFilters(fields);
+
+  const asString = (value: unknown): string | undefined =>
+    typeof value === "string" && value ? value : undefined;
+  const agentId = asString(filters.valueOf("agentId"));
+  const leadStatus = asString(filters.valueOf("leadStatus"));
+  const dateFrom = asString(filters.valueOf("dateFrom"));
+  const dateTo = asString(filters.valueOf("dateTo"));
+  const range = useMemo(
+    () => resolveRange(period, dateFrom, dateTo),
+    [period, dateFrom, dateTo],
+  );
 
   // One key per (page + all filters); a result only counts for the current
   // combination, so a slow earlier response can't repaint a newer one.
-  const requestKey = `${page}|${outcome ?? ""}|${debouncedSearch}|${leadStatus ?? ""}`;
+  const requestKey = `${page}|${outcome ?? ""}|${debouncedSearch}|${agentId ?? ""}|${range.from}|${range.to}|${leadStatus ?? ""}`;
 
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
     fetchCallLog(
-      rangeFor(period),
+      range,
       page,
       {
         outcome: outcome ?? undefined,
         search: debouncedSearch || undefined,
         leadStatus,
+        agentId,
       },
       controller.signal,
     )
       .then((data) => {
-        if (active) setLoaded({ key: requestKey, data });
+        if (!active) return;
+        setLoaded({ key: requestKey, data });
+        setFailed(null);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -228,7 +296,7 @@ export function CallLog({ period }: { period: PeriodId }) {
       active = false;
       controller.abort();
     };
-  }, [period, page, outcome, debouncedSearch, leadStatus, requestKey, reloadToken]);
+  }, [page, outcome, debouncedSearch, agentId, range, leadStatus, requestKey, reloadToken]);
 
   const data = loaded?.key === requestKey ? loaded.data : null;
   const isError = failed === requestKey;
@@ -265,7 +333,7 @@ export function CallLog({ period }: { period: PeriodId }) {
                 className={cn(
                   "focus-ring h-control-sm rounded-full px-3 text-sm font-medium transition-colors duration-(--duration-shell) ease-shell",
                   activeTab
-                    ? "bg-brand text-white"
+                    ? "bg-brand text-ink"
                     : "text-ink-muted hover:bg-canvas hover:text-ink",
                 )}
               >
@@ -288,7 +356,7 @@ export function CallLog({ period }: { period: PeriodId }) {
           />
           <ManageColumns columns={COLUMNS} prefs={prefs} onChange={setPrefs} />
           <FilterPanel
-            fields={[statusField]}
+            fields={fields}
             activeCount={filters.activeCount}
             valueOf={filters.valueOf}
             onChange={(key, value) => {
@@ -320,7 +388,7 @@ export function CallLog({ period }: { period: PeriodId }) {
           />
         </div>
       ) : (
-        <ResponsiveTableContainer>
+        <ResponsiveTableContainer label="Recent call log">
           <Table
             columns={visibleColumns}
             rows={data?.rows ?? []}

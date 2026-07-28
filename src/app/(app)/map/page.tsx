@@ -1,8 +1,9 @@
 import { routeMetadata } from "@/lib/route-metadata";
+import { GpsMapScreen } from "@/components/gps/gps-map-screen";
 
 export const metadata = routeMetadata("/map");
 
-/** Route stub so the shell is navigable. Content arrives with the GpsMap module. */
+/** The GPS Map screen: field-activity KPIs (GPS-04.2) + the live map (GPS-05.1). */
 export default function GpsMapPage() {
-  return null;
+  return <GpsMapScreen />;
 }

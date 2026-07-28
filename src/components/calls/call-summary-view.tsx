@@ -134,7 +134,9 @@ export function CallSummaryCards({ period }: { period: PeriodId }) {
     let active = true;
     fetchCallSummary(rangeFor(period), controller.signal)
       .then((data) => {
-        if (active) setLoaded({ period, data });
+        if (!active) return;
+        setLoaded({ period, data });
+        setFailed(null);
       })
       .catch((error: unknown) => {
         if (!active) return;

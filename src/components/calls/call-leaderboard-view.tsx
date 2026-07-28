@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { IconArrowUpRight, IconTrophy } from "@tabler/icons-react";
+import { IconTrophy } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -25,22 +25,11 @@ const COLUMNS: TableColumn<LeaderboardEntry>[] = [
     header: "Users",
     sortable: true,
     render: (row) => (
-      // The agent name is the drill-through affordance (video: underline + ↗).
-      // The destination — the agent's detailed call activity — is the Call Log
-      // (CALL-05.x), so the click is deferred, not wired here.
+      // Plain name + avatar. The drill-through (CALL-04.2 AC2) has no destination
+      // route yet, so the clickable affordance is removed rather than shown dead.
       <span className="flex items-center gap-3">
         <Avatar name={row.agentName} size="sm" />
-        <span className="flex items-center gap-1 font-medium text-ink">
-          <span className="truncate underline decoration-hairline underline-offset-2">
-            {row.agentName}
-          </span>
-          <IconArrowUpRight
-            size={14}
-            stroke={1.75}
-            className="shrink-0 text-ink-subtle"
-            aria-hidden="true"
-          />
-        </span>
+        <span className="truncate font-medium text-ink">{row.agentName}</span>
       </span>
     ),
   },
@@ -116,7 +105,9 @@ export function CallLeaderboard({ period }: { period: PeriodId }) {
     let active = true;
     fetchCallLeaderboard(rangeFor(period), controller.signal)
       .then((rows) => {
-        if (active) setLoaded({ period, rows });
+        if (!active) return;
+        setLoaded({ period, rows });
+        setFailed(null);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -150,7 +141,7 @@ export function CallLeaderboard({ period }: { period: PeriodId }) {
           />
         </div>
       ) : (
-        <ResponsiveTableContainer>
+        <ResponsiveTableContainer label="Leaderboard">
           <Table
             columns={COLUMNS}
             rows={sorted}

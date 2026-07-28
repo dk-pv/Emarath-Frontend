@@ -80,6 +80,7 @@ export type CallLogFilters = {
   outcome?: CallOutcome;
   search?: string;
   leadStatus?: string;
+  agentId?: string;
 };
 
 /** Fetch one page of the Recent Call Log for a resolved period (GET /api/calls/log). */
@@ -97,5 +98,6 @@ export function fetchCallLog(
   if (filters.outcome) params.set("outcome", filters.outcome);
   if (filters.search) params.set("search", filters.search);
   if (filters.leadStatus) params.set("leadStatus", filters.leadStatus);
+  if (filters.agentId) params.set("agentId", filters.agentId);
   return apiGet<CallLogResponse>("/calls/log", params, signal);
 }

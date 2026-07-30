@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { attemptRefresh, notifySessionExpired } from "@/lib/session";
 
 /**
  * A non-2xx response from the API.
@@ -19,6 +20,40 @@ export class ApiError extends Error {
 }
 
 /**
+ * The auth routes drive the session themselves, so they are never retried: a 401 from login
+ * is wrong credentials, and refresh/logout must not trigger another refresh (that would loop).
+ */
+const AUTH_EXCLUDED = new Set(["/auth/login", "/auth/logout", "/auth/refresh"]);
+
+/**
+ * Runs a request and transparently recovers from an expired access token (AUTH-01.6 final
+ * phase). On a 401 from a protected route it asks the session bridge — which the AuthProvider
+ * populated — for a single shared `/auth/refresh` (`attemptRefresh` single-flights it, so
+ * concurrent 401s cause just one refresh); if the session is renewed it retries the request
+ * exactly once. The retry is a bare `fetch`, so a second 401 is returned as-is — no recursion,
+ * no loop. If refresh fails, the session is cleared and the user redirected (via the bridge)
+ * and the original 401 surfaces to the caller. Auth routes are excluded entirely.
+ */
+async function fetchWithAuth(
+  url: string,
+  init: RequestInit,
+  path: string,
+): Promise<Response> {
+  const response = await fetch(url, init);
+  if (response.status !== 401 || AUTH_EXCLUDED.has(path)) {
+    return response;
+  }
+
+  const refreshed = await attemptRefresh();
+  if (!refreshed) {
+    notifySessionExpired();
+    return response;
+  }
+
+  return fetch(url, init);
+}
+
+/**
  * Typed GET against the backend (frontend rule: data fetching goes through a
  * typed client, base URL from NEXT_PUBLIC_API_BASE_URL via `env`).
  *
@@ -33,11 +68,16 @@ export async function apiGet<T>(
 ): Promise<T> {
   const query = params && [...params.keys()].length > 0 ? `?${params}` : "";
 
-  const response = await fetch(`${env.apiBaseUrl}${path}${query}`, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    signal,
-  });
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}${query}`,
+    {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      credentials: "include",
+      signal,
+    },
+    path,
+  );
 
   if (!response.ok) {
     throw new ApiError(
@@ -61,12 +101,20 @@ export async function apiPost<T>(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+      signal,
+    },
+    path,
+  );
 
   if (!response.ok) await throwApiError(response, "POST", path);
 
@@ -85,12 +133,20 @@ export async function apiPut<T>(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+      signal,
+    },
+    path,
+  );
 
   if (!response.ok) await throwApiError(response, "PUT", path);
 
@@ -110,12 +166,20 @@ export async function apiPatch<T>(
   body: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+      signal,
+    },
+    path,
+  );
 
   if (!response.ok) await throwApiError(response, "PATCH", path);
 
@@ -133,11 +197,16 @@ export async function apiDelete<T>(
   path: string,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    method: "DELETE",
-    headers: { Accept: "application/json" },
-    signal,
-  });
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}`,
+    {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+      credentials: "include",
+      signal,
+    },
+    path,
+  );
 
   if (!response.ok) await throwApiError(response, "DELETE", path);
 
@@ -156,12 +225,17 @@ export async function apiPostForm<T>(
   form: FormData,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${env.apiBaseUrl}${path}`, {
-    method: "POST",
-    headers: { Accept: "application/json" },
-    body: form,
-    signal,
-  });
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}`,
+    {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      credentials: "include",
+      body: form,
+      signal,
+    },
+    path,
+  );
 
   if (!response.ok) await throwApiError(response, "POST", path);
 

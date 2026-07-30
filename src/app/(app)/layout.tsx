@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/layout/AppLayout";
+import { RequireAuth } from "@/components/auth/require-auth";
 import { StagesProvider } from "@/components/stages/stages-context";
 import { ToastProvider } from "@/components/ui/Toast";
 
@@ -7,15 +8,18 @@ export default function AppRouteLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // The toast provider wraps the app shell so any client view can surface feedback
-  // — first used by the bulk actions (LEAD-09.2) to report per-item results. The
-  // stages provider fetches the canonical stage catalogue once (KAN-05.2) so the
-  // list badge, board columns and status dropdown all read one source.
+  // RequireAuth is outermost so the toast/stages providers and the shell only mount once a
+  // session exists — the stages provider fetches the canonical catalogue on mount (KAN-05.2)
+  // and must not fire before the user is authenticated. Inside the gate: the toast provider
+  // wraps the shell so any client view can surface feedback (LEAD-09.2), and the stages
+  // provider gives the list badge, board columns and status dropdown one source.
   return (
-    <ToastProvider>
-      <StagesProvider>
-        <AppLayout>{children}</AppLayout>
-      </StagesProvider>
-    </ToastProvider>
+    <RequireAuth>
+      <ToastProvider>
+        <StagesProvider>
+          <AppLayout>{children}</AppLayout>
+        </StagesProvider>
+      </ToastProvider>
+    </RequireAuth>
   );
 }

@@ -86,22 +86,3 @@ export type FilterState = {
   search: string;
   conditions: FilterCondition[];
 };
-
-/** Dashboard summary card, mirroring the Workpex KPI carousel. */
-export type SummaryCard = {
-  id: string;
-  label: string;
-  value: string;
-  caption: string;
-  tone: Tone;
-};
-
-/** Leaderboard row, mirroring the Workpex Sales Team Activity Board. */
-export type LeaderboardRow = {
-  id: string;
-  agent: string;
-  leads: number;
-  calls: number;
-  convertedAmount: number;
-  conversionRate: number;
-};

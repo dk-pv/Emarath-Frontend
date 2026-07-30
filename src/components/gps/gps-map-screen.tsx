@@ -9,9 +9,11 @@ import { FilterPanel } from "@/components/filters/filter-panel";
 import { GpsKpiCards } from "@/components/gps/gps-kpi-cards";
 import { GpsMapView } from "@/components/gps/gps-map-view";
 import { GpsListView } from "@/components/gps/gps-list-view";
+import { GpsExportMenu } from "@/components/gps/gps-export-menu";
 import { useGpsLocations } from "@/hooks/use-gps-locations";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { fetchAssignableAgents } from "@/services/lookups-service";
+import { downloadGpsExport } from "@/services/gps-export-service";
 import type { FilterCondition, FilterField, ListQuery } from "@/types";
 
 /**
@@ -170,6 +172,9 @@ export function GpsMapScreen() {
           <IconRefresh size={16} stroke={1.75} aria-hidden="true" />
           Refresh
         </Button>
+
+        {/* GPS-08.1 — exports the current scoped/filtered view (period + Team Member). */}
+        <GpsExportMenu onExport={(format) => downloadGpsExport(format, query)} />
       </div>
 
       <GpsKpiCards query={query} reloadToken={reloadToken} />

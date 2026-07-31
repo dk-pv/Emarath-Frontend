@@ -18,6 +18,8 @@ type LeadBulkBarProps = {
   onDelete: () => void;
   /** True while a bulk action runs; the wired actions disable to prevent re-entry. */
   busy?: boolean;
+  /** Managers/admins only see reassignment (AUTH-02.2); false hides the Assignee action. */
+  canReassign: boolean;
 };
 
 /**
@@ -29,7 +31,8 @@ type LeadBulkBarProps = {
  *
  * Delete and Assignee are wired (LEAD-09.1 API). Update, Status and Tags are shown
  * because Workpex shows them, but they are out of LEAD-09.2's scope (export/reassign/
- * delete) and have no API yet, so they stay inert. There is deliberately no Export
+ * delete) and have no API yet, so they stay inert. Assignee is additionally role-gated:
+ * only managers and admins see reassignment (AUTH-02.2). There is deliberately no Export
  * here — the Workpex bar has none (ADR-0011). `sticky bottom` keeps the bar centred
  * over the content region and above the pagination without any sidebar-width maths.
  */
@@ -39,6 +42,7 @@ export function LeadBulkBar({
   onReassign,
   onDelete,
   busy = false,
+  canReassign,
 }: LeadBulkBarProps) {
   const actions = [
     { key: "update", label: "Update", Icon: IconHistory, onClick: undefined },
@@ -51,7 +55,7 @@ export function LeadBulkBar({
     },
     { key: "status", label: "Status", Icon: IconListCheck, onClick: undefined },
     { key: "tags", label: "Tags", Icon: IconTag, onClick: undefined },
-  ] as const;
+  ].filter((action) => action.key !== "assignee" || canReassign);
 
   return (
     <div className="pointer-events-none sticky bottom-6 z-40 flex justify-center">

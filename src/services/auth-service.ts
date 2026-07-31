@@ -1,4 +1,5 @@
 import { apiPost } from "@/lib/api-client";
+import type { UserRole } from "@/constants/roles";
 
 /**
  * The authentication client (AUTH-01.6 foundation). Thin typed wrappers over the auth
@@ -12,8 +13,8 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  /** Backend `UserRole` value; typed loosely until role-based UI lands (AUTH-02.2). */
-  role: string;
+  /** Backend `UserRole` value; drives role-based visibility (AUTH-02.2). */
+  role: UserRole;
 }
 
 interface SessionResponse {
@@ -47,4 +48,33 @@ export async function fetchSession(signal?: AbortSignal): Promise<AuthUser> {
 /** Ends the session server-side and clears the cookies (AUTH-01.5). Idempotent. */
 export async function logout(signal?: AbortSignal): Promise<void> {
   await apiPost<{ success: true }>("/auth/logout", {}, signal);
+}
+
+/**
+ * Requests a password-reset link (AUTH-03.1). Resolves with the same generic success
+ * whether or not the email is registered — the caller must not infer account existence
+ * from the outcome (AC2). Rejects only on a transport/server failure.
+ */
+export async function requestPasswordReset(
+  email: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiPost<{ success: true }>("/auth/forgot-password", { email }, signal);
+}
+
+/**
+ * Sets a new password from a reset link (AUTH-03.1). Throws `ApiError` when the token is
+ * invalid/expired/used (401) or the password fails the strength rule (400), so the form
+ * can show why.
+ */
+export async function resetPassword(
+  token: string,
+  password: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiPost<{ success: true }>(
+    "/auth/reset-password",
+    { token, password },
+    signal,
+  );
 }

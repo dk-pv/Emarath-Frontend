@@ -20,6 +20,7 @@ import {
   IconUserFilled,
   type Icon,
 } from "@tabler/icons-react";
+import type { Capability } from "@/constants/permissions";
 
 export type NavItem = {
   /** Sidebar label. */
@@ -30,6 +31,12 @@ export type NavItem = {
   icon: Icon;
   /** Workpex swaps to a solid icon when active — it is not a recolour of the outline. */
   activeIcon: Icon;
+  /**
+   * Capability required to see this item (AUTH-02.2); absent ⇒ visible to every role.
+   * No item is gated yet — the role→menu matrix beyond the backlog's two confirmed rules
+   * awaits a Product Owner decision, so every item stays unrestricted for now.
+   */
+  requires?: Capability;
 };
 
 /**

@@ -23,7 +23,13 @@ export class ApiError extends Error {
  * The auth routes drive the session themselves, so they are never retried: a 401 from login
  * is wrong credentials, and refresh/logout must not trigger another refresh (that would loop).
  */
-const AUTH_EXCLUDED = new Set(["/auth/login", "/auth/logout", "/auth/refresh"]);
+const AUTH_EXCLUDED = new Set([
+  "/auth/login",
+  "/auth/logout",
+  "/auth/refresh",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+]);
 
 /**
  * Runs a request and transparently recovers from an expired access token (AUTH-01.6 final

@@ -23,7 +23,8 @@ import type { LeadListItem } from "@/services/leads-service";
  * reassign, convert and delete — seven icons, always visible at the row's right edge.
  *
  * Wired (LEAD-10.1 API): WhatsApp (a `wa.me` deep-link from the primary phone),
- * Reassign and Delete. Deliberately not wired — recorded in ADR-0013:
+ * Reassign and Delete. Reassign is role-gated — only managers and admins see it
+ * (AUTH-02.2); for other roles the icon is omitted. Deliberately not wired — ADR-0013:
  *   • Email is disabled — leads carry no email address, so a `mailto:` has no target.
  *   • Convert is inert — Workpex's green-circle behaviour is uncaptured and the stage
  *     config it would drive (LEAD-11.1) does not exist yet.
@@ -39,6 +40,8 @@ type RowActionsContextValue = {
   /** The lead currently running an action, and which — drives the per-row spinner. */
   pendingId: string | null;
   pendingAction: RowActionKind | null;
+  /** Managers/admins only see the Reassign control (AUTH-02.2). */
+  canReassign: boolean;
 };
 
 const RowActionsContext = createContext<RowActionsContextValue | null>(null);
@@ -106,27 +109,29 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
         </button>
       </Tooltip>
 
-      {/* Reassign — single-lead reassign (LEAD-10.1 API). */}
-      <Tooltip content="Reassign">
-        <button
-          type="button"
-          aria-label="Reassign"
-          disabled={busy}
-          onClick={() => ctx?.onReassign(lead)}
-          className={ACTION_CLASS}
-        >
-          {pending === "reassign" ? (
-            <IconLoader2
-              size={18}
-              stroke={1.75}
-              className="animate-spin"
-              aria-hidden="true"
-            />
-          ) : (
-            <IconUserEdit size={18} stroke={1.75} aria-hidden="true" />
-          )}
-        </button>
-      </Tooltip>
+      {/* Reassign — single-lead reassign (LEAD-10.1 API); managers/admins only (AUTH-02.2). */}
+      {ctx?.canReassign && (
+        <Tooltip content="Reassign">
+          <button
+            type="button"
+            aria-label="Reassign"
+            disabled={busy}
+            onClick={() => ctx.onReassign(lead)}
+            className={ACTION_CLASS}
+          >
+            {pending === "reassign" ? (
+              <IconLoader2
+                size={18}
+                stroke={1.75}
+                className="animate-spin"
+                aria-hidden="true"
+              />
+            ) : (
+              <IconUserEdit size={18} stroke={1.75} aria-hidden="true" />
+            )}
+          </button>
+        </Tooltip>
+      )}
 
       {/* Convert — a circular control, filled green once a lead is converted.
           Workpex's trigger for that state is not captured, so it stays inert and

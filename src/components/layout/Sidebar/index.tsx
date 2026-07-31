@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { IconLogout } from "@tabler/icons-react";
 import { NAV_ITEMS, matchNavItem } from "@/constants/navigation";
+import { can } from "@/constants/permissions";
+import { useAuth } from "@/components/auth/auth-context";
 import { BrandMark } from "./brand-mark";
 import { SidebarNavLink } from "./sidebar-nav-link";
 import { SidebarToggle } from "./sidebar-toggle";
@@ -33,6 +35,14 @@ type SidebarProps = {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const activeHref = matchNavItem(pathname)?.href;
+  const { user } = useAuth();
+
+  // Role-driven visibility (AUTH-02.2): an item shows unless it declares a capability the
+  // caller lacks. No item is gated today, so every role sees the full menu until the
+  // Product Owner confirms the role→menu matrix.
+  const items = NAV_ITEMS.filter(
+    (item) => !item.requires || can(user?.role, item.requires),
+  );
 
   return (
     <aside
@@ -48,7 +58,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         aria-label="Main"
         className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto scrollbar-none"
       >
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <SidebarNavLink
             key={item.href}
             label={item.label}

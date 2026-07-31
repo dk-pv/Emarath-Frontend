@@ -71,6 +71,8 @@ import {
   reconcileLayout,
   saveColumnLayout,
 } from "@/services/view-preferences-service";
+import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
 import type { FilterCondition, FilterField, FilterState } from "@/types";
 
 const NO_OPTIONS: LeadFilterOptions = {
@@ -96,6 +98,11 @@ const SEARCH_DEBOUNCE_MS = 300;
  * and agents that appear on leads they may open.
  */
 export function LeadsListView() {
+  const { user } = useAuth();
+  // Reassignment is a managers-and-admins tool (AUTH-02.2); hide its triggers otherwise.
+  // The backend @Roles() gate is the real block — this just keeps the UI honest.
+  const canReassign = can(user?.role, "reassignLeads");
+
   const [options, setOptions] = useState<LeadFilterOptions>(NO_OPTIONS);
 
   useEffect(() => {
@@ -364,8 +371,9 @@ export function LeadsListView() {
       onDelete: (lead: LeadListItem) => setRowDeleteTarget(lead),
       pendingId: rowPending?.id ?? null,
       pendingAction: rowPending?.action ?? null,
+      canReassign,
     }),
-    [rowPending],
+    [rowPending, canReassign],
   );
 
   // Inline status change (LEAD-11.1, from lead-status.mp4). The badge dropdown picks
@@ -650,6 +658,7 @@ export function LeadsListView() {
           onReassign={reassignDrawer.open}
           onDelete={confirmDelete.open}
           busy={bulkBusy}
+          canReassign={canReassign}
         />
       )}
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   IconArrowRight,
@@ -149,15 +150,13 @@ export function LoginForm() {
       </FormField>
 
       <div className="flex justify-end">
-        {/* Present for parity; the reset flow is a later task (AUTH-03.1), so it is inert. */}
-        <button
-          type="button"
-          disabled
-          title="Password reset arrives in a later task."
-          className="cursor-not-allowed text-sm font-medium text-ink-muted"
+        {/* Traced from loginPage.png; wired to the reset flow (AUTH-03.1). */}
+        <Link
+          href="/forgot-password"
+          className="focus-ring rounded-control text-sm font-medium text-brand hover:text-brand-strong"
         >
           Forgot Password?
-        </button>
+        </Link>
       </div>
 
       {apiError && (

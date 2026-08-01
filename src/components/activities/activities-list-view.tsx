@@ -45,6 +45,7 @@ import {
   type ActivityListItem,
 } from "@/services/activities-service";
 import { ApiError } from "@/lib/api-client";
+import { dayBoundaries } from "@/lib/day-boundaries";
 import type { FilterField, SelectOption } from "@/types";
 
 /** A pause after the last keystroke before the server search runs (LEAD-03.3). */
@@ -63,26 +64,6 @@ const BUCKET_LABEL: Record<ActivityBucket, string> = {
   completed: "Completed",
   all: "All",
 };
-
-/**
- * The client's own local day boundaries (ADR-0028 §3): the instants of local
- * midnight, tomorrow, and the day after. Computed once per mount and sent to the
- * server, so the Overdue/Today/Tomorrow buckets follow the user's timezone rather
- * than the server's.
- */
-function dayBoundaries() {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const todayEnd = new Date(todayStart);
-  todayEnd.setDate(todayEnd.getDate() + 1);
-  const tomorrowEnd = new Date(todayStart);
-  tomorrowEnd.setDate(tomorrowEnd.getDate() + 2);
-  return {
-    todayStart: todayStart.toISOString(),
-    todayEnd: todayEnd.toISOString(),
-    tomorrowEnd: tomorrowEnd.toISOString(),
-  };
-}
 
 /**
  * The Activities worklist (ACT-02.2 + ACT-07.1): tabs by due window, a
@@ -126,9 +107,24 @@ export function ActivitiesListView() {
 
   const filterFields = useMemo<FilterField[]>(
     () => [
-      { key: "assignedAgent", label: "Assigned", type: "multi", options: options.agents },
-      { key: "status", label: "Lead Status", type: "multi", options: options.statuses },
-      { key: "pipeline", label: "Lead Pipeline", type: "multi", options: options.pipelines },
+      {
+        key: "assignedAgent",
+        label: "Assigned",
+        type: "multi",
+        options: options.agents,
+      },
+      {
+        key: "status",
+        label: "Lead Status",
+        type: "multi",
+        options: options.statuses,
+      },
+      {
+        key: "pipeline",
+        label: "Lead Pipeline",
+        type: "multi",
+        options: options.pipelines,
+      },
     ],
     [options],
   );
@@ -159,7 +155,14 @@ export function ActivitiesListView() {
       status: pick("status"),
       pipeline: pick("pipeline"),
     };
-  }, [bucket, page, size, boundaries, debouncedSearch, filters.state.conditions]);
+  }, [
+    bucket,
+    page,
+    size,
+    boundaries,
+    debouncedSearch,
+    filters.state.conditions,
+  ]);
 
   const { rows, total, counts, isLoading, isError, refetch } =
     useActivitiesList(query);
@@ -365,7 +368,9 @@ export function ActivitiesListView() {
   }, [manageableColumns]);
 
   const visibleColumns = useMemo(() => {
-    const byKey = new Map(activityColumns.map((column) => [column.key, column]));
+    const byKey = new Map(
+      activityColumns.map((column) => [column.key, column]),
+    );
     const hidden = new Set(hiddenColumns);
     // Frozen identifier first, the reorderable/hideable set, then the fixed
     // right-edge actions column.

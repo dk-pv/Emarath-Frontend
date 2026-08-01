@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
+import {
+  IconChevronDown,
+  IconPlus,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
@@ -20,6 +25,16 @@ export type SearchableSelectProps = {
   loading?: boolean;
   invalid?: boolean;
   id?: string;
+  /**
+   * Inline-create extension point for the future Master modules (Products, Tags,
+   * Languages, …). Dormant by default: when `allowCreate` is off — as on every
+   * current Lead form field — the component behaves exactly as before. A future
+   * Master consumer flips `allowCreate` and supplies `onCreate` to add a value
+   * without touching this component. Not wired to any backend yet (LEAD-06.2 scope).
+   */
+  allowCreate?: boolean;
+  createLabel?: (query: string) => string;
+  onCreate?: (query: string) => void;
 };
 
 const TRIGGER_CLASS =
@@ -48,6 +63,9 @@ export function SearchableSelect({
   loading,
   invalid,
   id,
+  allowCreate = false,
+  createLabel = (query) => `Create “${query}”`,
+  onCreate,
 }: SearchableSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
@@ -73,6 +91,16 @@ export function SearchableSelect({
     close();
     setQuery("");
   };
+
+  // Dormant unless a future Master consumer opts in (see the prop docs above).
+  const trimmedQuery = query.trim();
+  const canCreate =
+    allowCreate &&
+    Boolean(onCreate) &&
+    trimmedQuery !== "" &&
+    !options.some(
+      (option) => option.label.toLowerCase() === trimmedQuery.toLowerCase(),
+    );
 
   return (
     <div ref={root} className="relative">
@@ -167,6 +195,25 @@ export function SearchableSelect({
               ))
             )}
           </ul>
+
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreate?.(trimmedQuery);
+                close();
+                setQuery("");
+              }}
+              className="flex w-full items-center gap-2 border-t border-hairline px-4 py-2.5 text-left text-sm text-brand hover:bg-canvas"
+            >
+              <IconPlus
+                aria-hidden="true"
+                stroke={2}
+                className="size-4 shrink-0"
+              />
+              <span className="truncate">{createLabel(trimmedQuery)}</span>
+            </button>
+          )}
         </div>
       )}
     </div>

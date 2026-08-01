@@ -1,15 +1,17 @@
+import { dayBoundaries } from "@/lib/day-boundaries";
 import type { FilterCondition } from "@/types";
 
 /**
  * The Quick Filter presets, in the order Workpex lists them (LEAD-04.1), read from
  * `ui-reference/leads/Quick-Filter.mp4`.
  *
- * `enabled: false` marks the activity-driven presets whose data (follow-ups, last
- * activity) comes from the Activities module, which ships in Sprint 3. They are
- * shown — so the menu matches Workpex — but disabled until that backend exists.
- * Every enabled preset resolves to conditions the existing Leads list pipeline
- * already carries (status, a createdAt window, or an unassigned/archived flag); no
- * new filter builder is introduced.
+ * The three activity-driven presets (Today's Follow Ups, Overdue, No Activity)
+ * resolve against the lead's activities using the Activities module's own bucket
+ * predicate (`activityBucketWhere`), so they mean exactly what the worklist means.
+ * `Expired Leads` stays `enabled: false`: its semantics are defined by neither the
+ * backlog nor the Workpex reference, so it is shown (to match the menu) but inert
+ * pending a definition. Every enabled preset resolves to conditions the existing
+ * Leads list pipeline already carries; no new filter builder is introduced.
  */
 export interface QuickPreset {
   id: string;
@@ -23,9 +25,9 @@ export const QUICK_PRESETS: readonly QuickPreset[] = [
   { id: "lastWeek", label: "Last Week", enabled: true },
   { id: "archived", label: "Archived", enabled: true },
   { id: "converted", label: "Converted Leads", enabled: true },
-  { id: "todaysFollowUps", label: "Today's Follow Ups", enabled: false },
-  { id: "noActivity", label: "No Activity Leads", enabled: false },
-  { id: "overdue", label: "Overdue Lead", enabled: false },
+  { id: "todaysFollowUps", label: "Today's Follow Ups", enabled: true },
+  { id: "noActivity", label: "No Activity Leads", enabled: true },
+  { id: "overdue", label: "Overdue Lead", enabled: true },
   { id: "newLeads", label: "New Leads", enabled: true },
   { id: "expired", label: "Expired Leads", enabled: false },
   { id: "unassigned", label: "Unassigned", enabled: true },
@@ -33,7 +35,7 @@ export const QUICK_PRESETS: readonly QuickPreset[] = [
 
 /** Why a disabled preset is unavailable — surfaced as the menu item's tooltip. */
 export const DISABLED_PRESET_HINT =
-  "Available once the Activities module ships (Sprint 3)";
+  "Unavailable — this filter isn’t defined in the Workpex reference yet";
 
 const startOfDay = (date: Date): Date => {
   const copy = new Date(date);
@@ -88,7 +90,30 @@ export function presetConditions(id: string): FilterCondition[] {
       return [{ key: "status", value: ["WON"] }];
     case "newLeads":
       return [{ key: "status", value: ["New"] }];
+    // Activity presets (LEAD-04.1). The flag selects the Activities bucket the
+    // server reuses (`activityBucketWhere`); the day boundaries — from the shared
+    // helper, the same instants the worklist sends — let "today"/"overdue" follow
+    // the user's timezone. "No Activity" needs no boundary.
+    case "todaysFollowUps":
+      return [
+        { key: "todaysFollowUps", value: "true" },
+        ...boundaryConditions(),
+      ];
+    case "overdue":
+      return [{ key: "overdue", value: "true" }, ...boundaryConditions()];
+    case "noActivity":
+      return [{ key: "noActivity", value: "true" }];
     default:
       return [];
   }
+}
+
+/** The three day-boundary instants an activity-window preset sends. */
+function boundaryConditions(): FilterCondition[] {
+  const b = dayBoundaries();
+  return [
+    { key: "todayStart", value: b.todayStart },
+    { key: "todayEnd", value: b.todayEnd },
+    { key: "tomorrowEnd", value: b.tomorrowEnd },
+  ];
 }

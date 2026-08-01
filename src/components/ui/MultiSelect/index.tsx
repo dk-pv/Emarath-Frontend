@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { IconChevronDown, IconSearch } from "@tabler/icons-react";
+import { IconChevronDown, IconPlus, IconSearch } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Chip } from "@/components/ui/Chip";
@@ -18,6 +18,15 @@ export type MultiSelectProps = {
   className?: string;
   /** A type-ahead box in the panel — Workpex's Assigned and Tags dropdowns. */
   searchable?: boolean;
+  /**
+   * Inline-create extension point for the future Master modules (Tags, …).
+   * Dormant by default: with `allowCreate` off — as on the current Assigned and
+   * Tags fields — the component is unchanged. A future Master consumer flips
+   * `allowCreate` and supplies `onCreate`. Not wired to any backend (LEAD-06.2 scope).
+   */
+  allowCreate?: boolean;
+  createLabel?: (query: string) => string;
+  onCreate?: (query: string) => void;
 };
 
 /** Chips sit inside the control, so the box grows rather than clipping the selection. */
@@ -41,6 +50,9 @@ export function MultiSelect({
   disabled,
   className,
   searchable,
+  allowCreate = false,
+  createLabel = (query) => `Create “${query}”`,
+  onCreate,
 }: MultiSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -94,6 +106,16 @@ export function MultiSelect({
       focusStep(event.currentTarget, -1);
     }
   };
+
+  // Dormant unless a future Master consumer opts in (see the prop docs above).
+  const trimmedQuery = query.trim();
+  const canCreate =
+    allowCreate &&
+    Boolean(onCreate) &&
+    trimmedQuery !== "" &&
+    !options.some(
+      (option) => option.label.toLowerCase() === trimmedQuery.toLowerCase(),
+    );
 
   // Chips follow the option order so the trigger reads in the same order as the list.
   const selected = options.filter((option) => value.includes(option.value));
@@ -171,6 +193,24 @@ export function MultiSelect({
                 <span className="truncate">{option.label}</span>
               </label>
             ))
+          )}
+
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                onCreate?.(trimmedQuery);
+                setQuery("");
+              }}
+              className="flex w-full items-center gap-2 border-t border-hairline px-4 py-2.5 text-left text-sm text-brand hover:bg-canvas"
+            >
+              <IconPlus
+                aria-hidden="true"
+                stroke={2}
+                className="size-4 shrink-0"
+              />
+              <span className="truncate">{createLabel(trimmedQuery)}</span>
+            </button>
           )}
         </div>
       )}

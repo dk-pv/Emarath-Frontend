@@ -14,6 +14,14 @@ const SINGLE_PARAM_KEYS = new Set([
   "unassigned",
   "archived",
   "pipeline",
+  // Activity Quick Filter presets (LEAD-04.1): a bucket flag plus the client's
+  // day-boundary instants.
+  "todaysFollowUps",
+  "overdue",
+  "noActivity",
+  "todayStart",
+  "todayEnd",
+  "tomorrowEnd",
 ]);
 
 /**

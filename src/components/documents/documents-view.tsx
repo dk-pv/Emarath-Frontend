@@ -14,7 +14,6 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Table } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
-import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { useAuth } from "@/components/auth/auth-context";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
@@ -24,6 +23,7 @@ import { ApiError } from "@/lib/api-client";
 import { DocumentFormDrawer } from "@/components/documents/document-form-drawer";
 import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
 import { DocumentTypeFilter } from "@/components/documents/document-type-filter";
+import { DocumentSearch } from "@/components/documents/document-search";
 import {
   deleteDocument,
   fetchDocuments,
@@ -129,7 +129,11 @@ export function DocumentsView() {
   const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
   const [docType, setDocType] = useState<DocumentTypeValue | null>(null);
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
+  // The reference gives search the whole toolbar: while it is open (or holds a term) the
+  // input takes over and All Documents + Add Document are hidden.
+  const searchExpanded = searchOpen || search.length > 0;
   const { query, page, size, sort, setPage, setSize, setSort, resetPage } =
     useListQuery({ size: PAGE_SIZE });
 
@@ -244,16 +248,22 @@ export function DocumentsView() {
       description="Files shared across the team."
       actions={
         <div className="flex items-center gap-2">
-          <ToolbarSearch
+          <DocumentSearch
+            expanded={searchExpanded}
             value={search}
             onChange={onSearchChange}
-            placeholder="Search here..."
+            onExpand={() => setSearchOpen(true)}
+            onCollapse={() => setSearchOpen(false)}
           />
-          <DocumentTypeFilter active={docType} onChange={onTypeChange} />
-          <Button size="sm" onClick={addDocument.open}>
-            <IconPlus size={18} stroke={2} />
-            Add Document
-          </Button>
+          {!searchExpanded && (
+            <>
+              <DocumentTypeFilter active={docType} onChange={onTypeChange} />
+              <Button size="sm" onClick={addDocument.open}>
+                <IconPlus size={18} stroke={2} />
+                Add Document
+              </Button>
+            </>
+          )}
         </div>
       }
       pagination={{

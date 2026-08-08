@@ -44,13 +44,33 @@ export interface DocumentListItem {
 }
 
 /**
+ * The file types the "All Documents" dropdown offers (DOC-06.1), mirroring the backend
+ * `DOCUMENT_TYPE_FILTERS`. Labels are the uppercase value ("PNG"); "All Documents" is the
+ * default (no filter) and is expressed as `null`, not a member.
+ */
+export const DOCUMENT_TYPE_FILTERS = [
+  "xlsx",
+  "png",
+  "jpg",
+  "pdf",
+  "docx",
+  "txt",
+  "csv",
+  "svg",
+] as const;
+
+export type DocumentTypeValue = (typeof DOCUMENT_TYPE_FILTERS)[number];
+
+/**
  * Fetches one scoped page of documents (DOC-03.1). Matches the `ListSource` shape the shared
  * table framework expects, so the same Table + pagination the other modules use drives it.
  * The sort state is split into the backend's `sort`/`direction` params; when unset the API
- * applies its default (newest first).
+ * applies its default (newest first). An optional `type` applies the "All Documents"
+ * file-type filter (DOC-06.1), narrowing within the caller's scope.
  */
 export async function fetchDocuments(
   query: ListQuery,
+  type?: DocumentTypeValue,
   signal?: AbortSignal,
 ): Promise<ListResult<DocumentListItem>> {
   const params = new URLSearchParams({
@@ -61,6 +81,7 @@ export async function fetchDocuments(
     params.set("sort", query.sort.key);
     params.set("direction", query.sort.direction);
   }
+  if (type) params.set("type", type);
   return apiGet<ListResult<DocumentListItem>>("/documents", params, signal);
 }
 

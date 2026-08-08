@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   IconFileText,
   IconPencil,
@@ -16,16 +16,18 @@ import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { useAuth } from "@/components/auth/auth-context";
 import { useDisclosure } from "@/hooks/use-disclosure";
-import { useListData } from "@/hooks/use-list-data";
+import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import { ApiError } from "@/lib/api-client";
 import { DocumentFormDrawer } from "@/components/documents/document-form-drawer";
 import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
+import { DocumentTypeFilter } from "@/components/documents/document-type-filter";
 import {
   deleteDocument,
   fetchDocuments,
   formatFileSize,
   type DocumentListItem,
+  type DocumentTypeValue,
 } from "@/services/documents-service";
 import type { TableColumn } from "@/types";
 
@@ -120,12 +122,30 @@ export function DocumentsView() {
     null,
   );
   const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
-  const { query, page, size, sort, setPage, setSize, setSort } = useListQuery({
-    size: PAGE_SIZE,
-  });
+  const [docType, setDocType] = useState<DocumentTypeValue | null>(null);
+  const { query, page, size, sort, setPage, setSize, setSort, resetPage } =
+    useListQuery({ size: PAGE_SIZE });
+
+  // Inject the active file type into the fetch (DOC-06.1). A new source identity when the
+  // type changes drives useListData to refetch; the type narrows within the caller's scope
+  // server-side, so it can never surface a document they otherwise can't see.
+  const source = useCallback<ListDataSource<DocumentListItem>>(
+    (listQuery, signal) =>
+      fetchDocuments(listQuery, docType ?? undefined, signal),
+    [docType],
+  );
   const { rows, total, isLoading, isError, refetch } = useListData(
-    fetchDocuments,
+    source,
     query,
+  );
+
+  // Selecting a type returns to page 1 (a filtered result is shorter than the current page).
+  const onTypeChange = useCallback(
+    (next: DocumentTypeValue | null) => {
+      setDocType(next);
+      resetPage();
+    },
+    [resetPage],
   );
 
   const pageCount = Math.max(1, Math.ceil(total / size));
@@ -201,10 +221,13 @@ export function DocumentsView() {
       title="Documents"
       description="Files shared across the team."
       actions={
-        <Button size="sm" onClick={addDocument.open}>
-          <IconPlus size={18} stroke={2} />
-          Add Document
-        </Button>
+        <div className="flex items-center gap-2">
+          <DocumentTypeFilter active={docType} onChange={onTypeChange} />
+          <Button size="sm" onClick={addDocument.open}>
+            <IconPlus size={18} stroke={2} />
+            Add Document
+          </Button>
+        </div>
       }
       pagination={{
         page,

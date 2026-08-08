@@ -1,4 +1,10 @@
-import { apiDelete, apiGet, apiPatch, apiPostForm } from "@/lib/api-client";
+import {
+  apiDelete,
+  apiGet,
+  apiPatch,
+  apiPost,
+  apiPostForm,
+} from "@/lib/api-client";
 import type { ListQuery, ListResult } from "@/types";
 
 /** A user reference as the Documents columns render one ("Uploaded By", "Access"). */
@@ -130,6 +136,33 @@ export function deleteDocument(
   signal?: AbortSignal,
 ): Promise<{ id: string }> {
   return apiDelete<{ id: string }>(`/documents/${id}`, signal);
+}
+
+/** The per-item outcome of a bulk action (DOC-08.1), mirroring the backend contract. */
+export interface BulkItemResult {
+  id: string;
+  status: "success" | "failed";
+  reason?: string;
+}
+
+export interface BulkActionResponse {
+  results: BulkItemResult[];
+  summary: { total: number; success: number; failed: number };
+}
+
+/**
+ * Permanently deletes the selected documents (DOC-08.1). The server deletes only the ids the
+ * caller may delete and reports the rest as failed — the browser's selection is never trusted.
+ */
+export function bulkDeleteDocuments(
+  ids: string[],
+  signal?: AbortSignal,
+): Promise<BulkActionResponse> {
+  return apiPost<BulkActionResponse>(
+    "/documents/bulk/delete",
+    { ids },
+    signal,
+  );
 }
 
 /**

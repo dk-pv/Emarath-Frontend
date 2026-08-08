@@ -24,10 +24,13 @@ import { DocumentFormDrawer } from "@/components/documents/document-form-drawer"
 import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
 import { DocumentTypeFilter } from "@/components/documents/document-type-filter";
 import { DocumentSearch } from "@/components/documents/document-search";
+import { DocumentBulkBar } from "@/components/documents/document-bulk-bar";
 import {
+  bulkDeleteDocuments,
   deleteDocument,
   fetchDocuments,
   formatFileSize,
+  type BulkActionResponse,
   type DocumentListItem,
   type DocumentTypeValue,
 } from "@/services/documents-service";
@@ -154,6 +157,74 @@ export function DocumentsView() {
     source,
     query,
   );
+
+  // Bulk selection (DOC-08.1). Ids accumulate across pages (the shared Table's select-all is
+  // page-local), matching Workpex's persistent "N Documents Selected" bar. The checkbox is a
+  // UX affordance; the server independently enforces which ids the caller may delete.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const confirmBulkDelete = useDisclosure();
+
+  const toggleRow = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = (ids: string[]) =>
+    setSelectedIds((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+
+  // Reports the per-item result via toast, then clears the selection (AC5) and refetches so the
+  // list reflects the deletion. The backend only fails an id it may not delete, so a partial
+  // result is surfaced honestly rather than claimed as a clean success.
+  const reportBulk = (result: BulkActionResponse) => {
+    const { success, failed } = result.summary;
+    if (failed === 0) {
+      toast({
+        title: `${success} document${success === 1 ? "" : "s"} deleted`,
+        tone: "success",
+      });
+    } else if (success === 0) {
+      toast({
+        title: "Couldn’t delete the selected documents",
+        description: "They were outside your permission and left unchanged.",
+        tone: "danger",
+      });
+    } else {
+      toast({
+        title: `${success} deleted, ${failed} skipped`,
+        description: "Some documents were outside your permission.",
+        tone: "warning",
+      });
+    }
+    setSelectedIds(new Set());
+    refetch();
+  };
+
+  const handleBulkDelete = async () => {
+    confirmBulkDelete.close();
+    setBulkBusy(true);
+    try {
+      const result = await bulkDeleteDocuments([...selectedIds]);
+      reportBulk(result);
+    } catch {
+      toast({ title: "Couldn’t delete documents", tone: "danger" });
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   // Selecting a type returns to page 1 (a filtered result is shorter than the current page).
   const onTypeChange = useCallback(
@@ -282,6 +353,13 @@ export function DocumentsView() {
         getRowId={(row) => row.id}
         sort={sort}
         onSortChange={setSort}
+        selection={{
+          selectedIds,
+          onToggleRow: toggleRow,
+          onToggleAll: toggleAll,
+          rowLabel: (row) => `Select ${row.title}`,
+          allLabel: "Select all documents on this page",
+        }}
         isLoading={isLoading}
         emptyState={
           <EmptyState
@@ -343,6 +421,28 @@ export function DocumentsView() {
             ? `Permanently delete “${deleteTarget.title}” and its file? This can't be undone.`
             : ""
         }
+        confirmLabel="Delete"
+        tone="danger"
+      />
+
+      {/* Bulk action bar + confirm (DOC-08.1). The bar floats while any row is selected. */}
+      {selectedIds.size > 0 && (
+        <DocumentBulkBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+          onDelete={confirmBulkDelete.open}
+          busy={bulkBusy}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmBulkDelete.isOpen}
+        onCancel={confirmBulkDelete.close}
+        onConfirm={() => void handleBulkDelete()}
+        title="Delete documents"
+        description={`Permanently delete ${selectedIds.size} selected document${
+          selectedIds.size === 1 ? "" : "s"
+        } and their files? This can't be undone.`}
         confirmLabel="Delete"
         tone="danger"
       />

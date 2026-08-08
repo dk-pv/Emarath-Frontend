@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPostForm } from "@/lib/api-client";
+import { apiDelete, apiGet, apiPatch, apiPostForm } from "@/lib/api-client";
 import type { ListQuery, ListResult } from "@/types";
 
 /** A user reference as the Documents columns render one ("Uploaded By", "Access"). */
@@ -88,6 +88,17 @@ export function updateDocument(
   signal?: AbortSignal,
 ): Promise<DocumentResponse> {
   return apiPatch<DocumentResponse>(`/documents/${id}`, input, signal);
+}
+
+/**
+ * Permanently deletes a document — its record and stored file (DOC-05.1). Returns the
+ * removed id; a 403 means the caller may not delete it, a 404 that it is out of scope.
+ */
+export function deleteDocument(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ id: string }> {
+  return apiDelete<{ id: string }>(`/documents/${id}`, signal);
 }
 
 /**

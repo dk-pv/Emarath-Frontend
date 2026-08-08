@@ -1,19 +1,28 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { IconFileText, IconPencil, IconPlus } from "@tabler/icons-react";
+import {
+  IconFileText,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Table } from "@/components/ui/Table";
+import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { useAuth } from "@/components/auth/auth-context";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useListData } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
+import { ApiError } from "@/lib/api-client";
 import { DocumentFormDrawer } from "@/components/documents/document-form-drawer";
 import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
 import {
+  deleteDocument,
   fetchDocuments,
   formatFileSize,
   type DocumentListItem,
@@ -104,8 +113,13 @@ const DATA_COLUMNS: TableColumn<DocumentListItem>[] = [
 
 export function DocumentsView() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const addDocument = useDisclosure();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DocumentListItem | null>(
+    null,
+  );
+  const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
   const { query, page, size, sort, setPage, setSize, setSort } = useListQuery({
     size: PAGE_SIZE,
   });
@@ -116,9 +130,33 @@ export function DocumentsView() {
 
   const pageCount = Math.max(1, Math.ceil(total / size));
 
-  // The Edit affordance shows only for a document the caller may edit — its uploader, or a
-  // SUPERADMIN. The server re-checks this on PATCH, so hiding the button is a UX nicety, never
-  // the authorization boundary.
+  // Runs the hard delete once confirmed (DOC-05.1). The dialog is closed first so the
+  // confirm button can't fire twice, and the row is marked pending to block a repeat click
+  // during the request; on success the list refetches so the row disappears (AC4). The server
+  // is the real gate — a 403 here is surfaced, never assumed away.
+  async function handleDelete() {
+    const target = deleteTarget;
+    if (!target) return;
+    setDeleteTarget(null);
+    setDeletePendingId(target.id);
+    try {
+      await deleteDocument(target.id);
+      toast({ title: `“${target.title}” deleted`, tone: "success" });
+      refetch();
+    } catch (error) {
+      const message =
+        error instanceof ApiError && error.status === 403
+          ? "You do not have permission to delete this document."
+          : "Couldn’t delete the document. Please try again.";
+      toast({ title: message, tone: "danger" });
+    } finally {
+      setDeletePendingId(null);
+    }
+  }
+
+  // Edit and Delete show only for a document the caller may manage — its uploader, or a
+  // SUPERADMIN. The server re-checks both on PATCH/DELETE, so hiding the buttons is a UX
+  // nicety, never the authorization boundary.
   const columns = useMemo<TableColumn<DocumentListItem>[]>(
     () => [
       ...DATA_COLUMNS,
@@ -127,24 +165,35 @@ export function DocumentsView() {
         header: "Actions",
         align: "right",
         render: (row) => {
-          const canEdit =
+          const canManage =
             !!user &&
             (row.uploadedBy.id === user.id || user.role === "SUPERADMIN");
-          if (!canEdit) return null;
+          if (!canManage) return null;
           return (
-            <button
-              type="button"
-              onClick={() => setEditingId(row.id)}
-              aria-label={`Edit ${row.title}`}
-              className="focus-ring inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink"
-            >
-              <IconPencil size={16} stroke={1.75} aria-hidden="true" />
-            </button>
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setEditingId(row.id)}
+                aria-label={`Edit ${row.title}`}
+                className="focus-ring inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink"
+              >
+                <IconPencil size={16} stroke={1.75} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(row)}
+                disabled={deletePendingId === row.id}
+                aria-label={`Delete ${row.title}`}
+                className="focus-ring inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-danger/5 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <IconTrash size={16} stroke={1.75} aria-hidden="true" />
+              </button>
+            </div>
           );
         },
       },
     ],
-    [user],
+    [user, deletePendingId],
   );
 
   return (
@@ -222,6 +271,21 @@ export function DocumentsView() {
           }}
         />
       )}
+
+      {/* Row "Delete" (DOC-05.1) — names the document and warns it's permanent. */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+        title="Delete document"
+        description={
+          deleteTarget
+            ? `Permanently delete “${deleteTarget.title}” and its file? This can't be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        tone="danger"
+      />
     </TablePageLayout>
   );
 }

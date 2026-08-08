@@ -1,4 +1,5 @@
-import { apiPostForm } from "@/lib/api-client";
+import { apiGet, apiPostForm } from "@/lib/api-client";
+import type { ListQuery, ListResult } from "@/types";
 
 /** A user reference as the Documents columns render one ("Uploaded By", "Access"). */
 export interface DocumentUserRef {
@@ -24,6 +25,43 @@ export interface DocumentResponse {
   uploadedBy: DocumentUserRef;
   access: DocumentUserRef[];
   downloadUrl: string;
+}
+
+/**
+ * One document as the list endpoint returns it (DOC-03.1), mirroring the backend
+ * `DocumentListItem`. Narrower than the upload response — no `access` — and every row
+ * carries a short-lived signed `downloadUrl`; the raw storage key is never exposed.
+ */
+export interface DocumentListItem {
+  id: string;
+  title: string;
+  fileName: string;
+  sizeBytes: number;
+  contentType: string;
+  createdAt: string;
+  uploadedBy: DocumentUserRef;
+  downloadUrl: string;
+}
+
+/**
+ * Fetches one scoped page of documents (DOC-03.1). Matches the `ListSource` shape the shared
+ * table framework expects, so the same Table + pagination the other modules use drives it.
+ * The sort state is split into the backend's `sort`/`direction` params; when unset the API
+ * applies its default (newest first).
+ */
+export async function fetchDocuments(
+  query: ListQuery,
+  signal?: AbortSignal,
+): Promise<ListResult<DocumentListItem>> {
+  const params = new URLSearchParams({
+    page: String(query.page),
+    size: String(query.size),
+  });
+  if (query.sort) {
+    params.set("sort", query.sort.key);
+    params.set("direction", query.sort.direction);
+  }
+  return apiGet<ListResult<DocumentListItem>>("/documents", params, signal);
 }
 
 /**

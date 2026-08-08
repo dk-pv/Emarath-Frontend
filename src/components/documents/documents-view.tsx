@@ -1,15 +1,18 @@
 "use client";
 
-import { IconFileText, IconPlus } from "@tabler/icons-react";
+import { useMemo, useState } from "react";
+import { IconFileText, IconPencil, IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Table } from "@/components/ui/Table";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
+import { useAuth } from "@/components/auth/auth-context";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useListData } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import { DocumentFormDrawer } from "@/components/documents/document-form-drawer";
+import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
 import {
   fetchDocuments,
   formatFileSize,
@@ -46,9 +49,10 @@ function typeLabel(row: DocumentListItem): string {
  * over the shared server-driven Table (paging + sorting travel to the API; the browser never
  * holds the whole set). Search, the type filter, Access and row Actions are their own later
  * tasks. The Attachment is a signed download link (AC2); the Add Document drawer is preserved
- * and refetches the list on success so a new upload appears (DOC-02.2 AC4).
+ * and refetches the list on success so a new upload appears (DOC-02.2 AC4). DOC-04.1 appends
+ * an Actions column with the Edit affordance.
  */
-const COLUMNS: TableColumn<DocumentListItem>[] = [
+const DATA_COLUMNS: TableColumn<DocumentListItem>[] = [
   {
     key: "title",
     header: "File Name",
@@ -99,7 +103,9 @@ const COLUMNS: TableColumn<DocumentListItem>[] = [
 ];
 
 export function DocumentsView() {
+  const { user } = useAuth();
   const addDocument = useDisclosure();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const { query, page, size, sort, setPage, setSize, setSort } = useListQuery({
     size: PAGE_SIZE,
   });
@@ -109,6 +115,37 @@ export function DocumentsView() {
   );
 
   const pageCount = Math.max(1, Math.ceil(total / size));
+
+  // The Edit affordance shows only for a document the caller may edit — its uploader, or a
+  // SUPERADMIN. The server re-checks this on PATCH, so hiding the button is a UX nicety, never
+  // the authorization boundary.
+  const columns = useMemo<TableColumn<DocumentListItem>[]>(
+    () => [
+      ...DATA_COLUMNS,
+      {
+        key: "actions",
+        header: "Actions",
+        align: "right",
+        render: (row) => {
+          const canEdit =
+            !!user &&
+            (row.uploadedBy.id === user.id || user.role === "SUPERADMIN");
+          if (!canEdit) return null;
+          return (
+            <button
+              type="button"
+              onClick={() => setEditingId(row.id)}
+              aria-label={`Edit ${row.title}`}
+              className="focus-ring inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink"
+            >
+              <IconPencil size={16} stroke={1.75} aria-hidden="true" />
+            </button>
+          );
+        },
+      },
+    ],
+    [user],
+  );
 
   return (
     <TablePageLayout
@@ -131,7 +168,7 @@ export function DocumentsView() {
       tableLabel="Documents table"
     >
       <Table
-        columns={COLUMNS}
+        columns={columns}
         rows={rows}
         getRowId={(row) => row.id}
         sort={sort}
@@ -168,6 +205,19 @@ export function DocumentsView() {
           onUploaded={() => {
             addDocument.close();
             // Reload so the newly uploaded document appears (DOC-02.2 AC4).
+            refetch();
+          }}
+        />
+      )}
+
+      {editingId && (
+        <DocumentEditDrawer
+          documentId={editingId}
+          open
+          onClose={() => setEditingId(null)}
+          onSaved={() => {
+            setEditingId(null);
+            // Reflect the new name/access in the list immediately (DOC-04.1 AC4).
             refetch();
           }}
         />

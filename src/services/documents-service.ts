@@ -1,4 +1,4 @@
-import { apiGet, apiPostForm } from "@/lib/api-client";
+import { apiGet, apiPatch, apiPostForm } from "@/lib/api-client";
 import type { ListQuery, ListResult } from "@/types";
 
 /** A user reference as the Documents columns render one ("Uploaded By", "Access"). */
@@ -62,6 +62,32 @@ export async function fetchDocuments(
     params.set("direction", query.sort.direction);
   }
   return apiGet<ListResult<DocumentListItem>>("/documents", params, signal);
+}
+
+/**
+ * Loads one document with its current access list (DOC-04.1) for the Edit drawer to prefill.
+ * Returns the full `DocumentResponse` (with `access`); a 404 means out of scope / deleted.
+ */
+export function fetchDocument(
+  id: string,
+  signal?: AbortSignal,
+): Promise<DocumentResponse> {
+  return apiGet<DocumentResponse>(`/documents/${id}`, undefined, signal);
+}
+
+/** The Edit Document payload (DOC-04.1). Both fields optional — rename, re-share, or both. */
+export interface UpdateDocumentInput {
+  title?: string;
+  userIds?: string[];
+}
+
+/** Renames and/or re-shares a document (DOC-04.1). Returns the updated document. */
+export function updateDocument(
+  id: string,
+  input: UpdateDocumentInput,
+  signal?: AbortSignal,
+): Promise<DocumentResponse> {
+  return apiPatch<DocumentResponse>(`/documents/${id}`, input, signal);
 }
 
 /**

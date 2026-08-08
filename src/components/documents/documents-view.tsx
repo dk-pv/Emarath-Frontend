@@ -14,7 +14,9 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Table } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
+import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { useAuth } from "@/components/auth/auth-context";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
@@ -32,6 +34,9 @@ import {
 import type { TableColumn } from "@/types";
 
 const PAGE_SIZE = 25;
+
+/** A pause after the last keystroke before the server search runs (matches Leads). */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /** "12-06-2026, 11:56:24 AM" — the Workpex timestamp format (matches the other lists). */
 function formatDateTime(iso: string): string {
@@ -123,16 +128,23 @@ export function DocumentsView() {
   );
   const [deletePendingId, setDeletePendingId] = useState<string | null>(null);
   const [docType, setDocType] = useState<DocumentTypeValue | null>(null);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const { query, page, size, sort, setPage, setSize, setSort, resetPage } =
     useListQuery({ size: PAGE_SIZE });
 
-  // Inject the active file type into the fetch (DOC-06.1). A new source identity when the
-  // type changes drives useListData to refetch; the type narrows within the caller's scope
-  // server-side, so it can never surface a document they otherwise can't see.
+  // Inject the active type filter (DOC-06.1) and name search (DOC-07.1) into the fetch. A
+  // new source identity when either changes drives useListData to refetch; both narrow
+  // within the caller's scope server-side, so neither can surface a document they otherwise
+  // can't see, and they combine on the server.
   const source = useCallback<ListDataSource<DocumentListItem>>(
     (listQuery, signal) =>
-      fetchDocuments(listQuery, docType ?? undefined, signal),
-    [docType],
+      fetchDocuments(
+        listQuery,
+        { type: docType ?? undefined, search: debouncedSearch || undefined },
+        signal,
+      ),
+    [docType, debouncedSearch],
   );
   const { rows, total, isLoading, isError, refetch } = useListData(
     source,
@@ -143,6 +155,16 @@ export function DocumentsView() {
   const onTypeChange = useCallback(
     (next: DocumentTypeValue | null) => {
       setDocType(next);
+      resetPage();
+    },
+    [resetPage],
+  );
+
+  // A new search term starts at page 1 (the same event-handler reset Leads uses — never in
+  // an effect). The live value drives the input; the debounced value drives the fetch.
+  const onSearchChange = useCallback(
+    (value: string) => {
+      setSearch(value);
       resetPage();
     },
     [resetPage],
@@ -222,6 +244,11 @@ export function DocumentsView() {
       description="Files shared across the team."
       actions={
         <div className="flex items-center gap-2">
+          <ToolbarSearch
+            value={search}
+            onChange={onSearchChange}
+            placeholder="Search here..."
+          />
           <DocumentTypeFilter active={docType} onChange={onTypeChange} />
           <Button size="sm" onClick={addDocument.open}>
             <IconPlus size={18} stroke={2} />

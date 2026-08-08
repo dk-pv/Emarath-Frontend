@@ -61,16 +61,25 @@ export const DOCUMENT_TYPE_FILTERS = [
 
 export type DocumentTypeValue = (typeof DOCUMENT_TYPE_FILTERS)[number];
 
+/** The narrowing options the Documents list accepts alongside paging/sorting. */
+export interface DocumentListOptions {
+  /** The "All Documents" file-type filter (DOC-06.1). */
+  type?: DocumentTypeValue;
+  /** Free-text name search (DOC-07.1); blank means no search. */
+  search?: string;
+}
+
 /**
  * Fetches one scoped page of documents (DOC-03.1). Matches the `ListSource` shape the shared
  * table framework expects, so the same Table + pagination the other modules use drives it.
  * The sort state is split into the backend's `sort`/`direction` params; when unset the API
- * applies its default (newest first). An optional `type` applies the "All Documents"
- * file-type filter (DOC-06.1), narrowing within the caller's scope.
+ * applies its default (newest first). `options.type` applies the file-type filter (DOC-06.1)
+ * and `options.search` the name search (DOC-07.1) — both narrow within the caller's scope and
+ * combine on the server.
  */
 export async function fetchDocuments(
   query: ListQuery,
-  type?: DocumentTypeValue,
+  options?: DocumentListOptions,
   signal?: AbortSignal,
 ): Promise<ListResult<DocumentListItem>> {
   const params = new URLSearchParams({
@@ -81,7 +90,8 @@ export async function fetchDocuments(
     params.set("sort", query.sort.key);
     params.set("direction", query.sort.direction);
   }
-  if (type) params.set("type", type);
+  if (options?.type) params.set("type", options.type);
+  if (options?.search) params.set("search", options.search);
   return apiGet<ListResult<DocumentListItem>>("/documents", params, signal);
 }
 

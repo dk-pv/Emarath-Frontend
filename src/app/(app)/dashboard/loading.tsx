@@ -1,10 +1,15 @@
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ContentContainer } from "@/components/layout/ContentContainer";
+import { SummaryCardsSkeleton } from "@/components/dashboard/summary-cards";
 
 export default function DashboardLoading() {
   return (
-    <ContentContainer className="p-4 lg:p-6">
-      <Skeleton className="h-[60vh] w-full rounded-surface" />
+    <ContentContainer>
+      <div className="flex justify-end">
+        <Skeleton className="h-9 w-36 rounded-full" />
+      </div>
+      <SummaryCardsSkeleton />
+      <Skeleton className="h-[420px] w-full rounded-surface" />
     </ContentContainer>
   );
 }

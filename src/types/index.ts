@@ -16,6 +16,25 @@ export type SelectOption<TValue extends string = string> = {
   disabled?: boolean;
 };
 
+/** A Dashboard KPI card (demo data until the Dashboard module, Sprint 5). */
+export type SummaryCard = {
+  id: string;
+  label: string;
+  value: string;
+  caption: string;
+  tone: Tone;
+};
+
+/** Leaderboard row, mirroring the Workpex Sales Team Activity Board. */
+export type LeaderboardRow = {
+  id: string;
+  agent: string;
+  leads: number;
+  calls: number;
+  convertedAmount: number;
+  conversionRate: number;
+};
+
 export type TableColumn<TRow> = {
   key: string;
   header: string;

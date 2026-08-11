@@ -230,3 +230,36 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
     ]),
   },
 ];
+
+/** A resolved report plus the category it belongs to (its siblings drive the shell's header dropdown). */
+export interface ResolvedReport {
+  report: ReportDefinition;
+  category: ReportCategory;
+}
+
+/**
+ * Resolve a report route (`/reports/<category>/<slug>`) back to its registry entry so the
+ * shell never duplicates titles/slugs. Returns undefined for an unknown category/slug — the
+ * route turns that into a proper 404 rather than rendering a fake report.
+ */
+export function findReport(
+  category: string,
+  slug: string,
+): ResolvedReport | undefined {
+  const href = `/reports/${category}/${slug}`;
+  for (const cat of REPORT_CATEGORIES) {
+    const report = cat.reports.find((entry) => entry.href === href);
+    if (report) return { report, category: cat };
+  }
+  return undefined;
+}
+
+/** The `[category]`/`[slug]` pairs for every report, for static route generation. */
+export function reportRouteParams(): { category: string; slug: string }[] {
+  return REPORT_CATEGORIES.flatMap((cat) =>
+    cat.reports.map((report) => {
+      const [, , category, slug] = report.href.split("/");
+      return { category, slug };
+    }),
+  );
+}

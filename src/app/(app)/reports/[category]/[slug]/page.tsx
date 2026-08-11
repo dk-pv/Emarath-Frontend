@@ -7,6 +7,7 @@ import {
 } from "@/components/reports/report-registry";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ReportView } from "@/components/reports/report-view";
+import { NoActivityLeadsReport } from "@/components/reports/no-activity-leads-report";
 
 type RouteParams = { category: string; slug: string };
 
@@ -23,7 +24,9 @@ export async function generateMetadata({
   const { category, slug } = await params;
   const resolved = findReport(category, slug);
   return {
-    title: resolved ? `${resolved.report.title} - Emarath` : "Reports - Emarath",
+    title: resolved
+      ? `${resolved.report.title} - Emarath`
+      : "Reports - Emarath",
   };
 }
 
@@ -40,10 +43,15 @@ export default async function ReportPage({
   const { category, slug } = await params;
   if (!findReport(category, slug)) notFound();
 
+  // Built reports render their own scoped body; the rest fall back to the shell placeholder
+  // (RPT-01.2) until their task lands. Add a case per report as it is implemented.
+  const Body =
+    slug === "no-activity-leads" ? NoActivityLeadsReport : ReportView;
+
   return (
     <PageContainer>
       <Suspense>
-        <ReportView category={category} slug={slug} />
+        <Body category={category} slug={slug} />
       </Suspense>
     </PageContainer>
   );

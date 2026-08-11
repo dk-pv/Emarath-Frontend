@@ -8,6 +8,7 @@ import {
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ReportView } from "@/components/reports/report-view";
 import { NoActivityLeadsReport } from "@/components/reports/no-activity-leads-report";
+import { TodayLeadsReport } from "@/components/reports/today-leads-report";
 
 type RouteParams = { category: string; slug: string };
 
@@ -46,7 +47,11 @@ export default async function ReportPage({
   // Built reports render their own scoped body; the rest fall back to the shell placeholder
   // (RPT-01.2) until their task lands. Add a case per report as it is implemented.
   const Body =
-    slug === "no-activity-leads" ? NoActivityLeadsReport : ReportView;
+    slug === "no-activity-leads"
+      ? NoActivityLeadsReport
+      : slug === "today-leads"
+        ? TodayLeadsReport
+        : ReportView;
 
   return (
     <PageContainer>

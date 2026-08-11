@@ -9,6 +9,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { ReportView } from "@/components/reports/report-view";
 import { NoActivityLeadsReport } from "@/components/reports/no-activity-leads-report";
 import { TodayLeadsReport } from "@/components/reports/today-leads-report";
+import { LeadsByStatusReport } from "@/components/reports/leads-by-status-report";
 
 type RouteParams = { category: string; slug: string };
 
@@ -51,7 +52,9 @@ export default async function ReportPage({
       ? NoActivityLeadsReport
       : slug === "today-leads"
         ? TodayLeadsReport
-        : ReportView;
+        : slug === "leads-by-status"
+          ? LeadsByStatusReport
+          : ReportView;
 
   return (
     <PageContainer>

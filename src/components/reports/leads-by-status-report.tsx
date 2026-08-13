@@ -196,9 +196,18 @@ export function LeadsByStatusReport({
     [view, filters],
   );
 
+  // `useListData` decides whether its rows are current by `query` identity, but the fetch also
+  // depends on the view (summary vs detailed — different row shapes) and the filters, which live
+  // outside `query`. Fold them into a fresh key so switching view/filter marks the previous rows
+  // stale (loading state) instead of briefly handing the other view's rows to this view's table,
+  // which would read fields that shape does not have and crash the report to a blank screen.
+  const listKey = useMemo(
+    () => ({ ...query, view, activeFilters: filters }),
+    [query, view, filters],
+  );
   const { rows, total, isLoading, isError, refetch } = useListData<Row>(
     dataSource,
-    query,
+    listKey,
   );
 
   const setParams = useCallback(

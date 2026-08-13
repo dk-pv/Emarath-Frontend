@@ -11,6 +11,7 @@ import { NoActivityLeadsReport } from "@/components/reports/no-activity-leads-re
 import { TodayLeadsReport } from "@/components/reports/today-leads-report";
 import { LeadsByStatusReport } from "@/components/reports/leads-by-status-report";
 import { LeadsBySourceReport } from "@/components/reports/leads-by-source-report";
+import { LeadsByOwnershipReport } from "@/components/reports/leads-by-ownership-report";
 
 type RouteParams = { category: string; slug: string };
 
@@ -57,7 +58,9 @@ export default async function ReportPage({
           ? LeadsByStatusReport
           : slug === "leads-by-source"
             ? LeadsBySourceReport
-            : ReportView;
+            : slug === "leads-by-ownership"
+              ? LeadsByOwnershipReport
+              : ReportView;
 
   return (
     <PageContainer>

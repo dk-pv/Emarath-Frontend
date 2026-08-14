@@ -14,6 +14,7 @@ import { LeadsBySourceReport } from "@/components/reports/leads-by-source-report
 import { LeadsByOwnershipReport } from "@/components/reports/leads-by-ownership-report";
 import { ConvertedLeadsReport } from "@/components/reports/converted-leads-report";
 import { LostLeadsReport } from "@/components/reports/lost-leads-report";
+import { OverdueFollowUpsReport } from "@/components/reports/overdue-follow-ups-report";
 
 type RouteParams = { category: string; slug: string };
 
@@ -66,7 +67,9 @@ export default async function ReportPage({
                 ? ConvertedLeadsReport
                 : slug === "lost-leads"
                   ? LostLeadsReport
-                  : ReportView;
+                  : slug === "overdue-follow-ups"
+                    ? OverdueFollowUpsReport
+                    : ReportView;
 
   return (
     <PageContainer>

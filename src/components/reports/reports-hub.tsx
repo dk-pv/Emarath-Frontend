@@ -2,17 +2,27 @@
 
 import { Card } from "@/components/ui/Card";
 import { ReportCategory } from "./report-category";
-import { REPORT_CATEGORIES } from "./report-registry";
+import { ANALYTICS_CATEGORIES, REPORT_CATEGORIES } from "./report-registry";
 
 /**
- * The Reports hub body (RPT-01.1). A Client Component so the registry — whose cards carry
- * Tabler icon *components* — stays client-side and never crosses the Server→Client boundary
- * (function references can't be serialized). Each category owns its own search and collapse.
+ * A category-hub body (RPT-01.1) — the Reports hub, and the Analytics hub with the same chrome.
+ * A Client Component so the registry — whose cards carry Tabler icon *components* — stays
+ * client-side and never crosses the Server→Client boundary (function references can't be
+ * serialized). That is why the caller selects a hub by a plain string `variant`, not by passing
+ * the categories array: the array is resolved here, client-side. Each category owns its own
+ * search and collapse.
  */
-export function ReportsHub() {
+export function ReportsHub({
+  variant = "reports",
+}: {
+  variant?: "reports" | "analytics";
+}) {
+  const categories =
+    variant === "analytics" ? ANALYTICS_CATEGORIES : REPORT_CATEGORIES;
+
   return (
     <Card className="divide-y divide-hairline p-0">
-      {REPORT_CATEGORIES.map((category) => (
+      {categories.map((category) => (
         <div key={category.key} className="p-6 lg:p-8">
           <ReportCategory category={category} />
         </div>

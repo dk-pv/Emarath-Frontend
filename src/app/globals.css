@@ -58,14 +58,17 @@
   --spacing-sidebar-collapsed: 88px;
   --spacing-navbar: 53px;
 
-  /* Sidebar internals */
-  --spacing-brand-block: 101px;
-  --spacing-brand-inset: 18px;
-  --spacing-nav-item: 61.2px;
+  /* Sidebar internals. --spacing-nav-item is the row MINIMUM height; each row flex-grows
+     to share the sidebar height evenly (Workpex's roomy rhythm), holding this minimum only
+     on a short viewport where the nav scrolls. Inset/gap are shared with the Navbar. */
+  --spacing-brand-block: 60px;
+  /* Left inset of the 36px brand tile, chosen so the tile's centre (inset + 18) sits on the
+     nav-icon centre column (pl-nav-inset 32 + icon 20/2 = 42), aligning the logo with the rail. */
+  --spacing-brand-inset: 24px;
+  --spacing-nav-item: 44px;
   --spacing-nav-inset: 32px;
   --spacing-nav-gap: 14px;
-  --spacing-nav-icon: 22px;
-  --spacing-logout-offset: 19px;
+  --spacing-nav-icon: 20px;
 
   /* Collapse handle */
   --spacing-toggle-w: 12px;
@@ -81,8 +84,8 @@
 
   /* Type */
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --text-nav: 17px;
-  --text-nav--line-height: 20.4px;
+  --text-nav: 14px;
+  --text-nav--line-height: 20px;
   --text-title: 27px;
   --text-title--line-height: 1;
 

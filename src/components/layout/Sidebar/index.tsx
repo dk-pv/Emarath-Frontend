@@ -21,10 +21,11 @@ type SidebarProps = {
 };
 
 /**
- * Measured: 230px expanded, 88px collapsed, #363937. The brand block is 101px tall
- * and rows start immediately below it at a fixed 61.2px pitch — verified top-anchored
- * rather than stretched, since row positions are identical at 869px and 842px
- * viewport heights.
+ * 230px expanded, 88px collapsed, #363937. A 60px brand block, then the nav: a flex column
+ * whose 12 rows (11 destinations + Logout) each flex-grow from a 44px minimum, so they share
+ * the sidebar height evenly — Logout is the last row of that same list, never bottom-pinned,
+ * and the rail fills top-to-bottom the way Workpex does instead of leaving dead space below.
+ * On a very short viewport the rows hold their 44px minimum and the nav scrolls.
  *
  * It is a flex sibling of the content column rather than `position: fixed`, so it
  * reserves its own width and can never overlap the content.
@@ -56,7 +57,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       <nav
         aria-label="Main"
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto scrollbar-none"
+        className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none pb-4"
       >
         {items.map((item) => (
           <SidebarNavLink
@@ -68,17 +69,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             collapsed={collapsed}
           />
         ))}
-      </nav>
 
-      {/* Sign-out is wired by the Authentication tasks; the shell owns only the row. */}
-      <button
-        type="button"
-        aria-label="Logout"
-        className={`${SIDEBAR_ROW_CLASS} ${SIDEBAR_ROW_IDLE} mt-auto mb-logout-offset`}
-      >
-        <SidebarRowIcon icon={IconLogout} />
-        <SidebarRowLabel collapsed={collapsed}>Logout</SidebarRowLabel>
-      </button>
+        {/* Sign-out is the last row of the same nav flow — an equal flex-grow row directly
+            after Settings, sharing the height like every other item, never bottom-pinned.
+            Wiring is an Authentication task; the shell owns only the row. */}
+        <button
+          type="button"
+          aria-label="Logout"
+          className={`${SIDEBAR_ROW_CLASS} ${SIDEBAR_ROW_IDLE}`}
+        >
+          <SidebarRowIcon icon={IconLogout} />
+          <SidebarRowLabel collapsed={collapsed}>Logout</SidebarRowLabel>
+        </button>
+      </nav>
 
       <SidebarToggle collapsed={collapsed} onToggle={onToggle} />
     </aside>

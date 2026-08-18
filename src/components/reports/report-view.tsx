@@ -7,7 +7,7 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { findReport } from "./report-registry";
+import { findAnalyticsReport, findReport } from "./report-registry";
 import { ReportFilterBar } from "./report-toolbar";
 import {
   ReportShell,
@@ -36,7 +36,10 @@ export function ReportView({
   category: string;
   slug: string;
 }) {
-  const resolved = findReport(category, slug);
+  // Reports resolve under /reports, Analytics reports under /analytics — either can host this
+  // preview, so fall back across both hubs.
+  const resolved =
+    findReport(category, slug) ?? findAnalyticsReport(category, slug);
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();

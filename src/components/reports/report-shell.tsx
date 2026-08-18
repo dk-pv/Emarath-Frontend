@@ -110,6 +110,10 @@ function ReportHeader({
   const router = useRouter();
   const others = category.reports.length - 1;
 
+  // The hub this report belongs to — `/reports` or `/analytics` — from the first href segment,
+  // so the back button returns to the correct hub for either module.
+  const hubHref = `/${report.href.split("/")[1]}`;
+
   const items: DropdownItem[] = category.reports.map((entry) => ({
     type: "item",
     id: entry.slug,
@@ -121,7 +125,7 @@ function ReportHeader({
   return (
     <div className="flex items-center gap-3">
       <Link
-        href="/reports"
+        href={hubHref}
         aria-label="Back to reports"
         className="flex size-control-md shrink-0 items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring"
       >

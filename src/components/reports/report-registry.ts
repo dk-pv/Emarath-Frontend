@@ -24,8 +24,8 @@ import {
  * Leads hub shows 8–9 cards across captures (it adds "Lead Aging & Stale Leads" and, in the
  * overview video, "Lead First Response"); neither is one of the seven RPT-02.x tasks, so both
  * are deliberately omitted. Titles/descriptions for Leads and Follow Ups are transcribed
- * verbatim from the Workpex reference; the Sales section is not shown in any supplied
- * reference, so its titles/descriptions/icons fall back to the backlog (RPT-04.1/04.2).
+ * verbatim from the Workpex reference. Sales is NOT a Reports category — in Workpex it lives
+ * under the separate Analytics module — so it is defined in ANALYTICS_CATEGORIES below, not here.
  */
 
 /** A hue key → literal Tailwind classes. Literal so Tailwind emits them (see stage-palette.ts, CLAUDE.md §7). */
@@ -205,27 +205,45 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
       },
     ]),
   },
+];
+
+/**
+ * The Analytics hub catalogue. In Workpex the Sales reports live under the separate **Analytics**
+ * module (`/analytics`, "3 Sales Reports"), NOT under Reports — so they are defined here and the
+ * Analytics page renders them with the same hub/section/card components. Titles and descriptions
+ * are transcribed verbatim from `ui-reference/analytics/analytics-hub-sales-reports-default.png`.
+ * These are hub cards (navigation only); the report screens themselves are future/unticketed, so
+ * the `taskId`s are the roadmap-proposed Analytics ids (Revenue maps to the backlog's RPT-04.1).
+ */
+export const ANALYTICS_CATEGORIES: readonly ReportCategory[] = [
   {
     key: "sales",
     title: "Sales",
-    // Not shown in any supplied reference — titles/descriptions/icons are the backlog
-    // fallback (RPT-04.1/04.2), which the backlog itself says are "to be confirmed".
-    reports: withHrefs("/reports/sales", [
+    reports: withHrefs("/analytics/sales", [
       {
-        taskId: "RPT-04.1",
-        slug: "sales-revenue",
-        title: "Sales Revenue",
-        description: "Track revenue performance over the period in AED",
-        icon: IconReportMoney,
-        accent: "emerald",
+        taskId: "ANLY-01.1",
+        slug: "sales-funnel",
+        title: "Sales Funnel Report",
+        description: "Analyze full pipeline conversion and funnel ratios",
+        icon: IconFilterDollar,
+        accent: "sky",
       },
       {
-        taskId: "RPT-04.2",
-        slug: "sales-conversion",
-        title: "Sales Conversion",
-        description: "Measure conversion performance by team or period",
+        taskId: "ANLY-01.2",
+        slug: "sales-pipeline-analysis",
+        title: "Sales Pipeline Analysis",
+        description: "Revenue predictability, pipeline health & forecast",
         icon: IconTrendingUp,
         accent: "violet",
+      },
+      {
+        taskId: "RPT-04.1",
+        slug: "revenue-report",
+        title: "Revenue Report",
+        description:
+          "Total revenue, deal trends & target achievement in one view.",
+        icon: IconReportMoney,
+        accent: "emerald",
       },
     ]),
   },
@@ -257,6 +275,33 @@ export function findReport(
 /** The `[category]`/`[slug]` pairs for every report, for static route generation. */
 export function reportRouteParams(): { category: string; slug: string }[] {
   return REPORT_CATEGORIES.flatMap((cat) =>
+    cat.reports.map((report) => {
+      const [, , category, slug] = report.href.split("/");
+      return { category, slug };
+    }),
+  );
+}
+
+/**
+ * Resolve an Analytics report route (`/analytics/<category>/<slug>`) back to its registry entry.
+ * Kept separate from `findReport` so the Reports route never resolves an Analytics report (and
+ * vice-versa) — each hub only sees its own categories.
+ */
+export function findAnalyticsReport(
+  category: string,
+  slug: string,
+): ResolvedReport | undefined {
+  const href = `/analytics/${category}/${slug}`;
+  for (const cat of ANALYTICS_CATEGORIES) {
+    const report = cat.reports.find((entry) => entry.href === href);
+    if (report) return { report, category: cat };
+  }
+  return undefined;
+}
+
+/** The `[category]`/`[slug]` pairs for every Analytics report, for static route generation. */
+export function analyticsRouteParams(): { category: string; slug: string }[] {
+  return ANALYTICS_CATEGORIES.flatMap((cat) =>
     cat.reports.map((report) => {
       const [, , category, slug] = report.href.split("/");
       return { category, slug };

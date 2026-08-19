@@ -40,6 +40,7 @@ export interface LeadListItem {
   firstName: string | null;
   primaryPhone: string;
   secondaryPhone: string | null;
+  email: string | null;
   language: string | null;
   country: string | null;
   source: string | null;
@@ -55,6 +56,8 @@ export interface LeadListItem {
   createdAt: string;
   assignedAgents: { id: string; name: string }[];
   tags: { id: string; name: string }[];
+  /** Whether the current user has pinned this lead (ADR-0031) — personal, floats it to the top. */
+  isPinned: boolean;
 }
 
 /**
@@ -154,37 +157,40 @@ export async function fetchLeadFilterOptions(
 /**
  * The New Lead form's payload (LEAD-06.2), mirroring the backend `CreateLeadDto`.
  * Amounts and quantities are strings so the Decimal precision survives the wire;
- * attempts are numbers; ids are the values chosen from the lookups.
+ * attempts are numbers; ids are the values chosen from the lookups. Verified against
+ * Workpex, only Name and Primary Phone are required (Status/Pipeline default server-side);
+ * every other field is optional.
  */
 export interface CreateLeadInput {
   name: string;
   primaryPhone: string;
   firstName?: string;
   secondaryPhone?: string;
+  email?: string;
   assignedAgentIds?: string[];
   status?: string;
   pipeline?: string;
   tagIds?: string[];
   complaintReason?: string;
-  product: string;
+  product?: string;
   productQty?: string;
   product2?: string;
   product2Qty?: string;
-  language: string;
+  language?: string;
   source?: string;
-  callStatus: string;
-  callAttempts: number;
+  callStatus?: string;
+  callAttempts?: number;
   msgAttempts?: number;
-  country: string;
+  country?: string;
   state?: string;
   street?: string;
   city?: string;
   nationalCode?: string;
   bookingDate?: string;
   category?: string;
-  actualAmount: string;
+  actualAmount?: string;
   forecastedAmount?: string;
-  paymentMethod: string;
+  paymentMethod?: string;
 }
 
 /** Creates a lead (LEAD-06.1). Returns the created row for the list to adopt. */

@@ -22,6 +22,8 @@ import { LeadAddColumnMenu } from "@/components/leads/lead-add-column-menu";
 import { LeadBulkBar } from "@/components/leads/lead-bulk-bar";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { LeadReassignDrawer } from "@/components/leads/lead-reassign-drawer";
+import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
+import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
 import {
   LeadManageColumnsDrawer,
   type ManageableColumn,
@@ -50,8 +52,10 @@ import {
 } from "@/components/leads/lead-tags-cell";
 import {
   deleteLead,
+  pinLead,
   reassignLead,
   setLeadStatus,
+  unpinLead,
 } from "@/services/leads-row-actions-service";
 import { addLeadTag, removeLeadTag } from "@/services/leads-tags-service";
 import { fetchLookup } from "@/services/lookups-service";
@@ -72,6 +76,7 @@ import {
   saveColumnLayout,
 } from "@/services/view-preferences-service";
 import { useAuth } from "@/components/auth/auth-context";
+import { whatsappUrl } from "@/lib/whatsapp";
 import { can } from "@/constants/permissions";
 import type { FilterCondition, FilterField, FilterState } from "@/types";
 
@@ -300,9 +305,17 @@ export function LeadsListView() {
   const [rowDeleteTarget, setRowDeleteTarget] = useState<LeadListItem | null>(
     null,
   );
+  // The lead whose WhatsApp composer is open (LEAD-10.2). Null when closed; set
+  // per-open so each drawer starts from that lead's own phone.
+  const [whatsappTarget, setWhatsappTarget] = useState<LeadListItem | null>(
+    null,
+  );
+  // The lead whose Email composer is open (LEAD-10.2, ADR-0032). Set per-open so To
+  // starts from that lead's own email (or empty when it has none).
+  const [emailTarget, setEmailTarget] = useState<LeadListItem | null>(null);
   const [rowPending, setRowPending] = useState<{
     id: string;
-    action: "reassign" | "delete";
+    action: "reassign" | "delete" | "pin";
   } | null>(null);
 
   // A per-row overlay on the fetched page: id → updated row, or null for a
@@ -340,7 +353,9 @@ export function LeadsListView() {
     try {
       const updated = await reassignLead(lead.id, agentId);
       setRowReassignTarget(null);
-      patchRow(lead.id, updated);
+      // Pin is orthogonal to assignment and the mutation response doesn't carry
+      // the caller's pin, so keep the known-local value (ADR-0031).
+      patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: `${lead.name} reassigned`, tone: "success" });
     } catch {
       toast({ title: "Couldn’t reassign lead", tone: "danger" });
@@ -365,16 +380,67 @@ export function LeadsListView() {
     }
   };
 
-  const rowActionsValue = useMemo(
-    () => ({
-      onReassign: (lead: LeadListItem) => setRowReassignTarget(lead),
-      onDelete: (lead: LeadListItem) => setRowDeleteTarget(lead),
-      pendingId: rowPending?.id ?? null,
-      pendingAction: rowPending?.action ?? null,
-      canReassign,
-    }),
-    [rowPending, canReassign],
-  );
+  // Pin toggle (LEAD-10.2, ADR-0031). Personal, per-user: the icon flips
+  // optimistically, the pin/unpin API persists it, then a refetch lets the server
+  // reorder — pinned leads float to the top of the list. The row reverts if the
+  // server rejects the change.
+  const handleTogglePin = async (lead: LeadListItem) => {
+    const nextPinned = !lead.isPinned;
+    setRowPending({ id: lead.id, action: "pin" });
+    patchRow(lead.id, { ...lead, isPinned: nextPinned });
+    try {
+      await (nextPinned ? pinLead(lead.id) : unpinLead(lead.id));
+      toast({
+        title: `${lead.name} ${nextPinned ? "pinned" : "unpinned"}`,
+        tone: "success",
+      });
+      // The server owns the pinned-first order; refetch to apply it.
+      refetch();
+    } catch {
+      patchRow(lead.id, lead);
+      toast({
+        title: nextPinned ? "Couldn’t pin lead" : "Couldn’t unpin lead",
+        tone: "danger",
+      });
+    } finally {
+      setRowPending(null);
+    }
+  };
+
+  // A plain object with fresh closures each render, matching statusValue/tagsValue
+  // below — onPin needs the current row data (for the optimistic patch and
+  // refetch), which a memo keyed on rowPending/canReassign would capture stale.
+  // WhatsApp send (LEAD-10.2). The row icon only opens the composer; this fires the
+  // existing wa.me deep-link — with the composed template text prefilled — and is
+  // reached ONLY by the drawer's Send button, never by clicking the icon.
+  const handleWhatsappSend = ({
+    phone,
+    message,
+  }: {
+    phone: string;
+    message: string;
+  }) => {
+    const base = whatsappUrl(phone);
+    if (base) {
+      window.open(
+        `${base}?text=${encodeURIComponent(message)}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    }
+    setWhatsappTarget(null);
+  };
+
+  const rowActionsValue = {
+    onReassign: (lead: LeadListItem) => setRowReassignTarget(lead),
+    onDelete: (lead: LeadListItem) => setRowDeleteTarget(lead),
+    onWhatsapp: (lead: LeadListItem) => setWhatsappTarget(lead),
+    onEmail: (lead: LeadListItem) => setEmailTarget(lead),
+    onPin: (lead: LeadListItem) => void handleTogglePin(lead),
+    pendingId: rowPending?.id ?? null,
+    pendingAction: rowPending?.action ?? null,
+    canReassign,
+  };
 
   // Inline status change (LEAD-11.1, from lead-status.mp4). The badge dropdown picks
   // a status; the save flow is uncaptured, so this is a documented fallback (ADR-0015):
@@ -387,7 +453,8 @@ export function LeadsListView() {
     patchRow(lead.id, { ...lead, status });
     try {
       const updated = await setLeadStatus(lead.id, status);
-      patchRow(lead.id, updated);
+      // Preserve the caller's pin — the status response doesn't carry it (ADR-0031).
+      patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: `${lead.name} set to ${status}`, tone: "success" });
     } catch {
       patchRow(lead.id, lead);
@@ -414,7 +481,7 @@ export function LeadsListView() {
     patchRow(lead.id, { ...lead, tags: [...lead.tags, tag] });
     try {
       const updated = await addLeadTag(lead.id, tag.id);
-      patchRow(lead.id, updated);
+      patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: `Tagged “${tag.name}”`, tone: "success" });
     } catch {
       patchRow(lead.id, lead);
@@ -432,7 +499,7 @@ export function LeadsListView() {
     });
     try {
       const updated = await removeLeadTag(lead.id, tagId);
-      patchRow(lead.id, updated);
+      patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: "Tag removed", tone: "success" });
     } catch {
       patchRow(lead.id, lead);
@@ -715,13 +782,41 @@ export function LeadsListView() {
         tone="danger"
       />
 
+      {/* Row "WhatsApp" (LEAD-10.2) — the Send Whatsapp Message composer. Mounted
+          per-open so it starts from the clicked lead's own phone; Send hands off to
+          the existing wa.me deep-link (handleWhatsappSend). */}
+      {whatsappTarget && (
+        <LeadWhatsappDrawer
+          open
+          lead={whatsappTarget}
+          onClose={() => setWhatsappTarget(null)}
+          onSend={handleWhatsappSend}
+        />
+      )}
+
+      {/* Row "Email" (LEAD-10.2, ADR-0032) — the Send Email composer. Mounted per-open
+          so To starts from the clicked lead's own email; the send happens on the
+          backend, and only a successful send closes the drawer + toasts. */}
+      {emailTarget && (
+        <LeadEmailDrawer
+          open
+          lead={emailTarget}
+          onClose={() => setEmailTarget(null)}
+          onSent={() => {
+            setEmailTarget(null);
+            toast({ title: "Email sent", tone: "success" });
+          }}
+        />
+      )}
+
       {/* Mounted only while open, so every New Lead starts from a clean form. */}
       {newLead.isOpen && (
         <LeadFormDrawer
           open
           onClose={newLead.close}
-          onCreated={() => {
+          onCreated={(lead) => {
             newLead.close();
+            toast({ title: `${lead.name} created`, tone: "success" });
             refetch();
           }}
         />

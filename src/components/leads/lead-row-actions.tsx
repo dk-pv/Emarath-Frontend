@@ -8,6 +8,7 @@ import {
   IconLoader2,
   IconMail,
   IconPin,
+  IconPinFilled,
   IconTrash,
   IconUserEdit,
 } from "@tabler/icons-react";
@@ -28,15 +29,22 @@ import type { LeadListItem } from "@/services/leads-service";
  *   • Email is disabled — leads carry no email address, so a `mailto:` has no target.
  *   • Convert is inert — Workpex's green-circle behaviour is uncaptured and the stage
  *     config it would drive (LEAD-11.1) does not exist yet.
- *   • Edit Lead opens the record (its own task, LEAD-06) and Pin is not in the backlog.
- * There is no Duplicate icon: Workpex's row has none, so none is invented.
+ *   • Edit Lead opens the record (its own task, LEAD-06).
+ * Pin is wired (ADR-0031): a personal, per-user pin that floats the lead to the top
+ * of the caller's own list. There is no Duplicate icon: Workpex's row has none.
  */
 
-export type RowActionKind = "reassign" | "delete";
+export type RowActionKind = "reassign" | "delete" | "pin";
 
 type RowActionsContextValue = {
   onReassign: (lead: LeadListItem) => void;
   onDelete: (lead: LeadListItem) => void;
+  /** Open the Send Whatsapp Message composer for a lead (LEAD-10.2). */
+  onWhatsapp: (lead: LeadListItem) => void;
+  /** Open the Send Email composer for a lead (LEAD-10.2, ADR-0032). */
+  onEmail: (lead: LeadListItem) => void;
+  /** Toggle the caller's personal pin on a lead (ADR-0031). */
+  onPin: (lead: LeadListItem) => void;
   /** The lead currently running an action, and which — drives the per-row spinner. */
   pendingId: string | null;
   pendingAction: RowActionKind | null;
@@ -66,36 +74,57 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
   const busy = pending !== null;
   const waUrl = whatsappUrl(lead.primaryPhone);
 
+  const pinned = lead.isPinned;
+
   return (
     <span className="flex items-center gap-0.5">
-      {/* Pin — Workpex shows it; not in the backlog, so it stays inert. */}
-      <Tooltip content="Pin lead">
-        <button type="button" aria-label="Pin lead" className={ACTION_CLASS}>
-          <IconPin size={18} stroke={1.75} aria-hidden="true" />
+      {/* Pin — a personal, per-user pin (ADR-0031). Filled + brand-green when the
+          caller has it pinned; toggles off on a second click. */}
+      <Tooltip content={pinned ? "Unpin lead" : "Pin lead"}>
+        <button
+          type="button"
+          aria-label={pinned ? "Unpin lead" : "Pin lead"}
+          aria-pressed={pinned}
+          disabled={busy}
+          onClick={() => ctx?.onPin(lead)}
+          className={cn(ACTION_CLASS, pinned && "text-brand-strong")}
+        >
+          {pending === "pin" ? (
+            <IconLoader2
+              size={18}
+              stroke={1.75}
+              className="animate-spin"
+              aria-hidden="true"
+            />
+          ) : pinned ? (
+            <IconPinFilled size={18} stroke={1.75} aria-hidden="true" />
+          ) : (
+            <IconPin size={18} stroke={1.75} aria-hidden="true" />
+          )}
         </button>
       </Tooltip>
 
-      {/* WhatsApp — wa.me deep-link built from the primary phone. */}
+      {/* WhatsApp — opens the "Send Whatsapp Message" composer (LEAD-10.2). The
+          wa.me deep-link fires from the drawer's Send, never from this icon. */}
       <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
         <button
           type="button"
           aria-label="WhatsApp"
           disabled={!waUrl}
-          onClick={() =>
-            waUrl && window.open(waUrl, "_blank", "noopener,noreferrer")
-          }
+          onClick={() => waUrl && ctx?.onWhatsapp(lead)}
           className={ACTION_CLASS}
         >
           <IconBrandWhatsapp size={18} stroke={1.75} aria-hidden="true" />
         </button>
       </Tooltip>
 
-      {/* Email — disabled: leads hold no email address for a mailto (ADR-0013). */}
-      <Tooltip content="No email address on this lead">
+      {/* Email — opens the Send Email composer (LEAD-10.2, ADR-0032). Enabled for
+          every lead: one with no email opens an empty, still-usable composer. */}
+      <Tooltip content="Email">
         <button
           type="button"
           aria-label="Email"
-          disabled
+          onClick={() => ctx?.onEmail(lead)}
           className={ACTION_CLASS}
         >
           <IconMail size={18} stroke={1.75} aria-hidden="true" />

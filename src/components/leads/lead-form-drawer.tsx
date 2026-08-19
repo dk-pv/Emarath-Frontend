@@ -13,6 +13,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import { ApiError } from "@/lib/api-client";
 import { COUNTRIES, STATES_BY_COUNTRY } from "@/constants/countries";
+import { useAuth } from "@/components/auth/auth-context";
 import { useLookup } from "@/hooks/use-lookup";
 import { createLead, type LeadListItem } from "@/services/leads-service";
 import { fetchAssignableAgents } from "@/services/lookups-service";
@@ -29,13 +30,14 @@ type FormState = {
   primaryPhone: string;
   firstName: string;
   secondaryPhone: string;
+  email: string;
   assignedAgentIds: string[];
   status: string | null;
   tagIds: string[];
   complaintReason: string | null;
   product: string | null;
   productQty: string;
-  product2: string;
+  product2: string | null;
   product2Qty: string;
   language: string | null;
   source: string | null;
@@ -61,13 +63,14 @@ function initialForm(): FormState {
     primaryPhone: "",
     firstName: "",
     secondaryPhone: "",
+    email: "",
     assignedAgentIds: [],
     status: "New",
     tagIds: [],
     complaintReason: null,
     product: null,
     productQty: "",
-    product2: "",
+    product2: null,
     product2Qty: "",
     language: null,
     source: null,
@@ -119,13 +122,24 @@ export function LeadFormDrawer({
   onClose,
   onCreated,
 }: LeadFormDrawerProps) {
-  const [form, setForm] = useState<FormState>(initialForm);
+  // Assigned defaults to the current user (verified Workpex behaviour). The id comes from the
+  // server session (useAuth), never a client-typed value, and the backend re-resolves the caller
+  // for scope/authorization — this only pre-selects the default assignee.
+  const { user } = useAuth();
+  const [form, setForm] = useState<FormState>(() => ({
+    ...initialForm(),
+    assignedAgentIds: user ? [user.id] : [],
+  }));
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>
   >({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [agents, setAgents] = useState<SelectOption[]>([]);
+  // Seed with the current user so the pre-selected chip shows a name even before (or without) the
+  // agent list loads — the current user may not be in the assignable-agents list at all.
+  const [agents, setAgents] = useState<SelectOption[]>(() =>
+    user ? [{ value: user.id, label: user.name }] : [],
+  );
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -138,16 +152,23 @@ export function LeadFormDrawer({
   useEffect(() => {
     const controller = new AbortController();
     fetchAssignableAgents(controller.signal)
-      .then((list) =>
-        setAgents(
-          list.map((agent) => ({ value: agent.id, label: agent.name })),
-        ),
-      )
+      .then((list) => {
+        const options = list.map((agent) => ({
+          value: agent.id,
+          label: agent.name,
+        }));
+        // Keep the pre-selected current user resolvable even when they aren't an
+        // assignable agent (e.g. an admin), so their chip never renders as a bare id.
+        if (user && !options.some((option) => option.value === user.id)) {
+          options.unshift({ value: user.id, label: user.name });
+        }
+        setAgents(options);
+      })
       .catch(() => {
-        /* leaving Assigned empty must not break the form */
+        /* the current-user seed above keeps the default chip labelled on failure */
       });
     return () => controller.abort();
-  }, []);
+  }, [user]);
 
   const leadStatus = useLookup("leadStatus");
   const pipelines = useLookup("pipelines");
@@ -167,24 +188,18 @@ export function LeadFormDrawer({
     return states.map((name) => ({ value: name, label: name }));
   }, [form.country]);
 
+  // Verified Workpex: only Lead Name, Primary Phone, Lead Pipeline and Lead Status are required
+  // (the last two default to "Lead Pipeline"/"New"). Every other field is optional, but a value
+  // typed into a numeric field must still parse — a blank one is simply "not set".
   function validate(): boolean {
     const next: Partial<Record<keyof FormState, string>> = {};
     if (!form.name.trim()) next.name = "Customer Name is required";
     if (!form.primaryPhone.trim())
       next.primaryPhone = "Primary Phone is required";
-    if (!form.status) next.status = "Lead Status is required";
-    if (!form.product) next.product = "Product is required";
-    if (!form.language) next.language = "Language is required";
-    if (!form.callStatus) next.callStatus = "Call Status is required";
-    if (!form.callAttempts)
-      next.callAttempts = "Number of call attempts is required";
-    if (!form.country) next.country = "Country is required";
     if (!form.pipeline) next.pipeline = "Lead Pipeline is required";
-    if (!form.actualAmount.trim())
-      next.actualAmount = "Actual Amount is required";
-    else if (!isNumeric(form.actualAmount))
+    if (!form.status) next.status = "Lead Status is required";
+    if (form.actualAmount.trim() && !isNumeric(form.actualAmount))
       next.actualAmount = "Actual Amount must be a number";
-    if (!form.paymentMethod) next.paymentMethod = "Payment Method is required";
     if (form.forecastedAmount.trim() && !isNumeric(form.forecastedAmount))
       next.forecastedAmount = "Forecasted Amount must be a number";
     if (form.productQty.trim() && !isNumeric(form.productQty))
@@ -205,6 +220,7 @@ export function LeadFormDrawer({
         primaryPhone: form.primaryPhone,
         firstName: form.firstName.trim() || undefined,
         secondaryPhone: form.secondaryPhone || undefined,
+        email: form.email.trim() || undefined,
         assignedAgentIds: form.assignedAgentIds.length
           ? form.assignedAgentIds
           : undefined,
@@ -212,16 +228,16 @@ export function LeadFormDrawer({
         pipeline: form.pipeline ?? undefined,
         tagIds: form.tagIds.length ? form.tagIds : undefined,
         complaintReason: form.complaintReason ?? undefined,
-        product: form.product ?? "",
+        product: form.product ?? undefined,
         productQty: form.productQty.trim() || undefined,
-        product2: form.product2.trim() || undefined,
+        product2: form.product2 ?? undefined,
         product2Qty: form.product2Qty.trim() || undefined,
-        language: form.language ?? "",
+        language: form.language ?? undefined,
         source: form.source ?? undefined,
-        callStatus: form.callStatus ?? "",
-        callAttempts: Number(form.callAttempts),
+        callStatus: form.callStatus ?? undefined,
+        callAttempts: form.callAttempts ? Number(form.callAttempts) : undefined,
         msgAttempts: form.msgAttempts ? Number(form.msgAttempts) : undefined,
-        country: form.country ?? "",
+        country: form.country ?? undefined,
         state: form.state ?? undefined,
         street: form.street.trim() || undefined,
         city: form.city.trim() || undefined,
@@ -230,9 +246,9 @@ export function LeadFormDrawer({
           ? toDateOnly(form.bookingDate)
           : undefined,
         category: form.category ?? undefined,
-        actualAmount: form.actualAmount.trim(),
+        actualAmount: form.actualAmount.trim() || undefined,
         forecastedAmount: form.forecastedAmount.trim() || undefined,
-        paymentMethod: form.paymentMethod ?? "",
+        paymentMethod: form.paymentMethod ?? undefined,
       });
       onCreated(lead);
     } catch (error) {
@@ -317,6 +333,19 @@ export function LeadFormDrawer({
           />
         </FormField>
 
+        {/* Email (ADR-0032): backs the row Email composer's To prefill. Optional and
+            validated server-side (@IsEmail); an invalid value surfaces in the banner. */}
+        <FormField label="Email">
+          {(control) => (
+            <Input
+              {...control}
+              value={form.email}
+              onChange={(e) => set("email", e.target.value)}
+              placeholder="Email"
+            />
+          )}
+        </FormField>
+
         <FormField label="Assigned">
           <MultiSelect
             searchable
@@ -362,7 +391,7 @@ export function LeadFormDrawer({
           />
         </FormField>
 
-        <FormField label="Product" required error={errors.product}>
+        <FormField label="Product" error={errors.product}>
           <SearchableSelect
             options={products.options}
             value={form.product}
@@ -373,7 +402,7 @@ export function LeadFormDrawer({
           />
         </FormField>
 
-        <FormField label="Language" required error={errors.language}>
+        <FormField label="Language" error={errors.language}>
           <SearchableSelect
             searchable={false}
             options={languages.options}
@@ -408,15 +437,15 @@ export function LeadFormDrawer({
           )}
         </FormField>
 
+        {/* Product 2 shares the SAME product dataset as Product (one list, no duplication). */}
         <FormField label="Product 2">
-          {(control) => (
-            <Input
-              {...control}
-              value={form.product2}
-              onChange={(e) => set("product2", e.target.value)}
-              placeholder="Product 2"
-            />
-          )}
+          <SearchableSelect
+            options={products.options}
+            value={form.product2}
+            onChange={(v) => set("product2", v)}
+            loading={products.isLoading}
+            placeholder="Select Product 2"
+          />
         </FormField>
 
         <FormField label="QTY OF PRODUCT 2" error={errors.product2Qty}>
@@ -431,7 +460,7 @@ export function LeadFormDrawer({
           )}
         </FormField>
 
-        <FormField label="Call Status" required error={errors.callStatus}>
+        <FormField label="Call Status" error={errors.callStatus}>
           <SearchableSelect
             searchable={false}
             options={callStatuses.options}
@@ -443,11 +472,7 @@ export function LeadFormDrawer({
           />
         </FormField>
 
-        <FormField
-          label="NO.OF CALL ATTEMTS"
-          required
-          error={errors.callAttempts}
-        >
+        <FormField label="NO.OF CALL ATTEMTS" error={errors.callAttempts}>
           <SearchableSelect
             searchable={false}
             options={attempts.options}
@@ -471,7 +496,7 @@ export function LeadFormDrawer({
         </FormField>
 
         <CollapsibleSection title="Address">
-          <FormField label="Country" required error={errors.country}>
+          <FormField label="Country" error={errors.country}>
             <SearchableSelect
               options={COUNTRY_OPTIONS}
               value={form.country}
@@ -560,7 +585,7 @@ export function LeadFormDrawer({
             />
           </FormField>
 
-          <FormField label="Actual Amount" required error={errors.actualAmount}>
+          <FormField label="Actual Amount" error={errors.actualAmount}>
             {(control) => (
               <Input
                 {...control}
@@ -584,11 +609,7 @@ export function LeadFormDrawer({
             )}
           </FormField>
 
-          <FormField
-            label="Payment Method"
-            required
-            error={errors.paymentMethod}
-          >
+          <FormField label="Payment Method" error={errors.paymentMethod}>
             <SearchableSelect
               searchable={false}
               options={paymentMethods.options}

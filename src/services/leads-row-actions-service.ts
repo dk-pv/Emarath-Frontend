@@ -36,3 +36,44 @@ export function deleteLead(
 ): Promise<{ id: string }> {
   return apiDelete<{ id: string }>(`/leads/${id}`, signal);
 }
+
+/**
+ * Pin one lead for the current user (ADR-0031) — returns the lead pinned. The
+ * server resolves the caller, so no user id is sent; the list then floats it to
+ * the top on the next fetch.
+ */
+export function pinLead(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiPost<LeadListItem>(`/leads/${id}/pin`, {}, signal);
+}
+
+/** Unpin one lead for the current user — returns the lead unpinned. */
+export function unpinLead(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiDelete<LeadListItem>(`/leads/${id}/pin`, signal);
+}
+
+/** The Lead Email composer's payload (ADR-0032). From is server-side, never sent. */
+export interface SendLeadEmailInput {
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject?: string;
+  message?: string;
+}
+
+/**
+ * Send an email from a lead's row (LEAD-10.2, ADR-0032). The real send happens on
+ * the backend through the configured mail transport; this never opens a mail client.
+ */
+export function sendLeadEmail(
+  id: string,
+  input: SendLeadEmailInput,
+  signal?: AbortSignal,
+): Promise<{ sent: boolean }> {
+  return apiPost<{ sent: boolean }>(`/leads/${id}/email`, input, signal);
+}

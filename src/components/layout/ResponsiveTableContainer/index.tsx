@@ -14,6 +14,12 @@ type ResponsiveTableContainerProps = {
 /**
  * `min-w-0` is load-bearing: a flex or grid item defaults to `min-width: auto`, which
  * sizes it to the table's intrinsic width and scrolls the whole page instead of this box.
+ *
+ * `overflow-auto` (not just `-x`) makes this the table body's scroll region: when a
+ * caller gives it a bounded height (TablePageLayout's `flex-1 min-h-0`), the rows scroll
+ * inside it — below the sticky header, above the pinned pagination — the way Workpex's
+ * list does. Where the height is unbounded (a page that grows), no vertical scrollbar
+ * appears, so direct callers are unaffected.
  */
 export function ResponsiveTableContainer({
   children,
@@ -26,7 +32,7 @@ export function ResponsiveTableContainer({
       aria-label={label}
       tabIndex={label ? 0 : undefined}
       className={cn(
-        "scrollbar-slim focus-ring w-full min-w-0 overflow-x-auto",
+        "scrollbar-slim focus-ring w-full min-w-0 overflow-auto",
         className,
       )}
     >

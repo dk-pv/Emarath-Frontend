@@ -77,3 +77,15 @@ export function sendLeadEmail(
 ): Promise<{ sent: boolean }> {
   return apiPost<{ sent: boolean }>(`/leads/${id}/email`, input, signal);
 }
+
+/**
+ * Add a free-text note to a lead from its row (LEAD-10.2, ADR-0035). Persisted on
+ * the backend, authored by the resolved caller; returns the created note's id.
+ */
+export function addLeadNote(
+  id: string,
+  body: string,
+  signal?: AbortSignal,
+): Promise<{ id: string }> {
+  return apiPost<{ id: string }>(`/leads/${id}/notes`, { body }, signal);
+}

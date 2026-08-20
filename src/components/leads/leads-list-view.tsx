@@ -24,6 +24,7 @@ import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { LeadReassignDrawer } from "@/components/leads/lead-reassign-drawer";
 import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
 import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
+import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
 import {
   LeadManageColumnsDrawer,
   type ManageableColumn,
@@ -40,10 +41,13 @@ import { useListData } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import {
   fetchLeadFilterOptions,
+  fetchLeadForEdit,
   fetchLeads,
+  type LeadEditData,
   type LeadFilterOptions,
   type LeadListItem,
 } from "@/services/leads-service";
+import { ApiError } from "@/lib/api-client";
 import { LeadRowActionsProvider } from "@/components/leads/lead-row-actions";
 import { LeadStatusProvider } from "@/components/leads/lead-status-badge";
 import {
@@ -313,9 +317,19 @@ export function LeadsListView() {
   // The lead whose Email composer is open (LEAD-10.2, ADR-0032). Set per-open so To
   // starts from that lead's own email (or empty when it has none).
   const [emailTarget, setEmailTarget] = useState<LeadListItem | null>(null);
+  // The lead whose Add Note composer is open (LEAD-10.2, ADR-0035). Set per-open so
+  // each drawer starts from an empty note.
+  const [noteTarget, setNoteTarget] = useState<LeadListItem | null>(null);
+  // The lead being edited (LEAD-06 edit mode): the full record that prefills the
+  // shared form, plus the row's current pin so the patched row keeps it (the update
+  // response, like the other row mutations, doesn't carry the caller's pin).
+  const [editLead, setEditLead] = useState<{
+    data: LeadEditData;
+    isPinned: boolean;
+  } | null>(null);
   const [rowPending, setRowPending] = useState<{
     id: string;
-    action: "reassign" | "delete" | "pin";
+    action: "reassign" | "delete" | "pin" | "edit";
   } | null>(null);
 
   // A per-row overlay on the fetched page: id → updated row, or null for a
@@ -431,11 +445,34 @@ export function LeadsListView() {
     setWhatsappTarget(null);
   };
 
+  // Edit (LEAD-06 edit mode). The list row carries only the visible columns, so the
+  // full editable record is fetched first (a per-row spinner runs meanwhile); once it
+  // lands, the shared New Lead form opens in edit mode, prefilled. A 404 means the
+  // lead was deleted out from under the list — reported, not a blank form.
+  const handleEdit = async (lead: LeadListItem) => {
+    setRowPending({ id: lead.id, action: "edit" });
+    try {
+      const data = await fetchLeadForEdit(lead.id);
+      setEditLead({ data, isPinned: lead.isPinned });
+    } catch (error) {
+      const gone = error instanceof ApiError && error.status === 404;
+      if (gone) patchRow(lead.id, null);
+      toast({
+        title: gone ? "This lead no longer exists" : "Couldn’t open the lead",
+        tone: "danger",
+      });
+    } finally {
+      setRowPending(null);
+    }
+  };
+
   const rowActionsValue = {
     onReassign: (lead: LeadListItem) => setRowReassignTarget(lead),
     onDelete: (lead: LeadListItem) => setRowDeleteTarget(lead),
     onWhatsapp: (lead: LeadListItem) => setWhatsappTarget(lead),
     onEmail: (lead: LeadListItem) => setEmailTarget(lead),
+    onAddNote: (lead: LeadListItem) => setNoteTarget(lead),
+    onEdit: (lead: LeadListItem) => void handleEdit(lead),
     onPin: (lead: LeadListItem) => void handleTogglePin(lead),
     pendingId: rowPending?.id ?? null,
     pendingAction: rowPending?.action ?? null,
@@ -809,15 +846,47 @@ export function LeadsListView() {
         />
       )}
 
+      {/* Row "Add Note" (LEAD-10.2, ADR-0035) — the Add Note composer. Mounted
+          per-open so it starts empty; the note persists on the backend, and only a
+          successful save closes the drawer + toasts. */}
+      {noteTarget && (
+        <LeadNoteDrawer
+          open
+          lead={noteTarget}
+          onClose={() => setNoteTarget(null)}
+          onSaved={() => {
+            setNoteTarget(null);
+            toast({ title: "Note added", tone: "success" });
+          }}
+        />
+      )}
+
       {/* Mounted only while open, so every New Lead starts from a clean form. */}
       {newLead.isOpen && (
         <LeadFormDrawer
           open
           onClose={newLead.close}
-          onCreated={(lead) => {
+          onSaved={(lead) => {
             newLead.close();
             toast({ title: `${lead.name} created`, tone: "success" });
             refetch();
+          }}
+        />
+      )}
+
+      {/* Edit Lead (LEAD-06 edit mode): the SAME form, mounted per-open with the
+          fetched record so it starts prefilled. A successful update patches just
+          that row (keeping the caller's pin, which the response omits) and toasts —
+          no full refetch, matching the other single-row mutations. */}
+      {editLead && (
+        <LeadFormDrawer
+          open
+          lead={editLead.data}
+          onClose={() => setEditLead(null)}
+          onSaved={(updated) => {
+            patchRow(updated.id, { ...updated, isPinned: editLead.isPinned });
+            setEditLead(null);
+            toast({ title: `${updated.name} updated`, tone: "success" });
           }}
         />
       )}

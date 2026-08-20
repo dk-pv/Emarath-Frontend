@@ -3,16 +3,16 @@ import type { Icon } from "@tabler/icons-react";
 /**
  * Shared geometry for every sidebar row — nav links and the logout button alike.
  *
- * Each row is a flex child of the nav column with a 44px minimum (the comfortable /
- * keyboard-friendly target) and flex-1, so the rows grow equally to share the sidebar
- * height — Workpex's roomy, even vertical rhythm that fills the rail, instead of a compact
- * block with dead space below. On a very short viewport they hold the 44px minimum and the
- * nav scrolls. The icon column stays at x=32 (--spacing-nav-inset) in *both* sidebar states,
- * which is why collapsing only changes the width and hides the label — the icons never move;
- * --spacing-nav-gap (14px) sets the icon→label gap.
+ * Each row is a FIXED 60px (--spacing-nav-item), the height measured from Workpex's active
+ * nav row. Workpex uses a constant row height and lets the rail run out with dead space below
+ * the last item; it does not stretch rows to fill — so these rows must not flex-grow, or on a
+ * tall viewport each balloons past 60px and the sidebar reads bulkier than Workpex. On a short
+ * viewport the fixed rows overflow and the nav scrolls. The icon column stays at x=32
+ * (--spacing-nav-inset) in *both* sidebar states, which is why collapsing only changes the width
+ * and hides the label — the icons never move; --spacing-nav-gap (14px) sets the icon→label gap.
  */
 export const SIDEBAR_ROW_CLASS =
-  "flex min-h-nav-item flex-1 items-center gap-nav-gap pl-nav-inset transition-colors duration-(--duration-shell) ease-shell focus-ring-inset";
+  "flex h-nav-item shrink-0 items-center gap-nav-gap pl-nav-inset transition-colors duration-(--duration-shell) ease-shell focus-ring-inset";
 
 /** Hover is not captured in any Workpex screenshot; it reuses the measured active surface. */
 export const SIDEBAR_ROW_IDLE = "text-white hover:bg-sidebar-hover";

@@ -56,8 +56,13 @@ const HEADER_ALIGN: Record<Align, string> = {
  */
 const CELL_CLASS = "px-4 py-1.5 whitespace-nowrap";
 
-/** `w-px` collapses the checkbox column to its content — the data columns take the slack. */
-const SELECT_CELL_CLASS = "w-px px-4 py-1.5";
+/**
+ * `w-px` collapses the checkbox column to its content — the data columns take the slack.
+ * A slim `pl-1` (not the inner cells' `px-4`) lands the checkbox ~4px inside the content
+ * edge, so the table's left edge aligns with the page title the way Workpex does — its
+ * checkbox sits at 257px against the 258px title, versus the 270px a full `px-4` produces.
+ */
+const SELECT_CELL_CLASS = "w-px py-1.5 pr-4 pl-1";
 
 const SKELETON_ROW_COUNT = 5;
 
@@ -194,10 +199,16 @@ export function Table<TRow>({
 
   return (
     <table className="w-full border-collapse text-sm text-ink">
-      <thead>
+      {/* Sticky header: when the table body scrolls inside a bounded container
+          (TablePageLayout gives it one), the column headers stay pinned. `z-20`
+          on the thead lifts the whole header — corner included — above the
+          `z-10` sticky first column, and each header cell carries an opaque bg so
+          rows never show through it. Where the container is unbounded, sticky is a
+          no-op, so nothing else regresses. */}
+      <thead className="sticky top-0 z-20">
         <tr className="border-b border-hairline">
           {selection && (
-            <th scope="col" className={SELECT_CELL_CLASS}>
+            <th scope="col" className={cn(SELECT_CELL_CLASS, "bg-canvas")}>
               <Checkbox
                 checked={allOnPageSelected}
                 indeterminate={selectedOnPage > 0 && !allOnPageSelected}
@@ -223,8 +234,10 @@ export function Table<TRow>({
                   // Title case, not uppercase: Workpex shows the column names as
                   // configured (e.g. "Customer Name"), never transformed. `py-4`
                   // keeps the header at Workpex's measured 47px — a touch taller
-                  // than the 44px body rows.
-                  "px-4 py-4 text-xs font-medium whitespace-nowrap text-ink-muted",
+                  // than the 44px body rows. `bg-canvas` makes the sticky header
+                  // opaque; a sticky first column's own bg-surface still wins here
+                  // (cn is tailwind-merge, last class wins).
+                  "bg-canvas px-4 py-4 text-xs font-medium whitespace-nowrap text-ink-muted",
                   CELL_ALIGN[align],
                   column.className,
                 )}

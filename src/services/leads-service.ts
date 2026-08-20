@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, apiPut } from "@/lib/api-client";
 import type { FilterCondition, ListQuery, ListResult } from "@/types";
 
 /** Multi-value field filters (LEAD-03.2, LEAD-12.1): repeated in the query string. */
@@ -199,4 +199,66 @@ export async function createLead(
   signal?: AbortSignal,
 ): Promise<LeadListItem> {
   return apiPost<LeadListItem>("/leads", input, signal);
+}
+
+/**
+ * The full editable record that prefills the Edit Lead form (`GET /api/leads/:id/edit`).
+ * A superset of the list row — it carries the fields the list never shows (products,
+ * address, payment, the raw complaint) — mirroring the backend `LeadEditData`. Amounts
+ * and quantities stay strings (Decimal precision); `msgAttempts` is the lead's WhatsApp
+ * attempts. Assigned agents carry names so the picker can label a chip for an assignee
+ * outside the assignable list. Throws `ApiError` 404 for an out-of-scope/missing lead.
+ */
+export interface LeadEditData {
+  id: string;
+  name: string;
+  firstName: string | null;
+  primaryPhone: string;
+  secondaryPhone: string | null;
+  email: string | null;
+  language: string | null;
+  country: string | null;
+  source: string | null;
+  status: string;
+  pipeline: string;
+  product: string | null;
+  productQty: string | null;
+  product2: string | null;
+  product2Qty: string | null;
+  bookingDate: string | null;
+  category: string | null;
+  actualAmount: string | null;
+  forecastedAmount: string | null;
+  paymentMethod: string | null;
+  state: string | null;
+  street: string | null;
+  city: string | null;
+  nationalCode: string | null;
+  callStatus: string | null;
+  callAttempts: number;
+  msgAttempts: number;
+  assignedAgents: { id: string; name: string }[];
+  tagIds: string[];
+  complaintReason: string | null;
+}
+
+/** Fetches one scoped lead's full editable data to prefill the Edit Lead form. */
+export function fetchLeadForEdit(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadEditData> {
+  return apiGet<LeadEditData>(`/leads/${id}/edit`, undefined, signal);
+}
+
+/**
+ * Updates a lead (LEAD-06 edit mode) via `PUT /api/leads/:id`. The Edit form submits
+ * every field, so the payload is the same `CreateLeadInput` shape as create — a full
+ * replace. Returns the updated row for the list to adopt in place.
+ */
+export async function updateLead(
+  id: string,
+  input: CreateLeadInput,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiPut<LeadListItem>(`/leads/${id}`, input, signal);
 }

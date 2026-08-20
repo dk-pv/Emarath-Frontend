@@ -221,7 +221,7 @@ function KanbanBoardShell({
         <LeadFormDrawer
           open
           onClose={newLead.close}
-          onCreated={() => {
+          onSaved={() => {
             newLead.close();
             setReloadKey((value) => value + 1);
           }}

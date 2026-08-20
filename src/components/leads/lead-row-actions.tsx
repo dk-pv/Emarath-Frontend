@@ -7,6 +7,7 @@ import {
   IconEdit,
   IconLoader2,
   IconMail,
+  IconNote,
   IconPin,
   IconPinFilled,
   IconTrash,
@@ -19,22 +20,25 @@ import type { LeadListItem } from "@/services/leads-service";
 
 /**
  * The per-row action icons on the Leads list (LEAD-10.2), traced pixel-for-pixel
- * from `leads-list-scroll-right-amounts-row-actions-edit-lead-tooltip.png`: pin,
- * WhatsApp, email, Edit Lead (the "Edit Lead" tooltip is the one Workpex captures),
- * reassign, convert and delete — seven icons, always visible at the row's right edge.
+ * from `leads-list-scroll-right-amounts-row-actions-edit-lead-tooltip.png` and
+ * `leads-add-note-row-action.png`: pin, WhatsApp, email, Edit Lead (the "Edit Lead"
+ * tooltip is the one that screenshot captures), Add Note (its own "Add Note"
+ * tooltip), reassign, convert and delete — eight icons, always visible at the row's
+ * right edge.
  *
  * Wired (LEAD-10.1 API): WhatsApp (a `wa.me` deep-link from the primary phone),
  * Reassign and Delete. Reassign is role-gated — only managers and admins see it
  * (AUTH-02.2); for other roles the icon is omitted. Deliberately not wired — ADR-0013:
- *   • Email is disabled — leads carry no email address, so a `mailto:` has no target.
  *   • Convert is inert — Workpex's green-circle behaviour is uncaptured and the stage
  *     config it would drive (LEAD-11.1) does not exist yet.
- *   • Edit Lead opens the record (its own task, LEAD-06).
+ * Wired later: Email opens the Send Email composer (ADR-0032); Edit Lead opens the
+ * shared New Lead form in edit mode, prefilled from the record (LEAD-06 edit mode);
+ * Add Note opens the Add Note composer, persisting a note to the lead (ADR-0035).
  * Pin is wired (ADR-0031): a personal, per-user pin that floats the lead to the top
  * of the caller's own list. There is no Duplicate icon: Workpex's row has none.
  */
 
-export type RowActionKind = "reassign" | "delete" | "pin";
+export type RowActionKind = "reassign" | "delete" | "pin" | "edit";
 
 type RowActionsContextValue = {
   onReassign: (lead: LeadListItem) => void;
@@ -43,6 +47,10 @@ type RowActionsContextValue = {
   onWhatsapp: (lead: LeadListItem) => void;
   /** Open the Send Email composer for a lead (LEAD-10.2, ADR-0032). */
   onEmail: (lead: LeadListItem) => void;
+  /** Open the Edit Lead form, prefilled from this lead (LEAD-06 edit mode). */
+  onEdit: (lead: LeadListItem) => void;
+  /** Open the Add Note composer for a lead (LEAD-10.2, ADR-0035). */
+  onAddNote: (lead: LeadListItem) => void;
   /** Toggle the caller's personal pin on a lead (ADR-0031). */
   onPin: (lead: LeadListItem) => void;
   /** The lead currently running an action, and which — drives the per-row spinner. */
@@ -131,10 +139,40 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
         </button>
       </Tooltip>
 
-      {/* Edit Lead — opens the record (LEAD-06); inert here. */}
+      {/* Edit Lead — opens the shared New Lead form in edit mode, prefilled from the
+          record (LEAD-06 edit mode). Shows a spinner while the record is fetched. */}
       <Tooltip content="Edit Lead">
-        <button type="button" aria-label="Edit Lead" className={ACTION_CLASS}>
-          <IconEdit size={18} stroke={1.75} aria-hidden="true" />
+        <button
+          type="button"
+          aria-label="Edit Lead"
+          disabled={busy}
+          onClick={() => ctx?.onEdit(lead)}
+          className={ACTION_CLASS}
+        >
+          {pending === "edit" ? (
+            <IconLoader2
+              size={18}
+              stroke={1.75}
+              className="animate-spin"
+              aria-hidden="true"
+            />
+          ) : (
+            <IconEdit size={18} stroke={1.75} aria-hidden="true" />
+          )}
+        </button>
+      </Tooltip>
+
+      {/* Add Note — opens the Add Note composer (LEAD-10.2, ADR-0035). Like Email
+          and WhatsApp it only opens the drawer; the note is saved from the drawer's
+          Submit, so there is no per-row spinner here. */}
+      <Tooltip content="Add Note">
+        <button
+          type="button"
+          aria-label="Add Note"
+          onClick={() => ctx?.onAddNote(lead)}
+          className={ACTION_CLASS}
+        >
+          <IconNote size={18} stroke={1.75} aria-hidden="true" />
         </button>
       </Tooltip>
 

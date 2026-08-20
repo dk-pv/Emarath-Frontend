@@ -23,10 +23,12 @@ type SidebarProps = {
 
 /**
  * 230px expanded, 88px collapsed, #363937. A 60px brand block, then the nav: a flex column
- * whose 12 rows (11 destinations + Logout) each flex-grow from a 44px minimum, so they share
- * the sidebar height evenly — Logout is the last row of that same list, never bottom-pinned,
- * and the rail fills top-to-bottom the way Workpex does instead of leaving dead space below.
- * On a very short viewport the rows hold their 44px minimum and the nav scrolls.
+ * whose 12 rows (11 destinations + Logout) are each a FIXED 60px (--spacing-nav-item), the
+ * height measured from Workpex's active nav row. Workpex keeps a constant row height and lets
+ * the rail end with dead space below the last item rather than stretching rows to fill — so
+ * Logout is the last row of that constant-height list, never bottom-pinned, and any leftover
+ * height sits empty below it, matching Workpex. On a short viewport the fixed rows overflow and
+ * the nav scrolls.
  *
  * It is a flex sibling of the content column rather than `position: fixed`, so it
  * reserves its own width and can never overlap the content.

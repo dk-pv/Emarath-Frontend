@@ -1,6 +1,5 @@
 "use client";
 
-import { PageContainer } from "@/components/layout/PageContainer";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { Toolbar } from "@/components/layout/Toolbar";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -56,7 +55,16 @@ export type TablePageLayoutProps = {
 
 /**
  * The frame every list module composes: header, toolbar (search + filters + actions),
- * applied-filter chips, a horizontally scrollable table, and pagination.
+ * applied-filter chips, a scrollable table, and pagination.
+ *
+ * The frame fills the content area's height (`h-full`) and only the table region
+ * scrolls: the header, toolbar and chips stay pinned at the top and pagination stays
+ * pinned at the bottom, so — like Workpex — the row count and page controls never
+ * disappear below a long table. The table region is `flex-1 min-h-0` so it takes the
+ * leftover height and its own body scrolls (vertically and horizontally); the table's
+ * own header sticks to the top of that scroll (see Table). This holds for every page
+ * size and dataset length because the footer is a sibling of the scroll region, not
+ * the last thing after it.
  *
  * Deliberately module-agnostic — it knows nothing about Leads, Activities or Documents.
  * Each section is optional so a module opts in to what it has.
@@ -81,7 +89,7 @@ export function TablePageLayout({
   const hasPageHeader = Boolean(description || actions || breadcrumb);
 
   return (
-    <PageContainer>
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
       {hasPageHeader && (
         <PageHeader
           title={title}
@@ -106,7 +114,13 @@ export function TablePageLayout({
         />
       )}
 
-      <ResponsiveTableContainer label={tableLabel ?? `${title} table`}>
+      {/* The one region that scrolls — `min-h-0 flex-1` so it takes the leftover
+          height and its own body scrolls, keeping the toolbar above and the footer
+          below permanently on screen. */}
+      <ResponsiveTableContainer
+        label={tableLabel ?? `${title} table`}
+        className="min-h-0 flex-1"
+      >
         {children}
       </ResponsiveTableContainer>
 
@@ -122,6 +136,6 @@ export function TablePageLayout({
           onPageSizeChange={pagination.onPageSizeChange}
         />
       )}
-    </PageContainer>
+    </div>
   );
 }

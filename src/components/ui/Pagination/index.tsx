@@ -64,7 +64,9 @@ function summaryText(
   if (pageSize === undefined) return `${formatCount(total)} results`;
   const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const last = Math.min(page * pageSize, total);
-  return `${formatCount(first)}–${formatCount(last)} of ${formatCount(total)}`;
+  // Workpex wording: "Showing 1 to 100 of 27404 rows" (left of the footer, beside
+  // the page-size control), not a compact "1–100 of 265".
+  return `Showing ${formatCount(first)} to ${formatCount(last)} of ${formatCount(total)} rows`;
 }
 
 const PAGE_BUTTON =
@@ -90,13 +92,9 @@ export function Pagination({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      {total === undefined ? null : (
-        <p className="text-sm text-ink-muted">
-          {summaryText(total, page, pageSize)}
-        </p>
-      )}
-
-      <div className="ml-auto flex flex-wrap items-center gap-3">
+      {/* Workpex groups the page-size control and the row-count text together on the
+          LEFT of the footer, with the page numbers alone on the right. */}
+      <div className="flex flex-wrap items-center gap-3">
         {pageSize !== undefined && onPageSizeChange ? (
           <label className="flex items-center gap-2 text-sm text-ink-muted">
             <span className="whitespace-nowrap">Rows per page</span>
@@ -114,61 +112,67 @@ export function Pagination({
           </label>
         ) : null}
 
-        <nav aria-label="Pagination">
-          <ul className="flex items-center gap-1">
-            <li>
-              <button
-                type="button"
-                aria-label="Previous page"
-                disabled={page <= 1}
-                onClick={() => onPageChange(page - 1)}
-                className={PAGE_BUTTON}
-              >
-                <IconChevronLeft size={16} stroke={2} />
-              </button>
-            </li>
-
-            {items.map((item) =>
-              typeof item === "number" ? (
-                <li key={item}>
-                  <button
-                    type="button"
-                    aria-label={`Page ${item}`}
-                    aria-current={item === page ? "page" : undefined}
-                    onClick={() => onPageChange(item)}
-                    className={cn(
-                      PAGE_BUTTON,
-                      item === page && PAGE_BUTTON_ACTIVE,
-                    )}
-                  >
-                    {item}
-                  </button>
-                </li>
-              ) : (
-                <li
-                  key={item}
-                  aria-hidden="true"
-                  className="flex size-control-sm shrink-0 items-center justify-center text-ink-subtle"
-                >
-                  …
-                </li>
-              ),
-            )}
-
-            <li>
-              <button
-                type="button"
-                aria-label="Next page"
-                disabled={page >= pageCount}
-                onClick={() => onPageChange(page + 1)}
-                className={PAGE_BUTTON}
-              >
-                <IconChevronRight size={16} stroke={2} />
-              </button>
-            </li>
-          </ul>
-        </nav>
+        {total === undefined ? null : (
+          <p className="text-sm text-ink-muted">
+            {summaryText(total, page, pageSize)}
+          </p>
+        )}
       </div>
+
+      <nav aria-label="Pagination">
+        <ul className="flex items-center gap-1">
+          <li>
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={page <= 1}
+              onClick={() => onPageChange(page - 1)}
+              className={PAGE_BUTTON}
+            >
+              <IconChevronLeft size={16} stroke={2} />
+            </button>
+          </li>
+
+          {items.map((item) =>
+            typeof item === "number" ? (
+              <li key={item}>
+                <button
+                  type="button"
+                  aria-label={`Page ${item}`}
+                  aria-current={item === page ? "page" : undefined}
+                  onClick={() => onPageChange(item)}
+                  className={cn(
+                    PAGE_BUTTON,
+                    item === page && PAGE_BUTTON_ACTIVE,
+                  )}
+                >
+                  {item}
+                </button>
+              </li>
+            ) : (
+              <li
+                key={item}
+                aria-hidden="true"
+                className="flex size-control-sm shrink-0 items-center justify-center text-ink-subtle"
+              >
+                …
+              </li>
+            ),
+          )}
+
+          <li>
+            <button
+              type="button"
+              aria-label="Next page"
+              disabled={page >= pageCount}
+              onClick={() => onPageChange(page + 1)}
+              className={PAGE_BUTTON}
+            >
+              <IconChevronRight size={16} stroke={2} />
+            </button>
+          </li>
+        </ul>
+      </nav>
     </div>
   );
 }

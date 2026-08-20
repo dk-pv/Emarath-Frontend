@@ -15,14 +15,26 @@ import { ApiError } from "@/lib/api-client";
 import { COUNTRIES, STATES_BY_COUNTRY } from "@/constants/countries";
 import { useAuth } from "@/components/auth/auth-context";
 import { useLookup } from "@/hooks/use-lookup";
-import { createLead, type LeadListItem } from "@/services/leads-service";
+import {
+  createLead,
+  updateLead,
+  type LeadEditData,
+  type LeadListItem,
+} from "@/services/leads-service";
 import { fetchAssignableAgents } from "@/services/lookups-service";
 import type { SelectOption } from "@/types";
 
 type LeadFormDrawerProps = {
   open: boolean;
   onClose: () => void;
-  onCreated: (lead: LeadListItem) => void;
+  /**
+   * Present → Edit mode: the form is the same one New Lead uses, but it prefills
+   * from this record and PUTs an update on submit instead of creating. Absent →
+   * Create mode, unchanged.
+   */
+  lead?: LeadEditData;
+  /** Called with the created or updated row so the list can adopt it. */
+  onSaved: (lead: LeadListItem) => void;
 };
 
 type FormState = {
@@ -104,11 +116,63 @@ const toDateOnly = (date: Date) => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;
 };
+
+/**
+ * The inverse of `toDateOnly` for edit prefill: parse "YYYY-MM-DD" into a *local*
+ * calendar date. `new Date("2026-08-20")` would parse as UTC midnight and can shift
+ * the day for the client's timezone, so the parts are fed to the local constructor
+ * — the exact round-trip `toDateOnly` produces.
+ */
+const fromDateOnly = (value: string): Date | null => {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
 const COUNTRY_OPTIONS: SelectOption[] = COUNTRIES.map((c) => ({
   value: c.name,
   label: c.name,
 }));
 const ISO2_BY_NAME = new Map(COUNTRIES.map((c) => [c.name, c.iso2]));
+
+/**
+ * Builds the form state from an existing lead for Edit mode. Amounts/quantities are
+ * already strings; a numeric attempt count of 0 maps to an empty select (the "not
+ * set" the create form also shows), so it round-trips back to 0 on submit.
+ */
+function formFromEdit(lead: LeadEditData): FormState {
+  return {
+    name: lead.name,
+    primaryPhone: lead.primaryPhone,
+    firstName: lead.firstName ?? "",
+    secondaryPhone: lead.secondaryPhone ?? "",
+    email: lead.email ?? "",
+    assignedAgentIds: lead.assignedAgents.map((a) => a.id),
+    status: lead.status,
+    tagIds: lead.tagIds,
+    complaintReason: lead.complaintReason,
+    product: lead.product,
+    productQty: lead.productQty ?? "",
+    product2: lead.product2,
+    product2Qty: lead.product2Qty ?? "",
+    language: lead.language,
+    source: lead.source,
+    callStatus: lead.callStatus,
+    callAttempts: lead.callAttempts ? String(lead.callAttempts) : null,
+    msgAttempts: lead.msgAttempts ? String(lead.msgAttempts) : null,
+    country: lead.country,
+    state: lead.state,
+    street: lead.street ?? "",
+    city: lead.city ?? "",
+    nationalCode: lead.nationalCode ?? "",
+    bookingDate: lead.bookingDate ? fromDateOnly(lead.bookingDate) : null,
+    pipeline: lead.pipeline,
+    category: lead.category,
+    actualAmount: lead.actualAmount ?? "",
+    forecastedAmount: lead.forecastedAmount ?? "",
+    paymentMethod: lead.paymentMethod,
+  };
+}
 
 /**
  * The Add New Lead drawer (LEAD-06.2), built from the Workpex `add-lead.mp4`: the
@@ -120,25 +184,33 @@ const ISO2_BY_NAME = new Map(COUNTRIES.map((c) => [c.name, c.iso2]));
 export function LeadFormDrawer({
   open,
   onClose,
-  onCreated,
+  lead,
+  onSaved,
 }: LeadFormDrawerProps) {
-  // Assigned defaults to the current user (verified Workpex behaviour). The id comes from the
-  // server session (useAuth), never a client-typed value, and the backend re-resolves the caller
-  // for scope/authorization — this only pre-selects the default assignee.
+  const editing = lead !== undefined;
+  // Assigned defaults to the current user on create (verified Workpex behaviour); on edit it
+  // starts from the lead's existing assignees. The id comes from the server session (useAuth),
+  // never a client-typed value, and the backend re-resolves the caller for scope/authorization.
   const { user } = useAuth();
-  const [form, setForm] = useState<FormState>(() => ({
-    ...initialForm(),
-    assignedAgentIds: user ? [user.id] : [],
-  }));
+  const [form, setForm] = useState<FormState>(() =>
+    lead
+      ? formFromEdit(lead)
+      : { ...initialForm(), assignedAgentIds: user ? [user.id] : [] },
+  );
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>
   >({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // Seed with the current user so the pre-selected chip shows a name even before (or without) the
-  // agent list loads — the current user may not be in the assignable-agents list at all.
+  // Seed the picker so every pre-selected assignee shows a name before (or without) the agent
+  // list loading — the current user (create) or the lead's assignees (edit) may not be in the
+  // assignable-agents list at all (e.g. an admin).
   const [agents, setAgents] = useState<SelectOption[]>(() =>
-    user ? [{ value: user.id, label: user.name }] : [],
+    lead
+      ? lead.assignedAgents.map((a) => ({ value: a.id, label: a.name }))
+      : user
+        ? [{ value: user.id, label: user.name }]
+        : [],
   );
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -157,18 +229,26 @@ export function LeadFormDrawer({
           value: agent.id,
           label: agent.name,
         }));
-        // Keep the pre-selected current user resolvable even when they aren't an
-        // assignable agent (e.g. an admin), so their chip never renders as a bare id.
-        if (user && !options.some((option) => option.value === user.id)) {
-          options.unshift({ value: user.id, label: user.name });
+        // Keep every pre-selected assignee resolvable even when they aren't an
+        // assignable agent (an admin, or a lead's existing assignees on edit), so a
+        // chip never renders as a bare id.
+        const seeds = lead
+          ? lead.assignedAgents.map((a) => ({ value: a.id, label: a.name }))
+          : user
+            ? [{ value: user.id, label: user.name }]
+            : [];
+        for (const seed of seeds) {
+          if (!options.some((option) => option.value === seed.value)) {
+            options.unshift(seed);
+          }
         }
         setAgents(options);
       })
       .catch(() => {
-        /* the current-user seed above keeps the default chip labelled on failure */
+        /* the seed above keeps the pre-selected chips labelled on failure */
       });
     return () => controller.abort();
-  }, [user]);
+  }, [user, lead]);
 
   const leadStatus = useLookup("leadStatus");
   const pipelines = useLookup("pipelines");
@@ -215,7 +295,9 @@ export function LeadFormDrawer({
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const lead = await createLead({
+      // Same payload for create and update — the Edit form is the create form, so
+      // it always submits the full record (a PUT replace on the backend).
+      const payload = {
         name: form.name.trim(),
         primaryPhone: form.primaryPhone,
         firstName: form.firstName.trim() || undefined,
@@ -249,8 +331,11 @@ export function LeadFormDrawer({
         actualAmount: form.actualAmount.trim() || undefined,
         forecastedAmount: form.forecastedAmount.trim() || undefined,
         paymentMethod: form.paymentMethod ?? undefined,
-      });
-      onCreated(lead);
+      };
+      const saved = lead
+        ? await updateLead(lead.id, payload)
+        : await createLead(payload);
+      onSaved(saved);
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -266,14 +351,20 @@ export function LeadFormDrawer({
     <Drawer
       open={open}
       onClose={onClose}
-      title="Add New Lead"
+      title={editing ? "Edit Lead" : "Add New Lead"}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={submitting}>
-            {submitting ? "Saving…" : "Submit"}
+            {editing
+              ? submitting
+                ? "Updating…"
+                : "Update Lead"
+              : submitting
+                ? "Saving…"
+                : "Submit"}
           </Button>
         </>
       }

@@ -9,6 +9,8 @@ type Options = {
   size?: number;
   /** Search and conditions from `useFilters`, folded into the query the server receives. */
   filters?: FilterState;
+  /** The Leads advanced filter builder's applied conditions (ADR-0039), as a JSON param. */
+  conditions?: string;
 };
 
 /**
@@ -18,7 +20,11 @@ type Options = {
  * to the server. Sorting and sizing send the user back to page 1: page 4 of a 4-page result
  * is off the end once the page size grows, and a re-sorted page 4 shows unrelated rows.
  */
-export function useListQuery({ size: initialSize, filters }: Options = {}) {
+export function useListQuery({
+  size: initialSize,
+  filters,
+  conditions,
+}: Options = {}) {
   const [page, setPage] = useState(1);
   const [size, setSizeState] = useState(initialSize ?? DEFAULT_PAGE_SIZE);
   const [sort, setSortState] = useState<SortState | undefined>();
@@ -42,8 +48,9 @@ export function useListQuery({ size: initialSize, filters }: Options = {}) {
       sort,
       search: filters?.search.trim() || undefined,
       filters: filters?.conditions.filter(isConditionActive),
+      conditions,
     }),
-    [page, size, sort, filters],
+    [page, size, sort, filters, conditions],
   );
 
   return { query, page, size, sort, setPage, setSize, setSort, resetPage };

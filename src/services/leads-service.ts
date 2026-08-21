@@ -95,6 +95,73 @@ export function fetchLead(
   return apiGet<LeadListItem>(`/leads/${id}`, undefined, signal);
 }
 
+export type LeadActivityType = "CALL" | "MEETING" | "TASK";
+
+/**
+ * One entry in the Lead Detail drawer's timeline. The `created`/`assigned`/`note`
+ * variants mirror the backend `GET /leads/:id/timeline` (partial-but-honest — no
+ * "email sent" and no actor for create/assign). The two `followup-*` variants are
+ * derived on the client from `GET /leads/:id/activities` and merged in, so a
+ * created/completed follow-up shows on the timeline without a new backend feed.
+ * The follow-up actor is not recorded either, so it is deliberately absent.
+ */
+export type LeadTimelineEvent =
+  | { id: string; type: "created"; at: string }
+  | { id: string; type: "assigned"; at: string; assigneeName: string }
+  | { id: string; type: "note"; at: string; authorName: string; body: string }
+  | {
+      id: string;
+      type: "followup-created";
+      at: string;
+      activityType: LeadActivityType;
+      dueAt: string;
+      description: string | null;
+    }
+  | {
+      id: string;
+      type: "followup-completed";
+      at: string;
+      activityType: LeadActivityType;
+      dueAt: string;
+      description: string | null;
+    };
+
+/** The Lead Detail timeline for one lead (newest first), scoped server-side. */
+export function fetchLeadTimeline(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadTimelineEvent[]> {
+  return apiGet<LeadTimelineEvent[]>(
+    `/leads/${id}/timeline`,
+    undefined,
+    signal,
+  );
+}
+
+/**
+ * One of a lead's follow-ups (ACT-03.2 / ACT-04.1), mirroring the backend
+ * `LeadActivity`. The drawer derives its Next Follow-up card (earliest incomplete)
+ * and its Follow-up Created/Completed timeline entries from these.
+ */
+export interface LeadActivity {
+  id: string;
+  type: LeadActivityType;
+  description: string | null;
+  dueAt: string;
+  endAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  assignees: { id: string; name: string }[];
+}
+
+/** The Lead Detail drawer's follow-ups for one lead (earliest due first), scoped. */
+export function fetchLeadActivities(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadActivity[]> {
+  return apiGet<LeadActivity[]>(`/leads/${id}/activities`, undefined, signal);
+}
+
 /**
  * Writes the sort, search and filter params a Leads query carries onto a
  * `URLSearchParams` — everything except paging. Shared by the list fetch and the
@@ -108,6 +175,12 @@ export function appendLeadFilterParams(
   if (query.sort) {
     params.set("sort", query.sort.key);
     params.set("direction", query.sort.direction);
+  }
+
+  // The advanced filter builder's conditions (ADR-0039) ride as one JSON param, so
+  // the list fetch and the export request the identical filtered view.
+  if (query.conditions) {
+    params.set("conditions", query.conditions);
   }
 
   // Server-side search over name and phone (LEAD-03.1). The trimmed guard keeps

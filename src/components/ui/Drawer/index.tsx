@@ -19,11 +19,23 @@ const CLOSE_CLASS =
 export type DrawerProps = {
   open: boolean;
   onClose: () => void;
+  /** The accessible name for the dialog. Rendered as the header when `header` is absent. */
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
   /** Tailwind width utility for the panel, e.g. `max-w-lg`. Raw lengths are not tokenised. */
   width?: string;
+  /**
+   * Replaces the default title header with a custom node (e.g. the Lead Detail
+   * drawer's avatar + name + action row). `title` still supplies the a11y name.
+   */
+  header?: React.ReactNode;
+  /**
+   * When false, the body neither scrolls nor pads — the child owns the layout and
+   * scrolling itself (e.g. pinned sections above a self-scrolling timeline).
+   * Defaults to the scrolling, padded body every other drawer relies on.
+   */
+  scrollBody?: boolean;
 };
 
 type DrawerPanelProps = Omit<DrawerProps, "open">;
@@ -38,6 +50,8 @@ function DrawerPanel({
   children,
   footer,
   width = "max-w-2xl",
+  header,
+  scrollBody = true,
 }: DrawerPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -61,7 +75,8 @@ function DrawerPanel({
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labelledby={header ? undefined : titleId}
+        aria-label={header ? title : undefined}
         tabIndex={-1}
         className={cn(
           "pointer-events-auto relative flex h-full w-full transition-transform duration-(--duration-shell) ease-shell focus:outline-none",
@@ -79,13 +94,22 @@ function DrawerPanel({
         </button>
 
         <div className="flex h-full w-full flex-col border-l border-hairline bg-surface shadow-xl">
-          <header className="p-5">
-            <h2 id={titleId} className="text-lg font-medium text-ink">
-              {title}
-            </h2>
-          </header>
+          {header ?? (
+            <header className="p-5">
+              <h2 id={titleId} className="text-lg font-medium text-ink">
+                {title}
+              </h2>
+            </header>
+          )}
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 text-sm text-ink scrollbar-slim">
+          <div
+            className={cn(
+              "min-h-0 flex-1 text-sm text-ink",
+              scrollBody
+                ? "overflow-y-auto px-5 pb-5 scrollbar-slim"
+                : "flex flex-col overflow-hidden",
+            )}
+          >
             {children}
           </div>
 

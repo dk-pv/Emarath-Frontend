@@ -31,7 +31,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh overflow-hidden">
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* data-app-main marks the main content column's left edge (right of the
+          sidebar), so overlays like the Leads filter can clamp themselves inside it
+          — the boundary moves automatically as the sidebar collapses/expands. */}
+      <div data-app-main className="flex min-w-0 flex-1 flex-col">
         <Navbar />
         <Content>{children}</Content>
       </div>

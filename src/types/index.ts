@@ -70,6 +70,11 @@ export type ListQuery = {
   sort?: SortState;
   search?: string;
   filters?: readonly FilterCondition[];
+  /**
+   * The Leads advanced filter builder's conditions, as the JSON `conditions` param
+   * (ADR-0039). Opaque to the shared list plumbing — only the Leads query reads it.
+   */
+  conditions?: string;
 };
 
 /** One page plus the total, so the pager can size itself without a second request. */

@@ -1,6 +1,6 @@
 import { Avatar } from "@/components/ui/Avatar";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { CustomerNameLink } from "@/components/leads/customer-name-link";
+import { LeadNameCell } from "@/components/leads/lead-name-cell";
 import { LeadRowActions } from "@/components/leads/lead-row-actions";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
@@ -104,12 +104,11 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     key: "name",
     header: "Customer Name",
     className: STICKY_FIRST,
-    // ACT-09.1: navigates to /leads/{id} — Workpex shows the same click
-    // behaviour from the Leads list as from Activities. Uses the shared
-    // CustomerNameLink so both lists resolve to the same destination.
-    render: (row) => (
-      <CustomerNameLink leadId={row.id} name={row.name} />
-    ),
+    // In the Leads list the name opens the Lead Detail drawer in place (the list
+    // wraps the table in a LeadDetailProvider); the Activities list has no such
+    // provider, so LeadNameCell there falls back to navigating to /leads/{id}
+    // (ACT-09.1). One cell, both behaviours.
+    render: (row) => <LeadNameCell lead={row} />,
   },
   {
     key: "primaryPhone",

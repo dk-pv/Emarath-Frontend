@@ -58,13 +58,14 @@ export type TablePageLayoutProps = {
  * applied-filter chips, a scrollable table, and pagination.
  *
  * The frame fills the content area's height (`h-full`) and only the table region
- * scrolls: the header, toolbar and chips stay pinned at the top and pagination stays
- * pinned at the bottom, so — like Workpex — the row count and page controls never
- * disappear below a long table. The table region is `flex-1 min-h-0` so it takes the
- * leftover height and its own body scrolls (vertically and horizontally); the table's
- * own header sticks to the top of that scroll (see Table). This holds for every page
- * size and dataset length because the footer is a sibling of the scroll region, not
- * the last thing after it.
+ * scrolls: the header, toolbar and chips stay pinned at the top and the pagination
+ * footer stays pinned at the bottom of the table card, so — like Workpex — the row
+ * count and page controls never disappear below a long table. The scroll region and
+ * that footer share one card (`flex-1 min-h-0`); the region is itself `flex-1 min-h-0`
+ * inside it so it takes the leftover height and its own body scrolls (vertically and
+ * horizontally), while the footer, a sibling of the region, stays put. The table's own
+ * header sticks to the top of that scroll (see Table). This holds for every page size
+ * and dataset length because the footer is never the last thing after the scroll.
  *
  * Deliberately module-agnostic — it knows nothing about Leads, Activities or Documents.
  * Each section is optional so a module opts in to what it has.
@@ -114,28 +115,40 @@ export function TablePageLayout({
         />
       )}
 
-      {/* The one region that scrolls — `min-h-0 flex-1` so it takes the leftover
-          height and its own body scrolls, keeping the toolbar above and the footer
-          below permanently on screen. */}
-      <ResponsiveTableContainer
-        label={tableLabel ?? `${title} table`}
-        className="min-h-0 flex-1"
-      >
-        {children}
-      </ResponsiveTableContainer>
+      {/* The table card (Workpex parity): the scroll region, its horizontal
+          scrollbar and the pagination footer share one rounded, hairline-bordered
+          white surface, so the list reads as a contained card on the canvas rather
+          than an edge-to-edge sheet. `overflow-hidden` clips the sticky header and
+          the scroll region to the card's radius; `flex-1 min-h-0` gives the card the
+          leftover height so the region scrolls and the footer stays pinned to the
+          card's bottom. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-surface border border-hairline bg-surface">
+        {/* The one region that scrolls — `min-h-0 flex-1` so it takes the leftover
+            height and its own body scrolls, keeping the footer below it on screen. */}
+        <ResponsiveTableContainer
+          label={tableLabel ?? `${title} table`}
+          className="min-h-0 flex-1"
+        >
+          {children}
+        </ResponsiveTableContainer>
 
-      {/* Workpex keeps the row count and page-size control on screen even for a single
-          page, so the footer tracks `pagination` being supplied rather than page count. */}
-      {pagination && (
-        <Pagination
-          page={pagination.page}
-          pageCount={pagination.pageCount}
-          total={pagination.total}
-          onPageChange={pagination.onPageChange}
-          pageSize={pagination.pageSize}
-          onPageSizeChange={pagination.onPageSizeChange}
-        />
-      )}
+        {/* Workpex keeps the row count and page-size control on screen even for a
+            single page, so the footer tracks `pagination` being supplied rather than
+            page count. A `border-t` separates it from the rows and its `px-4` aligns
+            with the table cells, so it reads as the card's own footer. */}
+        {pagination && (
+          <div className="border-t border-hairline px-4 py-3">
+            <Pagination
+              page={pagination.page}
+              pageCount={pagination.pageCount}
+              total={pagination.total}
+              onPageChange={pagination.onPageChange}
+              pageSize={pagination.pageSize}
+              onPageSizeChange={pagination.onPageSizeChange}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

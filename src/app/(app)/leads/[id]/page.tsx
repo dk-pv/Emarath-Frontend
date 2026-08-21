@@ -3,10 +3,10 @@ import { LeadDetailView } from "@/components/leads/lead-detail-view";
 export const metadata = { title: "Lead Detail" };
 
 /**
- * The Lead Detail page (Lead-Detail-Blueprint §3) — the destination the Activities
- * Customer-Name link opens. This is the minimum shell: header + Basic Info, with
- * loading and missing/deleted-lead states. The Details column (notes, timeline,
- * attachments, logs) is later, phased work and deliberately absent.
+ * The Lead Detail page (`/leads/{id}`) — the destination the Leads list Customer-Name
+ * hover arrow and the Activities Customer-Name link (ACT-09.1) open. Renders the
+ * Basic Info panel and the Details column (Notes from real data; the remaining
+ * sections as honest Workpex empty states) — see `LeadDetailView` and ADR-0037.
  */
 export default async function LeadDetailPage({
   params,

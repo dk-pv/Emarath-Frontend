@@ -77,10 +77,34 @@ export async function fetchActivities(
   });
   if (query.search) params.set("search", query.search);
   // Repeated params per value, matching the Leads list convention (`?status=A&status=B`).
-  for (const id of query.assignedAgent ?? []) params.append("assignedAgent", id);
+  for (const id of query.assignedAgent ?? [])
+    params.append("assignedAgent", id);
   for (const value of query.status ?? []) params.append("status", value);
   for (const value of query.pipeline ?? []) params.append("pipeline", value);
   return apiGet<ActivityListResult>("/activities", params, signal);
+}
+
+/**
+ * The Add New Follow-up payload (ACT-03.2), mirroring the backend `CreateActivityDto`.
+ * `leadId` is the lead the drawer was opened on; a Call carries no `endAt`/`locationId`
+ * (the service rejects them). The client composes Due Date + Start Time into `dueAt`.
+ */
+export interface CreateActivityInput {
+  type: ActivityType;
+  leadId: string;
+  description: string;
+  dueAt: string;
+  endAt?: string;
+  locationId?: string;
+  assigneeIds: string[];
+}
+
+/** Creates a follow-up on a lead (ACT-03.1 API). Returns the created id. */
+export async function createActivity(
+  input: CreateActivityInput,
+  signal?: AbortSignal,
+): Promise<{ id: string }> {
+  return apiPost<{ id: string }>("/activities", input, signal);
 }
 
 /**
@@ -134,5 +158,9 @@ export async function duplicateActivity(
   id: string,
   signal?: AbortSignal,
 ): Promise<{ id: string }> {
-  return apiPost<{ id: string }>(`/activities/${id}/duplicate`, undefined, signal);
+  return apiPost<{ id: string }>(
+    `/activities/${id}/duplicate`,
+    undefined,
+    signal,
+  );
 }

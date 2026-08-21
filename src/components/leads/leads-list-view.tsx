@@ -17,7 +17,12 @@ import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
-import { FilterPanel } from "@/components/filters/filter-panel";
+import { LeadFilterBuilder } from "@/components/leads/lead-filter-builder";
+import {
+  buildConditionsPayload,
+  emptyRow,
+  type LeadFilterRow,
+} from "@/components/leads/lead-filter-config";
 import { LeadAddColumnMenu } from "@/components/leads/lead-add-column-menu";
 import { LeadBulkBar } from "@/components/leads/lead-bulk-bar";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
@@ -25,6 +30,9 @@ import { LeadReassignDrawer } from "@/components/leads/lead-reassign-drawer";
 import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
 import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
 import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
+import { LeadDetailDrawer } from "@/components/leads/lead-detail-drawer";
+import { LeadDetailProvider } from "@/components/leads/lead-detail-context";
+import { LeadFollowUpFormDrawer } from "@/components/leads/lead-followup-form-drawer";
 import {
   LeadManageColumnsDrawer,
   type ManageableColumn,
@@ -43,10 +51,12 @@ import {
   fetchLeadFilterOptions,
   fetchLeadForEdit,
   fetchLeads,
+  type LeadActivity,
   type LeadEditData,
   type LeadFilterOptions,
   type LeadListItem,
 } from "@/services/leads-service";
+import { completeActivity } from "@/services/activities-service";
 import { ApiError } from "@/lib/api-client";
 import { LeadRowActionsProvider } from "@/components/leads/lead-row-actions";
 import { LeadStatusProvider } from "@/components/leads/lead-status-badge";
@@ -192,6 +202,23 @@ export function LeadsListView() {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [presetFilters, setPresetFilters] = useState<FilterCondition[]>([]);
 
+  // The advanced filter builder (ADR-0039): the draft rows the popover edits, and the
+  // applied conditions (as the JSON `conditions` param) that actually drive the query.
+  // Draft is held here so it survives the popover closing/reopening.
+  const [filterRows, setFilterRows] = useState<LeadFilterRow[]>(() => [
+    emptyRow(),
+  ]);
+  const [appliedConditions, setAppliedConditions] = useState<
+    string | undefined
+  >(undefined);
+  const appliedFilterCount = useMemo(
+    () =>
+      appliedConditions
+        ? (JSON.parse(appliedConditions) as unknown[]).length
+        : 0,
+    [appliedConditions],
+  );
+
   // The box tracks the live value; only the value that drives the fetch waits.
   const debouncedSearch = useDebouncedValue(
     filters.state.search,
@@ -205,7 +232,21 @@ export function LeadsListView() {
     [debouncedSearch, filters.state.conditions, presetFilters],
   );
 
-  const list = useListQuery({ filters: queryState });
+  const list = useListQuery({
+    filters: queryState,
+    conditions: appliedConditions,
+  });
+
+  // Apply the builder's draft rows to the query (Workpex "Filter"), or clear them all.
+  const applyFilterConditions = () => {
+    setAppliedConditions(buildConditionsPayload(filterRows));
+    list.resetPage();
+  };
+  const clearFilterConditions = () => {
+    setFilterRows([emptyRow()]);
+    setAppliedConditions(undefined);
+    list.resetPage();
+  };
 
   // Apply a preset (or clear with null); the menu resolves a re-select to null.
   const applyQuickFilter = (id: string | null) => {
@@ -320,6 +361,21 @@ export function LeadsListView() {
   // The lead whose Add Note composer is open (LEAD-10.2, ADR-0035). Set per-open so
   // each drawer starts from an empty note.
   const [noteTarget, setNoteTarget] = useState<LeadListItem | null>(null);
+  // The lead whose Detail drawer is open (Lead Detail, from a Customer-Name click).
+  // Held whole so the header reflects live changes (pin/edit); `detailRefresh` forces
+  // the timeline to refetch after a note or reassignment adds an event.
+  const [detailLead, setDetailLead] = useState<LeadListItem | null>(null);
+  const [detailRefresh, setDetailRefresh] = useState(0);
+  const syncDetail = (id: string, next: LeadListItem | null) =>
+    setDetailLead((current) => (current && current.id === id ? next : current));
+  // The lead whose Add New Follow-up form is open (ACT-03.2), and the next follow-up
+  // awaiting a completion confirmation (ACT-04.1) — both opened from the Detail drawer.
+  const [followUpTarget, setFollowUpTarget] = useState<LeadListItem | null>(
+    null,
+  );
+  const [completeTarget, setCompleteTarget] = useState<LeadActivity | null>(
+    null,
+  );
   // The lead being edited (LEAD-06 edit mode): the full record that prefills the
   // shared form, plus the row's current pin so the patched row keeps it (the update
   // response, like the other row mutations, doesn't carry the caller's pin).
@@ -370,6 +426,10 @@ export function LeadsListView() {
       // Pin is orthogonal to assignment and the mutation response doesn't carry
       // the caller's pin, so keep the known-local value (ADR-0031).
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
+      // Keep an open Detail drawer in step, and refresh its timeline (a new
+      // assignment is a timeline event).
+      syncDetail(lead.id, { ...updated, isPinned: lead.isPinned });
+      setDetailRefresh((token) => token + 1);
       toast({ title: `${lead.name} reassigned`, tone: "success" });
     } catch {
       toast({ title: "Couldn’t reassign lead", tone: "danger" });
@@ -386,11 +446,38 @@ export function LeadsListView() {
     try {
       await deleteLead(lead.id);
       patchRow(lead.id, null);
+      // A deleted lead has no record to show — close its Detail drawer if open.
+      syncDetail(lead.id, null);
       toast({ title: `${lead.name} deleted`, tone: "success" });
     } catch {
       toast({ title: "Couldn’t delete lead", tone: "danger" });
     } finally {
       setRowPending(null);
+    }
+  };
+
+  // Complete the Detail drawer's next follow-up (ACT-04.1) after the confirmation.
+  // Reuses the existing complete API; a success bumps the drawer so its Next
+  // Follow-up card and Timeline (a new "Completed" event) refetch.
+  const handleCompleteFollowUp = async () => {
+    const activity = completeTarget;
+    if (!activity) return;
+    setCompleteTarget(null);
+    try {
+      await completeActivity(activity.id);
+      setDetailRefresh((token) => token + 1);
+      toast({
+        title: "Activity status updated to Completed",
+        tone: "success",
+      });
+    } catch (error) {
+      toast({
+        title:
+          error instanceof ApiError
+            ? error.messages.join(" · ") || error.message
+            : "Couldn’t complete the follow-up",
+        tone: "danger",
+      });
     }
   };
 
@@ -402,6 +489,7 @@ export function LeadsListView() {
     const nextPinned = !lead.isPinned;
     setRowPending({ id: lead.id, action: "pin" });
     patchRow(lead.id, { ...lead, isPinned: nextPinned });
+    syncDetail(lead.id, { ...lead, isPinned: nextPinned });
     try {
       await (nextPinned ? pinLead(lead.id) : unpinLead(lead.id));
       toast({
@@ -412,6 +500,7 @@ export function LeadsListView() {
       refetch();
     } catch {
       patchRow(lead.id, lead);
+      syncDetail(lead.id, lead);
       toast({
         title: nextPinned ? "Couldn’t pin lead" : "Couldn’t unpin lead",
         tone: "danger",
@@ -668,18 +757,12 @@ export function LeadsListView() {
               }}
               placeholder="Search name or phone"
             />
-            <FilterPanel
-              fields={filterFields}
-              activeCount={filters.activeCount}
-              valueOf={filters.valueOf}
-              onChange={(key, value) => {
-                filters.setCondition(key, value);
-                list.resetPage();
-              }}
-              onClear={() => {
-                filters.clearAll();
-                list.resetPage();
-              }}
+            <LeadFilterBuilder
+              rows={filterRows}
+              onRowsChange={setFilterRows}
+              onApply={applyFilterConditions}
+              onClear={clearFilterConditions}
+              activeCount={appliedFilterCount}
             />
             <LeadSortMenu sort={list.sort} onSortChange={list.setSort} />
             <LeadQuickFilterMenu
@@ -718,42 +801,96 @@ export function LeadsListView() {
             : undefined
         }
       >
-        <LeadRowActionsProvider value={rowActionsValue}>
-          <LeadStatusProvider value={statusValue}>
-            <LeadTagsProvider value={tagsValue}>
-              <Table
-                columns={visibleColumns}
-                rows={displayedRows}
-                getRowId={(row) => row.id}
-                selection={{
-                  selectedIds,
-                  onToggleRow: toggleRow,
-                  onToggleAll: toggleAll,
-                  rowLabel: (row) => `Select ${row.name}`,
-                  allLabel: "Select all leads on this page",
-                }}
-                isLoading={isLoading}
-                emptyState={
-                  <EmptyState
-                    icon={IconFileSearch}
-                    title="No data available"
-                    description="There's no data for the selected date range or filters. Try adjusting your filters to see more results."
-                  />
-                }
-                errorState={
-                  isError ? (
-                    <ErrorState
-                      title="Couldn’t load leads"
-                      description="Something went wrong while loading leads. Check your connection and try again."
-                      onRetry={refetch}
+        <LeadDetailProvider value={{ onOpen: setDetailLead }}>
+          <LeadRowActionsProvider value={rowActionsValue}>
+            <LeadStatusProvider value={statusValue}>
+              <LeadTagsProvider value={tagsValue}>
+                <Table
+                  columns={visibleColumns}
+                  rows={displayedRows}
+                  getRowId={(row) => row.id}
+                  selection={{
+                    selectedIds,
+                    onToggleRow: toggleRow,
+                    onToggleAll: toggleAll,
+                    rowLabel: (row) => `Select ${row.name}`,
+                    allLabel: "Select all leads on this page",
+                  }}
+                  isLoading={isLoading}
+                  emptyState={
+                    <EmptyState
+                      icon={IconFileSearch}
+                      title="No data available"
+                      description="There's no data for the selected date range or filters. Try adjusting your filters to see more results."
                     />
-                  ) : undefined
-                }
-              />
-            </LeadTagsProvider>
-          </LeadStatusProvider>
-        </LeadRowActionsProvider>
+                  }
+                  errorState={
+                    isError ? (
+                      <ErrorState
+                        title="Couldn’t load leads"
+                        description="Something went wrong while loading leads. Check your connection and try again."
+                        onRetry={refetch}
+                      />
+                    ) : undefined
+                  }
+                />
+              </LeadTagsProvider>
+            </LeadStatusProvider>
+          </LeadRowActionsProvider>
+        </LeadDetailProvider>
       </TablePageLayout>
+
+      {/* Lead Detail drawer — opened by a Customer-Name click (drawer on the Leads
+          list; the /leads/[id] page stays for Activities + deep links). Every header
+          action reuses the list's existing flow; the sub-drawers those open
+          (WhatsApp/Email/Edit/Reassign/Note) mount below and stack over this one. */}
+      {detailLead && (
+        <LeadDetailDrawer
+          open
+          lead={detailLead}
+          refreshToken={detailRefresh}
+          onClose={() => setDetailLead(null)}
+          actions={{
+            onPin: (lead) => void handleTogglePin(lead),
+            onWhatsapp: (lead) => setWhatsappTarget(lead),
+            onEmail: (lead) => setEmailTarget(lead),
+            onEdit: (lead) => void handleEdit(lead),
+            onReassign: (lead) => setRowReassignTarget(lead),
+            onDelete: (lead) => setRowDeleteTarget(lead),
+            onAddNote: (lead) => setNoteTarget(lead),
+            onNewFollowUp: (lead) => setFollowUpTarget(lead),
+            onCompleteFollowUp: (activity) => setCompleteTarget(activity),
+            canReassign,
+          }}
+        />
+      )}
+
+      {/* Add New Follow-up (ACT-03.2) — opened from the Detail drawer's New Follow-up
+          button. Stacks over the detail drawer; a successful create refreshes the
+          drawer so Next Follow-up and the Timeline pick up the new activity. */}
+      {followUpTarget && (
+        <LeadFollowUpFormDrawer
+          lead={followUpTarget}
+          onClose={() => setFollowUpTarget(null)}
+          onCreated={() => {
+            setFollowUpTarget(null);
+            setDetailRefresh((token) => token + 1);
+            toast({ title: "Follow-up added successfully", tone: "success" });
+          }}
+        />
+      )}
+
+      {/* Complete follow-up (ACT-04.1) — the Next Follow-up card's checkmark asks to
+          confirm before completing, matching Workpex. */}
+      <ConfirmDialog
+        open={completeTarget !== null}
+        onCancel={() => setCompleteTarget(null)}
+        onConfirm={() => void handleCompleteFollowUp()}
+        title="Confirmation"
+        description="Would you like to mark this activity as completed?"
+        confirmLabel="Yes"
+        tone="brand"
+      />
 
       {selectedIds.size > 0 && (
         <LeadBulkBar
@@ -856,6 +993,9 @@ export function LeadsListView() {
           onClose={() => setNoteTarget(null)}
           onSaved={() => {
             setNoteTarget(null);
+            // A new note is a timeline event — refresh an open Detail drawer so
+            // Recent Notes and the Timeline pick it up.
+            setDetailRefresh((token) => token + 1);
             toast({ title: "Note added", tone: "success" });
           }}
         />
@@ -885,6 +1025,8 @@ export function LeadsListView() {
           onClose={() => setEditLead(null)}
           onSaved={(updated) => {
             patchRow(updated.id, { ...updated, isPinned: editLead.isPinned });
+            // Keep an open Detail drawer's header in step with the edit.
+            syncDetail(updated.id, { ...updated, isPinned: editLead.isPinned });
             setEditLead(null);
             toast({ title: `${updated.name} updated`, tone: "success" });
           }}

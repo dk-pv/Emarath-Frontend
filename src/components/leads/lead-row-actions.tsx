@@ -28,9 +28,13 @@ import type { LeadListItem } from "@/services/leads-service";
  *
  * Wired (LEAD-10.1 API): WhatsApp (a `wa.me` deep-link from the primary phone),
  * Reassign and Delete. Reassign is role-gated — only managers and admins see it
- * (AUTH-02.2); for other roles the icon is omitted. Deliberately not wired — ADR-0013:
- *   • Convert is inert — Workpex's green-circle behaviour is uncaptured and the stage
- *     config it would drive (LEAD-11.1) does not exist yet.
+ * (AUTH-02.2); for other roles the icon is omitted.
+ * Convert (ADR-0048, supersedes the inert ADR-0013 state): sets the lead's status to
+ *   the approved converted value ("WON" — the same definition the Converted Leads
+ *   report and quick filter already use) through the existing set-status API, behind a
+ *   confirm dialog. A converted lead's icon is filled green with a "Converted" tooltip
+ *   and is non-actionable, so a lead can't be converted twice. The green state reads
+ *   from the persisted `status`, so an already-WON lead renders green on load.
  * Wired later: Email opens the Send Email composer (ADR-0032); Edit Lead opens the
  * shared New Lead form in edit mode, prefilled from the record (LEAD-06 edit mode);
  * Add Note opens the Add Note composer, persisting a note to the lead (ADR-0035).
@@ -40,9 +44,23 @@ import type { LeadListItem } from "@/services/leads-service";
 
 export type RowActionKind = "reassign" | "delete" | "pin" | "edit";
 
+/**
+ * The lead status that means "converted" — the approved definition (RPT-02.6) shared
+ * by the backend Converted Leads report (`CONVERTED_STATUS`) and the Leads "Converted
+ * Leads" quick filter. Converting a lead sets its status to this value; a lead already
+ * at this status renders as converted. One source of truth for the whole feature.
+ */
+export const CONVERTED_STATUS = "WON";
+
+/** True when a lead is converted, read from its persisted status (not local state). */
+export const isLeadConverted = (lead: LeadListItem): boolean =>
+  lead.status === CONVERTED_STATUS;
+
 type RowActionsContextValue = {
   onReassign: (lead: LeadListItem) => void;
   onDelete: (lead: LeadListItem) => void;
+  /** Open the Convert confirm dialog for a lead (ADR-0048); a no-op once converted. */
+  onConvert: (lead: LeadListItem) => void;
   /** Open the Send Whatsapp Message composer for a lead (LEAD-10.2). */
   onWhatsapp: (lead: LeadListItem) => void;
   /** Open the Send Email composer for a lead (LEAD-10.2, ADR-0032). */
@@ -83,6 +101,7 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
   const waUrl = whatsappUrl(lead.primaryPhone);
 
   const pinned = lead.isPinned;
+  const converted = isLeadConverted(lead);
 
   return (
     <span className="flex items-center gap-0.5">
@@ -200,14 +219,26 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
         </Tooltip>
       )}
 
-      {/* Convert — a circular control, filled green once a lead is converted.
-          Workpex's trigger for that state is not captured, so it stays inert and
-          every row shows the default outline until the rule is confirmed (ADR-0013). */}
-      <Tooltip content="Convert">
+      {/* Convert (ADR-0048) — a circular control, filled green once converted. Clicking
+          an unconverted lead opens the confirm dialog; a converted lead is non-actionable
+          (guarded onClick, aria-disabled) but stays focusable/hoverable so its "Converted"
+          tooltip still shows. The green state reads the persisted status, so it survives
+          reload. `disabled` only while another row action is running. */}
+      <Tooltip content={converted ? "Converted" : "Convert"}>
         <button
           type="button"
-          aria-label="Convert"
-          className="flex size-6 items-center justify-center rounded-full border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring"
+          aria-label={converted ? "Converted" : "Convert"}
+          aria-disabled={converted || undefined}
+          disabled={busy}
+          onClick={() => {
+            if (!converted) ctx?.onConvert(lead);
+          }}
+          className={cn(
+            "flex size-6 items-center justify-center rounded-full border transition-colors duration-(--duration-shell) ease-shell focus-ring disabled:cursor-not-allowed disabled:opacity-45",
+            converted
+              ? "cursor-default border-brand bg-brand text-white"
+              : "border-hairline text-ink-muted hover:bg-canvas hover:text-ink",
+          )}
         >
           <IconArrowsExchange2 size={14} stroke={1.75} aria-hidden="true" />
         </button>

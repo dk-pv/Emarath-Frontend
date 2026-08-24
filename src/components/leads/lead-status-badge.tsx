@@ -6,6 +6,8 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -96,31 +98,81 @@ function InteractiveStatusBadge({
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      // Escape closes and returns focus to the trigger (keyboard close).
+      if (event.key === "Escape") {
+        close();
+        btnRef.current?.focus();
+      }
+    };
+    // The panel is viewport-fixed at the badge, so an ancestor/page scroll would
+    // detach it — but a scroll *inside* the panel (keyboard focus moving through a
+    // long status list) must not close it.
+    const onScroll = (event: Event) => {
+      if (panelRef.current?.contains(event.target as Node)) return;
+      close();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-    // The panel is viewport-fixed at the badge, so any scroll would detach it.
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", close);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
     };
   }, [open]);
 
-  const toggle = () => {
+  // When opened by keyboard (Enter/Space report a click detail of 0), pull focus
+  // into the list on open; a mouse open (detail ≥ 1) leaves focus untouched, so
+  // mouse behaviour is unchanged.
+  const focusOnOpenRef = useRef(false);
+
+  const toggle = (event?: ReactMouseEvent<HTMLButtonElement>) => {
     if (pending) return;
     const r = btnRef.current?.getBoundingClientRect();
     if (r) setRect({ top: r.bottom + 4, left: r.left, width: r.width });
+    focusOnOpenRef.current = !open && (event?.detail ?? 0) === 0;
     setOpen((value) => !value);
   };
 
+  // On a keyboard open, move focus to the selected option (else the first) so the
+  // Arrow keys work immediately — mirrors lead-tags-cell's autoFocus-in.
+  useEffect(() => {
+    if (!open || !focusOnOpenRef.current) return;
+    focusOnOpenRef.current = false;
+    const options = panelRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="option"]',
+    );
+    if (!options?.length) return;
+    const selected = [...options].findIndex(
+      (option) => option.getAttribute("aria-selected") === "true",
+    );
+    options[selected >= 0 ? selected : 0]?.focus();
+  }, [open]);
+
   const pick = (status: string) => {
     setOpen(false);
+    btnRef.current?.focus();
     if (status !== lead.status) ctx.onChange(lead, status);
+  };
+
+  // Arrow keys roam the options; Enter/Space on a focused option selects it via the
+  // button's own click, and Escape is handled by the document listener above.
+  const onListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const options = panelRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="option"]',
+    );
+    if (!options?.length) return;
+    event.preventDefault();
+    const list = [...options];
+    const current = list.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      event.key === "ArrowDown"
+        ? Math.min(current + 1, list.length - 1)
+        : Math.max(current - 1, 0);
+    list[next]?.focus();
   };
 
   return (
@@ -152,6 +204,7 @@ function InteractiveStatusBadge({
             ref={panelRef}
             role="listbox"
             aria-label="Set lead status"
+            onKeyDown={onListKeyDown}
             style={{
               position: "fixed",
               top: rect.top,
@@ -168,6 +221,7 @@ function InteractiveStatusBadge({
                   type="button"
                   role="option"
                   aria-selected={selected}
+                  tabIndex={-1}
                   onClick={() => pick(option.name)}
                   className="focus-ring-inset flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas"
                 >

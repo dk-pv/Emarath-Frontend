@@ -22,6 +22,13 @@ export type ConfirmDialogProps = {
   description: string;
   confirmLabel?: string;
   tone?: Tone;
+  /**
+   * The confirm mutation is running: the confirm button shows the shared loading
+   * spinner (and can't be clicked again), Cancel is disabled, and Escape/backdrop/✕
+   * are inert so the dialog can't be dismissed mid-mutation. Defaults to false, so
+   * every existing close-on-confirm caller is unchanged.
+   */
+  busy?: boolean;
 };
 
 export function ConfirmDialog({
@@ -32,19 +39,24 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   tone = "danger",
+  busy = false,
 }: ConfirmDialogProps) {
   return (
     <Modal
       open={open}
-      onClose={onCancel}
+      onClose={busy ? () => {} : onCancel}
       title={title}
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel} disabled={busy}>
             Cancel
           </Button>
-          <Button variant={TONE_VARIANT[tone]} onClick={onConfirm}>
+          <Button
+            variant={TONE_VARIANT[tone]}
+            onClick={onConfirm}
+            isLoading={busy}
+          >
             {confirmLabel}
           </Button>
         </>

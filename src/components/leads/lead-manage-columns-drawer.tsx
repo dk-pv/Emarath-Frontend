@@ -21,10 +21,14 @@ type LeadManageColumnsDrawerProps = {
 /**
  * The Manage Columns drawer (LEAD-05.1), from `leads-manage-columns-drawer-open.png`:
  * a right drawer listing the data columns, each with a drag handle and a green
- * checkbox, over a Cancel / Submit footer. Reorder by dragging; toggle to show or
- * hide. Edits are held as a draft so Cancel discards and only Submit applies —
- * Customer Name and the row actions are the fixed identifier/action columns and are
- * not listed, matching Workpex.
+ * checkbox, over a footer. Reorder by dragging; toggle to show or hide. Edits are
+ * held as a draft so Cancel discards and only Submit applies — Customer Name and the
+ * row actions are the fixed identifier/action columns and are not listed, matching
+ * Workpex.
+ *
+ * "Reset to default" (AC5) restores every column, in the module's default order, as a
+ * draft the user then submits. Its exact Workpex placement is not in the captured
+ * screenshots, so it sits in the footer using the drawer's existing button pattern.
  */
 export function LeadManageColumnsDrawer({
   open,
@@ -53,6 +57,14 @@ export function LeadManageColumnsDrawer({
       return next;
     });
 
+  // Reset the draft to the default layout (LEAD-05.1 AC5): every column visible, in
+  // the module's declared order (`columns` arrives in that default order). Submit
+  // persists it, the same as any other edit — no separate reset endpoint needed.
+  const resetToDefault = () => {
+    setDraftOrder(columns.map((column) => column.key));
+    setDraftHidden(new Set());
+  };
+
   const reorderOver = (overKey: string) => {
     if (!dragKey || dragKey === overKey) return;
     setDraftOrder((prev) => {
@@ -72,19 +84,24 @@ export function LeadManageColumnsDrawer({
       onClose={onClose}
       title="Manage Columns"
       footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
+        <div className="flex w-full items-center justify-between">
+          <Button variant="ghost" onClick={resetToDefault}>
+            Reset to default
           </Button>
-          <Button
-            onClick={() => {
-              onApply(draftOrder, [...draftHidden]);
-              onClose();
-            }}
-          >
-            Submit
-          </Button>
-        </>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                onApply(draftOrder, [...draftHidden]);
+                onClose();
+              }}
+            >
+              Submit
+            </Button>
+          </div>
+        </div>
       }
     >
       <ul className="flex flex-col">

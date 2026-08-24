@@ -31,6 +31,8 @@ type TableProps<TRow> = {
   onSortChange?: (sort: SortState) => void;
   selection?: TableSelection<TRow>;
   isLoading?: boolean;
+  /** A background refetch while rows stay on screen — dims the body, no skeleton. */
+  isFetching?: boolean;
   emptyState?: React.ReactNode;
   errorState?: React.ReactNode;
 };
@@ -124,6 +126,7 @@ export function Table<TRow>({
   onSortChange,
   selection,
   isLoading,
+  isFetching,
   emptyState,
   errorState,
 }: TableProps<TRow>) {
@@ -265,7 +268,19 @@ export function Table<TRow>({
           })}
         </tr>
       </thead>
-      <tbody>{body}</tbody>
+      <tbody
+        className={cn(
+          // Kept-previous rows dim softly while the next page loads (no skeleton
+          // swap); the header stays crisp. Only when actual rows are on screen.
+          isFetching &&
+            !isLoading &&
+            !errorState &&
+            rows.length > 0 &&
+            "opacity-60 transition-opacity duration-(--duration-shell) ease-shell",
+        )}
+      >
+        {body}
+      </tbody>
     </table>
   );
 }

@@ -17,7 +17,15 @@ export function Toolbar({ left, right, className }: ToolbarProps) {
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         {left}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">{right}</div>
+      {/* `min-w-0` (not `shrink-0`) lets the right cluster be squeezed narrower than
+          its single-line width, so its own `flex-wrap` actually engages and the controls
+          wrap onto more rows instead of overflowing and being clipped off the right edge
+          at narrower widths. `justify-end` keeps the cluster right-anchored (Workpex) in
+          both the single-row and wrapped states. When there is room it sits at its natural
+          width, right-aligned by the outer `justify-between`. */}
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {right}
+      </div>
     </div>
   );
 }

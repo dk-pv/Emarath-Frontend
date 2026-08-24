@@ -36,6 +36,12 @@ export function useListQuery({
     setPage(1);
   }, []);
 
+  /** Drops the sort back to the endpoint's default order (Workpex's "Sort ✕"). */
+  const clearSort = useCallback(() => {
+    setSortState(undefined);
+    setPage(1);
+  }, []);
+
   const setSize = useCallback((next: number) => {
     setSizeState(next);
     setPage(1);
@@ -53,5 +59,15 @@ export function useListQuery({
     [page, size, sort, filters, conditions],
   );
 
-  return { query, page, size, sort, setPage, setSize, setSort, resetPage };
+  return {
+    query,
+    page,
+    size,
+    sort,
+    setPage,
+    setSize,
+    setSort,
+    clearSort,
+    resetPage,
+  };
 }

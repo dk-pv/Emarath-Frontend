@@ -28,12 +28,14 @@ const FIELD_TYPES: { id: string; label: string; Icon: Icon }[] = [
 ];
 
 /**
- * The Leads "Add Column" toolbar control (LEAD-05.1). Workpex opens a "Field Type"
- * menu; choosing a type then leads to a form that names the column — a step no
- * screenshot captures, so it is intentionally not built. Selecting a type only
- * closes the menu here, and nothing is persisted, until that flow (and its API)
- * exist. Built from the same disclosure/dismiss hooks as the other poppers rather
- * than a new primitive.
+ * The Leads "Add Column" toolbar control (LEAD-05.1). Workpex's choice of a field
+ * type leads to a form that names it and creates a **custom field** — a persisted
+ * custom-field system (definitions + per-lead values) that is beyond LEAD-05.1's
+ * acceptance criteria (they scope show/hide/reorder of the standard columns — see the
+ * Manage Columns drawer) and is not yet an approved task. So the button + menu match
+ * Workpex, but the field types are shown **disabled with a "Coming soon" note** rather
+ * than silently doing nothing: the control never implies a feature that is not there.
+ * Built from the same disclosure/dismiss hooks as the other poppers.
  */
 export function LeadAddColumnMenu() {
   const root = useRef<HTMLDivElement>(null);
@@ -61,19 +63,21 @@ export function LeadAddColumnMenu() {
         >
           <p className="px-4 py-2 text-sm text-ink-subtle">Field Type</p>
           {FIELD_TYPES.map(({ id, label, Icon }) => (
-            <button
+            <div
               key={id}
-              type="button"
-              role="menuitem"
-              onClick={close}
-              className="flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-subtle focus-ring-inset"
+              aria-disabled="true"
+              title="Custom columns aren’t available yet"
+              className="flex w-full cursor-not-allowed items-center gap-3 px-3 py-2 text-left text-[15px] text-ink opacity-45"
             >
               <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-brand-subtle text-brand-strong">
                 <Icon size={18} stroke={1.75} aria-hidden="true" />
               </span>
               {label}
-            </button>
+            </div>
           ))}
+          <p className="px-4 pt-1.5 pb-1 text-xs text-ink-subtle">
+            Coming soon
+          </p>
         </div>
       )}
     </div>

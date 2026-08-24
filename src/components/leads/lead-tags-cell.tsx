@@ -18,6 +18,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { Chip } from "@/components/ui/Chip";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { LeadListItem } from "@/services/leads-service";
 
 /**
@@ -151,38 +152,43 @@ function InteractiveTagsCell({
 
   return (
     <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={toggle}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={hasTags ? `Edit tags for ${lead.name}` : `Add a tag`}
-        className={cn(
-          "focus-ring flex items-center gap-1.5 rounded-control",
-          hasTags ? "flex-wrap" : "px-0.5 py-0.5",
-        )}
-      >
-        {hasTags ? (
-          lead.tags.map((tag) => (
-            <span key={tag.id} className={TAG_PILL}>
-              <span className="truncate">{tag.name}</span>
-            </span>
-          ))
-        ) : (
-          <>
-            <IconTags
-              size={17}
-              stroke={1.75}
-              className="text-ink-subtle"
-              aria-hidden="true"
-            />
-            <span className="inline-flex size-5 items-center justify-center rounded-full bg-brand text-white">
-              <IconPlus size={12} stroke={2.5} aria-hidden="true" />
-            </span>
-          </>
-        )}
-      </button>
+      {/* Workpex shows a "Click to manage and add tags" hint on hover of the cell
+          (see the Tags-tooltip reference); it is suppressed while the editor popover
+          is open so the two never stack. */}
+      <Tooltip content="Click to manage and add tags" disabled={open}>
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={toggle}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={hasTags ? `Edit tags for ${lead.name}` : `Add a tag`}
+          className={cn(
+            "focus-ring flex items-center gap-1.5 rounded-control",
+            hasTags ? "flex-wrap" : "px-0.5 py-0.5",
+          )}
+        >
+          {hasTags ? (
+            lead.tags.map((tag) => (
+              <span key={tag.id} className={TAG_PILL}>
+                <span className="truncate">{tag.name}</span>
+              </span>
+            ))
+          ) : (
+            <>
+              <IconTags
+                size={17}
+                stroke={1.75}
+                className="text-ink-subtle"
+                aria-hidden="true"
+              />
+              <span className="inline-flex size-5 items-center justify-center rounded-full bg-brand text-white">
+                <IconPlus size={12} stroke={2.5} aria-hidden="true" />
+              </span>
+            </>
+          )}
+        </button>
+      </Tooltip>
 
       {open &&
         rect &&

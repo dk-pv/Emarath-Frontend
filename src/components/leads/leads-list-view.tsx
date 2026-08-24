@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   IconColumns,
   IconFileImport,
-  IconFileSearch,
+  IconFilterX,
   IconPlus,
+  IconSearch,
+  IconUsers,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -38,9 +40,9 @@ import {
   type ManageableColumn,
 } from "@/components/leads/lead-manage-columns-drawer";
 import { LeadExportMenu } from "@/components/leads/lead-export-menu";
-import { LeadQuickFilterMenu } from "@/components/leads/lead-quick-filter-menu";
+import { LeadQuickFilterControl } from "@/components/leads/lead-quick-filter-control";
 import { presetConditions } from "@/components/leads/lead-quick-filters";
-import { LeadSortMenu } from "@/components/leads/lead-sort-menu";
+import { LeadSortControl } from "@/components/leads/lead-sort-control";
 import { leadColumns } from "@/components/leads/lead-columns";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
@@ -48,17 +50,18 @@ import { useFilters } from "@/hooks/use-filters";
 import { useListData } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import {
-  fetchLeadFilterOptions,
   fetchLeadForEdit,
   fetchLeads,
   type LeadActivity,
   type LeadEditData,
-  type LeadFilterOptions,
   type LeadListItem,
 } from "@/services/leads-service";
 import { completeActivity } from "@/services/activities-service";
 import { ApiError } from "@/lib/api-client";
-import { LeadRowActionsProvider } from "@/components/leads/lead-row-actions";
+import {
+  CONVERTED_STATUS,
+  LeadRowActionsProvider,
+} from "@/components/leads/lead-row-actions";
 import { LeadStatusProvider } from "@/components/leads/lead-status-badge";
 import {
   LeadTagsProvider,
@@ -94,27 +97,25 @@ import { whatsappUrl } from "@/lib/whatsapp";
 import { can } from "@/constants/permissions";
 import type { FilterCondition, FilterField, FilterState } from "@/types";
 
-const NO_OPTIONS: LeadFilterOptions = {
-  sources: [],
-  statuses: [],
-  agents: [],
-  tags: [],
-};
-
 /** A pause after the last keystroke before the server search runs (LEAD-03.3). */
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
+ * useFilters supplies the search state; Leads renders no shared FilterPanel, so it
+ * needs no filter-field catalogue (the advanced LeadFilterBuilder loads its own
+ * lookups). A stable empty list keeps that state without a wasted options fetch.
+ */
+const NO_FILTER_FIELDS: FilterField[] = [];
+
+/**
  * The real Leads list (LEAD-02.2) with search, filter and sort wired in
- * (LEAD-03.3). Everything is a composition of the Foundation: the toolbar,
- * SearchInput and FilterPanel come from TablePageLayout, filter state from
- * useFilters, paging/sort from useListQuery, and fetching from useListData — no
- * bespoke toolbar, popup or search component is introduced.
+ * (LEAD-03.3). Everything is a composition of the Foundation: search is the
+ * toolbar ToolbarSearch, advanced filtering the LeadFilterBuilder, quick filters
+ * the LeadQuickFilterControl; search state comes from useFilters, paging/sort from
+ * useListQuery, and fetching from useListData.
  *
  * Search is debounced so a 15,000+ row query does not run per keystroke, while
- * the box stays controlled by the live value. Filter options are faceted from
- * the caller's scoped leads, so an agent is only ever offered sources, statuses
- * and agents that appear on leads they may open.
+ * the box stays controlled by the live value.
  */
 export function LeadsListView() {
   const { user } = useAuth();
@@ -122,24 +123,8 @@ export function LeadsListView() {
   // The backend @Roles() gate is the real block — this just keeps the UI honest.
   const canReassign = can(user?.role, "reassignLeads");
 
-  const [options, setOptions] = useState<LeadFilterOptions>(NO_OPTIONS);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchLeadFilterOptions(controller.signal)
-      .then(setOptions)
-      .catch((error: unknown) => {
-        // A superseded request aborts; that is expected. Any other failure just
-        // leaves the filter menu empty — the list itself still works.
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-      });
-    return () => controller.abort();
-  }, []);
-
-  // The full existing-tag catalogue the row Tags picker offers (LEAD-12.1 AC1).
-  // Unlike the filter's `options.tags` — faceted to tags already on visible leads
-  // — the picker must offer every tag, since a lead with none can still take any.
+  // The full existing-tag catalogue the row Tags picker offers (LEAD-12.1 AC1):
+  // every existing tag, since a lead with none can still take any.
   const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
 
   useEffect(() => {
@@ -157,43 +142,7 @@ export function LeadsListView() {
     return () => controller.abort();
   }, []);
 
-  const filterFields = useMemo<FilterField[]>(
-    () => [
-      {
-        key: "source",
-        label: "Source",
-        type: "multi",
-        options: options.sources.map((value) => ({ label: value, value })),
-      },
-      {
-        key: "status",
-        label: "Lead Status",
-        type: "multi",
-        options: options.statuses.map((value) => ({ label: value, value })),
-      },
-      {
-        key: "assignedAgent",
-        label: "Assigned Agent",
-        type: "multi",
-        options: options.agents.map((agent) => ({
-          label: agent.name,
-          value: agent.id,
-        })),
-      },
-      {
-        key: "tag",
-        label: "Tags",
-        type: "multi",
-        options: options.tags.map((tag) => ({
-          label: tag.name,
-          value: tag.id,
-        })),
-      },
-    ],
-    [options],
-  );
-
-  const filters = useFilters(filterFields);
+  const filters = useFilters(NO_FILTER_FIELDS);
 
   // Quick Filter preset (LEAD-04.1). One preset at a time; its conditions ride the
   // same list query as the field filters, so no new filter path exists. Kept in its
@@ -254,13 +203,39 @@ export function LeadsListView() {
     setPresetFilters(id ? presetConditions(id) : []);
     list.resetPage();
   };
-  const { rows, total, isLoading, isError, refetch } = useListData(
+
+  // Empty-state actions. Clear just the search, or clear every filter (quick preset +
+  // advanced builder), each resetting paging via the existing list-query behavior.
+  const clearSearch = () => {
+    filters.setSearch("");
+    list.resetPage();
+  };
+  const clearAllFilters = () => {
+    setActivePreset(null);
+    setPresetFilters([]);
+    setFilterRows([emptyRow()]);
+    setAppliedConditions(undefined);
+    list.resetPage();
+  };
+  const { rows, total, isLoading, isFetching, isError, refetch } = useListData(
     fetchLeads,
     list.query,
+    { keepPreviousData: true },
   );
 
   const newLead = useDisclosure();
   const pageCount = Math.max(1, Math.ceil(total / list.size));
+
+  // If the active page falls past the end of the result — e.g. a bulk delete shrinks
+  // the set while the user sits on a later page — step back to the last real page
+  // rather than stranding them on an empty out-of-range page. Search/filter/sort
+  // already reset to page 1; this covers the data-shrinks-underneath case. Gated on a
+  // settled fetch so it reads the current total, not a kept-stale one.
+  useEffect(() => {
+    if (!isFetching && total > 0 && list.page > pageCount) {
+      list.setPage(pageCount);
+    }
+  }, [isFetching, total, pageCount, list]);
 
   // Bulk selection (LEAD-09.2). Ids accumulate across pages, so a select-all on
   // one page adds only that page's rows and the count carries over, matching
@@ -555,6 +530,39 @@ export function LeadsListView() {
     }
   };
 
+  // Convert (ADR-0048). A confirm dialog, then the existing set-status API sets the
+  // lead's status to the approved converted value (WON — the Converted Leads report /
+  // quick filter definition). Non-optimistic: the dialog's own loading covers the wait;
+  // on success the row is patched to the persisted status (so its Status badge and the
+  // green Convert icon both update) and the dialog closes; on failure nothing changes and
+  // the dialog stays open to retry. A ref makes a double-click fire exactly one mutation.
+  const [convertTarget, setConvertTarget] = useState<LeadListItem | null>(null);
+  const [convertBusy, setConvertBusy] = useState(false);
+  const convertingRef = useRef(false);
+
+  const handleConvert = async () => {
+    const lead = convertTarget;
+    if (!lead || convertingRef.current) return;
+    convertingRef.current = true;
+    setConvertBusy(true);
+    try {
+      const updated = await setLeadStatus(lead.id, CONVERTED_STATUS);
+      patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
+      syncDetail(lead.id, { ...updated, isPinned: lead.isPinned });
+      setConvertTarget(null);
+      toast({ title: `${lead.name} converted`, tone: "success" });
+    } catch {
+      toast({
+        title: "Unable to convert lead",
+        description: "Please try again.",
+        tone: "danger",
+      });
+    } finally {
+      convertingRef.current = false;
+      setConvertBusy(false);
+    }
+  };
+
   const rowActionsValue = {
     onReassign: (lead: LeadListItem) => setRowReassignTarget(lead),
     onDelete: (lead: LeadListItem) => setRowDeleteTarget(lead),
@@ -563,6 +571,7 @@ export function LeadsListView() {
     onAddNote: (lead: LeadListItem) => setNoteTarget(lead),
     onEdit: (lead: LeadListItem) => void handleEdit(lead),
     onPin: (lead: LeadListItem) => void handleTogglePin(lead),
+    onConvert: (lead: LeadListItem) => setConvertTarget(lead),
     pendingId: rowPending?.id ?? null,
     pendingAction: rowPending?.action ?? null,
     canReassign,
@@ -706,38 +715,54 @@ export function LeadsListView() {
     downloadLeadsExport(format, scope, list.query, columnKeys);
   };
 
+  // Three distinct empty states (not one generic "no data"): a search with no match, an
+  // active filter with no match, or a genuinely empty list — each with its own recovery
+  // action. Search takes precedence when both a search and a filter are active. Only
+  // rendered when the settled total is 0 (below); an out-of-range page is corrected, not
+  // shown as empty.
+  const searchTerm = filters.state.search.trim();
+  const hasActiveFilter = activePreset !== null || appliedFilterCount > 0;
+  const leadsEmptyState = searchTerm ? (
+    <EmptyState
+      icon={IconSearch}
+      title="No leads found"
+      description={`No leads match “${searchTerm}”.`}
+      action={
+        <Button variant="ghost" size="sm" onClick={clearSearch}>
+          Clear search
+        </Button>
+      }
+    />
+  ) : hasActiveFilter ? (
+    <EmptyState
+      icon={IconFilterX}
+      title="No matching leads"
+      description="Try adjusting or clearing your filters."
+      action={
+        <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+          Clear filters
+        </Button>
+      }
+    />
+  ) : (
+    <EmptyState
+      icon={IconUsers}
+      title="No leads yet"
+      description="Create your first lead to get started."
+      action={
+        <Button size="sm" onClick={newLead.open}>
+          <IconPlus size={18} stroke={2} />
+          New Lead
+        </Button>
+      }
+    />
+  );
+
   return (
     <>
       <TablePageLayout
         title="Leads"
         tableLabel="Leads table"
-        search={{
-          value: filters.state.search,
-          onChange: (value) => {
-            filters.setSearch(value);
-            list.resetPage();
-          },
-          placeholder: "Search name or phone",
-        }}
-        filters={{
-          fields: filterFields,
-          conditions: filters.active,
-          activeCount: filters.activeCount,
-          valueOf: filters.valueOf,
-          fieldOf: filters.fieldOf,
-          onChange: (key, value) => {
-            filters.setCondition(key, value);
-            list.resetPage();
-          },
-          onRemove: (key) => {
-            filters.removeCondition(key);
-            list.resetPage();
-          },
-          onClear: () => {
-            filters.clearAll();
-            list.resetPage();
-          },
-        }}
         toolbarActions={
           // Workpex's exact toolbar order (leads-list-default-scroll-left-…png),
           // one right-aligned cluster of compact controls: New Lead · Search ·
@@ -756,6 +781,7 @@ export function LeadsListView() {
                 list.resetPage();
               }}
               placeholder="Search name or phone"
+              clearable
             />
             <LeadFilterBuilder
               rows={filterRows}
@@ -764,8 +790,12 @@ export function LeadsListView() {
               onClear={clearFilterConditions}
               activeCount={appliedFilterCount}
             />
-            <LeadSortMenu sort={list.sort} onSortChange={list.setSort} />
-            <LeadQuickFilterMenu
+            <LeadSortControl
+              sort={list.sort}
+              onSortChange={list.setSort}
+              onClear={list.clearSort}
+            />
+            <LeadQuickFilterControl
               active={activePreset}
               onChange={applyQuickFilter}
             />
@@ -817,18 +847,15 @@ export function LeadsListView() {
                     allLabel: "Select all leads on this page",
                   }}
                   isLoading={isLoading}
-                  emptyState={
-                    <EmptyState
-                      icon={IconFileSearch}
-                      title="No data available"
-                      description="There's no data for the selected date range or filters. Try adjusting your filters to see more results."
-                    />
-                  }
+                  isFetching={isFetching}
+                  // Only a genuinely empty result (total 0) is "empty"; an out-of-range
+                  // page (rows empty but total > 0) is corrected above, not shown here.
+                  emptyState={total === 0 ? leadsEmptyState : undefined}
                   errorState={
                     isError ? (
                       <ErrorState
-                        title="Couldn’t load leads"
-                        description="Something went wrong while loading leads. Check your connection and try again."
+                        title="Unable to load leads"
+                        description="Something went wrong while loading your leads."
                         onRetry={refetch}
                       />
                     ) : undefined
@@ -890,6 +917,20 @@ export function LeadsListView() {
         description="Would you like to mark this activity as completed?"
         confirmLabel="Yes"
         tone="brand"
+      />
+
+      {/* Convert (ADR-0048) — confirm, then set the lead's status to WON via the existing
+          set-status API. `busy` keeps the dialog open with a loading Convert button and
+          blocks accidental dismissal while the mutation runs. */}
+      <ConfirmDialog
+        open={convertTarget !== null}
+        onCancel={() => setConvertTarget(null)}
+        onConfirm={() => void handleConvert()}
+        title="Convert lead?"
+        description="Are you sure you want to convert this lead?"
+        confirmLabel="Convert"
+        tone="brand"
+        busy={convertBusy}
       />
 
       {selectedIds.size > 0 && (

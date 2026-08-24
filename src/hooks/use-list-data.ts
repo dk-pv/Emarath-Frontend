@@ -31,7 +31,11 @@ type Loaded<T> = { query: ListQuery; rows: readonly T[]; total: number };
  *   an await or in an event handler, which keeps the loading signal derived
  *   rather than sequenced and avoids the render cascade the lint rule guards.
  */
-export function useListData<T>(source: ListDataSource<T>, query: ListQuery) {
+export function useListData<T>(
+  source: ListDataSource<T>,
+  query: ListQuery,
+  options?: { keepPreviousData?: boolean },
+) {
   const [loaded, setLoaded] = useState<Loaded<T> | null>(null);
   const [failedQuery, setFailedQuery] = useState<ListQuery | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -62,7 +66,13 @@ export function useListData<T>(source: ListDataSource<T>, query: ListQuery) {
 
   const isCurrent = loaded?.query === query;
   const isError = failedQuery === query;
-  const isLoading = !isCurrent && !isError;
+  const isFetching = !isCurrent && !isError;
+
+  // With keepPreviousData, the last loaded page stays on screen while the next query
+  // is in flight, so a refetch (search / sort / filter / page) never blanks the table
+  // to a skeleton — that is reserved for the first load, when there is nothing yet to
+  // show. Without the option, behavior is unchanged: a refetch clears to [] + isLoading.
+  const keepStale = (options?.keepPreviousData ?? false) && loaded !== null;
 
   const refetch = useCallback(() => {
     setFailedQuery(null);
@@ -70,9 +80,11 @@ export function useListData<T>(source: ListDataSource<T>, query: ListQuery) {
   }, []);
 
   return {
-    rows: isCurrent ? loaded.rows : ([] as readonly T[]),
-    total: isCurrent ? loaded.total : 0,
-    isLoading,
+    rows:
+      loaded && (isCurrent || keepStale) ? loaded.rows : ([] as readonly T[]),
+    total: loaded && (isCurrent || keepStale) ? loaded.total : 0,
+    isLoading: isFetching && !keepStale,
+    isFetching,
     isError,
     refetch,
   };

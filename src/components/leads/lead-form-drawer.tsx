@@ -21,6 +21,10 @@ import {
   type LeadEditData,
   type LeadListItem,
 } from "@/services/leads-service";
+import type {
+  LeadCustomField,
+  LeadCustomFieldType,
+} from "@/services/leads-custom-fields-service";
 import { fetchAssignableAgents } from "@/services/lookups-service";
 import type { SelectOption } from "@/types";
 
@@ -33,6 +37,8 @@ type LeadFormDrawerProps = {
    * Create mode, unchanged.
    */
   lead?: LeadEditData;
+  /** The active custom-column definitions (LEAD-05.1) to render as extra inputs. */
+  customFields?: LeadCustomField[];
   /** Called with the created or updated row so the list can adopt it. */
   onSaved: (lead: LeadListItem) => void;
 };
@@ -174,6 +180,16 @@ function formFromEdit(lead: LeadEditData): FormState {
   };
 }
 
+/** Custom-field type → native input type. NUMBER also gets inputMode="decimal"; DATE
+ * and DATETIME use the browser's native pickers (no captured Workpex control). */
+const CUSTOM_INPUT_TYPE: Record<LeadCustomFieldType, string | undefined> = {
+  TEXT: undefined,
+  TEXTBOX: undefined,
+  NUMBER: undefined,
+  DATE: "date",
+  DATETIME: "datetime-local",
+};
+
 /**
  * The Add New Lead drawer (LEAD-06.2), built from the Workpex `add-lead.mp4`: the
  * same field order and sections, required markers, searchable dropdowns and
@@ -185,6 +201,7 @@ export function LeadFormDrawer({
   open,
   onClose,
   lead,
+  customFields = [],
   onSaved,
 }: LeadFormDrawerProps) {
   const editing = lead !== undefined;
@@ -216,6 +233,18 @@ export function LeadFormDrawer({
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     setErrors((prev) => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  };
+
+  // Custom-column values (LEAD-05.1): a parallel bag keyed by the field's "cf_<slug>"
+  // key, since the fixed FormState above can't hold dynamic ids. Prefilled from the
+  // lead on edit; a blank field is simply absent.
+  const [customValues, setCustomValues] = useState<Record<string, string>>(
+    () => (lead ? { ...lead.customFields } : {}),
+  );
+  const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
+  const setCustom = (key: string, value: string) => {
+    setCustomValues((prev) => ({ ...prev, [key]: value }));
+    setCustomErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
   };
 
   // The parent mounts this component fresh on each open (keyed render), so the
@@ -287,7 +316,21 @@ export function LeadFormDrawer({
     if (form.product2Qty.trim() && !isNumeric(form.product2Qty))
       next.product2Qty = "QTY must be a number";
     setErrors(next);
-    return Object.keys(next).length === 0;
+
+    // Custom NUMBER fields must parse if filled (DATE/DATETIME are constrained by
+    // their native inputs; the backend re-validates every custom value by type).
+    const nextCustom: Record<string, string> = {};
+    for (const field of customFields) {
+      const value = (customValues[field.key] ?? "").trim();
+      if (field.type === "NUMBER" && value && !isNumeric(value)) {
+        nextCustom[field.key] = `${field.name} must be a number`;
+      }
+    }
+    setCustomErrors(nextCustom);
+
+    return (
+      Object.keys(next).length === 0 && Object.keys(nextCustom).length === 0
+    );
   }
 
   async function submit() {
@@ -331,6 +374,14 @@ export function LeadFormDrawer({
         actualAmount: form.actualAmount.trim() || undefined,
         forecastedAmount: form.forecastedAmount.trim() || undefined,
         paymentMethod: form.paymentMethod ?? undefined,
+        // Only non-blank values are sent; on update the backend full-replaces, so a
+        // field the user cleared is dropped (LEAD-05.1).
+        customFields: customFields
+          .map((field) => ({
+            fieldId: field.id,
+            value: (customValues[field.key] ?? "").trim(),
+          }))
+          .filter((entry) => entry.value !== ""),
       };
       const saved = lead
         ? await updateLead(lead.id, payload)
@@ -712,6 +763,43 @@ export function LeadFormDrawer({
             />
           </FormField>
         </CollapsibleSection>
+
+        {/* Custom columns (LEAD-05.1): rendered by type, collected into the payload's
+            `customFields`. Values prefill on edit and persist through the same
+            create/update call as the standard fields. */}
+        {customFields.length > 0 && (
+          <CollapsibleSection title="Custom Fields">
+            {customFields.map((field) => (
+              <FormField
+                key={field.key}
+                label={field.name}
+                error={customErrors[field.key]}
+              >
+                {(control) =>
+                  field.type === "TEXTBOX" ? (
+                    <Textarea
+                      {...control}
+                      value={customValues[field.key] ?? ""}
+                      onChange={(e) => setCustom(field.key, e.target.value)}
+                      placeholder={field.name}
+                    />
+                  ) : (
+                    <Input
+                      {...control}
+                      type={CUSTOM_INPUT_TYPE[field.type]}
+                      inputMode={
+                        field.type === "NUMBER" ? "decimal" : undefined
+                      }
+                      value={customValues[field.key] ?? ""}
+                      onChange={(e) => setCustom(field.key, e.target.value)}
+                      placeholder={field.name}
+                    />
+                  )
+                }
+              </FormField>
+            ))}
+          </CollapsibleSection>
+        )}
       </form>
     </Drawer>
   );

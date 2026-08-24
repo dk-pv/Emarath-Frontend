@@ -56,6 +56,11 @@ export interface LeadListItem {
   createdAt: string;
   assignedAgents: { id: string; name: string }[];
   tags: { id: string; name: string }[];
+  /**
+   * Custom-column values keyed by the field's stable "cf_<slug>" key (LEAD-05.1).
+   * Only fields with a value appear; a custom column reads `row.customFields[key]`.
+   */
+  customFields: Record<string, string>;
   /** Whether the current user has pinned this lead (ADR-0031) — personal, floats it to the top. */
   isPinned: boolean;
 }
@@ -264,6 +269,8 @@ export interface CreateLeadInput {
   actualAmount?: string;
   forecastedAmount?: string;
   paymentMethod?: string;
+  /** Per-lead custom-column values (LEAD-05.1). Blank fields are omitted. */
+  customFields?: { fieldId: string; value: string }[];
 }
 
 /** Creates a lead (LEAD-06.1). Returns the created row for the list to adopt. */
@@ -313,6 +320,8 @@ export interface LeadEditData {
   assignedAgents: { id: string; name: string }[];
   tagIds: string[];
   complaintReason: string | null;
+  /** Custom values keyed by field key (LEAD-05.1), so Edit prefills them. */
+  customFields: Record<string, string>;
 }
 
 /** Fetches one scoped lead's full editable data to prefill the Edit Lead form. */

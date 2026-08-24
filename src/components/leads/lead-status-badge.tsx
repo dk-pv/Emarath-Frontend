@@ -141,9 +141,8 @@ function InteractiveStatusBadge({
   useEffect(() => {
     if (!open || !focusOnOpenRef.current) return;
     focusOnOpenRef.current = false;
-    const options = panelRef.current?.querySelectorAll<HTMLButtonElement>(
-      '[role="option"]',
-    );
+    const options =
+      panelRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
     if (!options?.length) return;
     const selected = [...options].findIndex(
       (option) => option.getAttribute("aria-selected") === "true",
@@ -161,9 +160,8 @@ function InteractiveStatusBadge({
   // button's own click, and Escape is handled by the document listener above.
   const onListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-    const options = panelRef.current?.querySelectorAll<HTMLButtonElement>(
-      '[role="option"]',
-    );
+    const options =
+      panelRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
     if (!options?.length) return;
     event.preventDefault();
     const list = [...options];

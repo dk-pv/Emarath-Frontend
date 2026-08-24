@@ -44,6 +44,7 @@ import { LeadQuickFilterControl } from "@/components/leads/lead-quick-filter-con
 import { presetConditions } from "@/components/leads/lead-quick-filters";
 import { LeadSortControl } from "@/components/leads/lead-sort-control";
 import { leadColumns } from "@/components/leads/lead-columns";
+import { buildCustomColumns } from "@/components/leads/lead-custom-columns";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useFilters } from "@/hooks/use-filters";
@@ -56,6 +57,10 @@ import {
   type LeadEditData,
   type LeadListItem,
 } from "@/services/leads-service";
+import {
+  fetchLeadCustomFields,
+  type LeadCustomField,
+} from "@/services/leads-custom-fields-service";
 import { completeActivity } from "@/services/activities-service";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -95,7 +100,12 @@ import {
 import { useAuth } from "@/components/auth/auth-context";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { can } from "@/constants/permissions";
-import type { FilterCondition, FilterField, FilterState } from "@/types";
+import type {
+  FilterCondition,
+  FilterField,
+  FilterState,
+  TableColumn,
+} from "@/types";
 
 /** A pause after the last keystroke before the server search runs (LEAD-03.3). */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -652,14 +662,43 @@ export function LeadsListView() {
     pendingId: tagPendingId,
   };
 
+  // Custom-column definitions (LEAD-05.1). App-global (single-tenant); loaded once and
+  // refreshed after a field is created so the new column appears without a reload.
+  const [customFieldDefs, setCustomFieldDefs] = useState<LeadCustomField[]>([]);
+  const [customFieldsToken, setCustomFieldsToken] = useState(0);
+  const refreshCustomFields = () => setCustomFieldsToken((token) => token + 1);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchLeadCustomFields(controller.signal)
+      .then(setCustomFieldDefs)
+      .catch((error: unknown) => {
+        // Aborted on unmount; expected. Any other failure just leaves the table
+        // with its standard columns — the list still works.
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+      });
+    return () => controller.abort();
+  }, [customFieldsToken]);
+
+  // The full Leads column set: the standard columns with the custom ones spliced in
+  // just before Actions. From here everything is generic — visibility and order are
+  // governed by the per-user layout (below), not this array's position.
+  const allColumns = useMemo<TableColumn<LeadListItem>[]>(() => {
+    const actions = leadColumns.filter((column) => column.key === "actions");
+    const standard = leadColumns.filter((column) => column.key !== "actions");
+    return [...standard, ...buildCustomColumns(customFieldDefs), ...actions];
+  }, [customFieldDefs]);
+
   // Custom columns (LEAD-05.1). Customer Name (the frozen identifier) and the row
-  // actions are fixed; every other column can be reordered and shown or hidden.
+  // actions are fixed; every other column — standard or custom — can be reordered and
+  // shown or hidden. Custom keys join automatically because they are in `allColumns`.
   const manageableColumns = useMemo<ManageableColumn[]>(
     () =>
-      leadColumns
+      allColumns
         .filter((column) => column.key !== "name" && column.key !== "actions")
         .map((column) => ({ key: column.key, label: String(column.header) })),
-    [],
+    [allColumns],
   );
 
   // The layout starts at the default and is replaced once the caller's saved
@@ -691,7 +730,7 @@ export function LeadsListView() {
   }, [manageableColumns]);
 
   const visibleColumns = useMemo(() => {
-    const byKey = new Map(leadColumns.map((column) => [column.key, column]));
+    const byKey = new Map(allColumns.map((column) => [column.key, column]));
     const hidden = new Set(hiddenColumns);
     const orderedKeys = [
       "name",
@@ -700,10 +739,8 @@ export function LeadsListView() {
     ];
     return orderedKeys
       .map((key) => byKey.get(key))
-      .filter((column): column is (typeof leadColumns)[number] =>
-        Boolean(column),
-      );
-  }, [columnOrder, hiddenColumns]);
+      .filter((column): column is TableColumn<LeadListItem> => Boolean(column));
+  }, [allColumns, columnOrder, hiddenColumns]);
 
   // Export (LEAD-08.1). Downloads the current view — the same query the list runs
   // (search/filter/sort/scope) — in the chosen format. "My Default" sends the
@@ -799,7 +836,15 @@ export function LeadsListView() {
               active={activePreset}
               onChange={applyQuickFilter}
             />
-            <LeadAddColumnMenu />
+            <LeadAddColumnMenu
+              onCreated={(field) => {
+                refreshCustomFields();
+                toast({
+                  title: `Column “${field.name}” added`,
+                  tone: "success",
+                });
+              }}
+            />
             <button
               type="button"
               onClick={manageColumns.open}
@@ -1046,6 +1091,7 @@ export function LeadsListView() {
       {newLead.isOpen && (
         <LeadFormDrawer
           open
+          customFields={customFieldDefs}
           onClose={newLead.close}
           onSaved={(lead) => {
             newLead.close();
@@ -1063,6 +1109,7 @@ export function LeadsListView() {
         <LeadFormDrawer
           open
           lead={editLead.data}
+          customFields={customFieldDefs}
           onClose={() => setEditLead(null)}
           onSaved={(updated) => {
             patchRow(updated.id, { ...updated, isPinned: editLead.isPinned });

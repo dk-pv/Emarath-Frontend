@@ -48,6 +48,16 @@ export function LeadManageColumnsDrawer({
     () => new Set(hidden),
   );
   const [dragKey, setDragKey] = useState<string | null>(null);
+  // A local filter over the rows (requested for the growing custom-column set). It
+  // only narrows what is shown; order and the hidden set are untouched by it.
+  const [query, setQuery] = useState("");
+
+  const term = query.trim().toLowerCase();
+  const shown = term
+    ? draftOrder.filter((key) =>
+        (labelOf.get(key) ?? key).toLowerCase().includes(term),
+      )
+    : draftOrder;
 
   const toggle = (key: string) =>
     setDraftHidden((prev) => {
@@ -104,37 +114,55 @@ export function LeadManageColumnsDrawer({
         </div>
       }
     >
-      <ul className="flex flex-col">
-        {draftOrder.map((key) => (
-          <li
-            key={key}
-            draggable
-            onDragStart={() => setDragKey(key)}
-            onDragEnd={() => setDragKey(null)}
-            onDragOver={(event) => {
-              event.preventDefault();
-              reorderOver(key);
-            }}
-            className={cn(
-              "flex items-center gap-3 rounded-control px-1 py-2.5 transition-colors duration-(--duration-shell) ease-shell",
-              dragKey === key ? "bg-canvas" : "hover:bg-canvas",
-            )}
-          >
-            <IconGripVertical
-              size={18}
-              stroke={1.75}
-              aria-hidden="true"
-              className="shrink-0 cursor-grab text-ink-subtle"
-            />
-            <Checkbox
-              checked={!draftHidden.has(key)}
-              onChange={() => toggle(key)}
-              aria-label={labelOf.get(key) ?? key}
-            />
-            <span className="text-sm text-ink">{labelOf.get(key) ?? key}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="mb-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search columns"
+          aria-label="Search columns"
+          className="focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface px-field-x text-sm text-ink"
+        />
+      </div>
+      {shown.length === 0 ? (
+        <p className="px-1 py-6 text-center text-sm text-ink-subtle">
+          No columns match “{query.trim()}”.
+        </p>
+      ) : (
+        <ul className="flex flex-col">
+          {shown.map((key) => (
+            <li
+              key={key}
+              draggable
+              onDragStart={() => setDragKey(key)}
+              onDragEnd={() => setDragKey(null)}
+              onDragOver={(event) => {
+                event.preventDefault();
+                reorderOver(key);
+              }}
+              className={cn(
+                "flex items-center gap-3 rounded-control px-1 py-2.5 transition-colors duration-(--duration-shell) ease-shell",
+                dragKey === key ? "bg-canvas" : "hover:bg-canvas",
+              )}
+            >
+              <IconGripVertical
+                size={18}
+                stroke={1.75}
+                aria-hidden="true"
+                className="shrink-0 cursor-grab text-ink-subtle"
+              />
+              <Checkbox
+                checked={!draftHidden.has(key)}
+                onChange={() => toggle(key)}
+                aria-label={labelOf.get(key) ?? key}
+              />
+              <span className="text-sm text-ink">
+                {labelOf.get(key) ?? key}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </Drawer>
   );
 }

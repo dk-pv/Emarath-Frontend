@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
 import { stageColorClasses } from "@/lib/stage-palette";
@@ -12,9 +13,10 @@ import {
 
 /**
  * The stage colour legend (KAN-06.1 AC3) — the horizontal bar on the board header
- * (`kanban-board-default-legend-tooltip-converted.png`). One contiguous segment per
- * stage that holds leads, its width proportional to the stage's lead count and its
- * colour the stage's own colour; hovering a segment shows "name | count".
+ * (`kanban-board-default-legend-tooltip-converted.png`). One segment per configured
+ * stage — including zero-count ones — its width proportional to the stage's lead
+ * count (with a minimum so every segment stays visible and hoverable) and its colour
+ * the stage's own colour; hovering a segment shows a dark "name | count" tooltip.
  *
  * Driven live by the two API sources, no third copy: colours + order from the stage
  * catalogue (`useStages`), counts from the board summary (`GET /leads/board`, the same
@@ -40,6 +42,15 @@ export function StageLegend({
   const [loaded, setLoaded] = useState<{
     key: string;
     summary: LeadBoardResponse;
+  } | null>(null);
+  // The hovered segment's identity + its centre x within the bar, driving the one
+  // tooltip rendered in the non-clipped wrapper below. Entering another segment
+  // replaces it; leaving a segment clears it — so no stale tooltip lingers.
+  const [hovered, setHovered] = useState<{
+    name: string;
+    count: number;
+    x: number;
+    y: number;
   } | null>(null);
 
   // The view this legend is showing: pipeline + the filter that shaped it (+ a New
@@ -71,51 +82,82 @@ export function StageLegend({
 
   if (summary === null) {
     return (
-      <div className="h-8 w-[180px] shrink-0 animate-pulse rounded-control bg-canvas" />
+      <div className="h-8 w-[224px] shrink-0 animate-pulse rounded-control bg-canvas" />
     );
   }
 
   const countByStage = new Map(summary.stages.map((s) => [s.stage, s.count]));
-  const segments = stages
-    .map((stage) => ({
-      name: stage.name,
-      color: stage.color,
-      count: countByStage.get(stage.name) ?? 0,
-    }))
-    .filter((segment) => segment.count > 0);
+  // Every configured stage is a segment, including zero-count ones (Workpex shows
+  // them too, e.g. "NOT APPROVED - WON | 0"). Widths are proportional to the count
+  // (flex-grow), but each keeps a minimum width so a 0- or 1-lead stage stays
+  // visible and hoverable rather than collapsing to a sub-pixel sliver.
+  const segments = stages.map((stage) => ({
+    name: stage.name,
+    color: stage.color,
+    count: countByStage.get(stage.name) ?? 0,
+  }));
   const total = segments.reduce((sum, segment) => sum + segment.count, 0);
 
   if (total === 0) {
     return (
-      <div className="flex h-8 w-[180px] shrink-0 items-center justify-center rounded-control border border-hairline bg-canvas text-xs text-ink-subtle">
+      <div className="flex h-8 w-[224px] shrink-0 items-center justify-center rounded-control border border-hairline bg-canvas text-xs text-ink-subtle">
         No leads
       </div>
     );
   }
 
   return (
-    <div
-      role="img"
-      aria-label="Stage distribution by lead count"
-      className="flex h-8 w-[180px] shrink-0 overflow-hidden rounded-control border border-hairline bg-canvas"
-    >
-      {segments.map((segment) => (
-        <div
-          key={segment.name}
-          className="group relative h-full"
-          style={{ width: `${(segment.count / total) * 100}%` }}
-        >
+    <>
+      <div
+        role="img"
+        aria-label="Stage distribution by lead count"
+        className="flex h-8 w-[224px] shrink-0 overflow-hidden rounded-control border border-hairline bg-canvas"
+      >
+        {segments.map((segment) => (
           <div
-            className={cn("h-full w-full", stageColorClasses(segment.color).swatch)}
-          />
-          <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-50 hidden -translate-x-1/2 flex-col items-center group-hover:flex">
-            <span className="w-max rounded-control bg-sidebar px-2.5 py-1.5 text-xs text-white shadow-lg">
-              {segment.name} | {segment.count}
-            </span>
-            <span className="-mt-1 size-2 rotate-45 bg-sidebar" aria-hidden="true" />
+            key={segment.name}
+            className="h-full min-w-[6px] cursor-default"
+            style={{ flexGrow: segment.count, flexShrink: 0, flexBasis: 0 }}
+            onMouseEnter={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setHovered({
+                name: segment.name,
+                count: segment.count,
+                x: rect.left + rect.width / 2,
+                y: rect.top,
+              });
+            }}
+            onMouseLeave={() => setHovered(null)}
+          >
+            <div
+              className={cn(
+                "h-full w-full",
+                stageColorClasses(segment.color).swatch,
+              )}
+            />
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+      {/* Portalled to <body> so the Content region's `overflow-auto` can't clip it:
+          the legend sits near the top, so the tooltip rises into the navbar's band.
+          Positioned `fixed` off the hovered segment's viewport rect, centred over it
+          and lifted fully above it — a downward caret points back at the segment. */}
+      {hovered &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[200] flex -translate-x-1/2 -translate-y-full flex-col items-center"
+            style={{ left: hovered.x, top: hovered.y - 6 }}
+          >
+            <span className="w-max rounded-control bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white shadow-sm">
+              {hovered.name} | {hovered.count}
+            </span>
+            <span
+              className="-mt-1 size-2 rotate-45 bg-neutral-900"
+              aria-hidden="true"
+            />
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

@@ -7,7 +7,6 @@ import { StagesProvider, useStages } from "@/components/stages/stages-context";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { presetConditions } from "@/components/leads/lead-quick-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useDisclosure } from "@/hooks/use-disclosure";
 import { useFilters } from "@/hooks/use-filters";
 import { useListQuery } from "@/hooks/use-list-query";
 import { usePersistentState } from "@/hooks/use-persistent-state";
@@ -17,7 +16,12 @@ import {
   type LeadFilterOptions,
 } from "@/services/leads-service";
 import type { Stage } from "@/services/stages-service";
+import {
+  fetchKanbanPins,
+  saveKanbanPin,
+} from "@/services/view-preferences-service";
 import type { FilterCondition, FilterField, FilterState } from "@/types";
+import { KanbanCardActionsProvider } from "./kanban-card-actions";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanDndProvider, type KanbanDnd } from "./kanban-dnd-context";
 import { KanbanToolbar } from "./kanban-toolbar";
@@ -156,10 +160,49 @@ function KanbanBoardShell({
     [list.query],
   );
 
-  // A New Lead created from the board reloads it, so the lead appears if it lands in
-  // the current pipeline and passes the active filter (KAN-07.1 AC3).
-  const newLead = useDisclosure();
+  // The create drawer's target: `{}` = the global New Lead button; `{ stage }` = the
+  // stage-header "+" (KAN-03.1), which pre-sets the drawer to that stage so the new
+  // lead lands there. Null = closed. A create reloads the board so the lead appears if
+  // it lands in the current pipeline and passes the active filter (KAN-07.1 AC3).
+  const [createTarget, setCreateTarget] = useState<{ stage?: string } | null>(
+    null,
+  );
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Per-user stage pins (KAN-05.2): one pinned (sticky/frozen) stage per pipeline,
+  // fetched once and kept as a map so switching pipelines reads its own pin without a
+  // refetch. Persisted through the view-preferences store — never affects another user.
+  const [pins, setPins] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchKanbanPins(controller.signal)
+      .then(({ pins: saved }) => setPins(saved))
+      .catch((error: unknown) => {
+        // Aborted on unmount; expected. Any other failure just leaves no pins — the
+        // board still works, columns simply aren't sticky.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, []);
+
+  const pinnedStage = pins[pipeline] ?? null;
+
+  // Pin this stage for the current pipeline (replacing any previous — one pin per
+  // pipeline), or unpin it. Optimistic: the server's map is adopted on success and
+  // reverted on failure.
+  const togglePin = (stage: string) => {
+    const next = stage === pinnedStage ? null : stage;
+    const previous = pins;
+    setPins((current) => {
+      const updated = { ...current };
+      if (next) updated[pipeline] = next;
+      else delete updated[pipeline];
+      return updated;
+    });
+    saveKanbanPin(pipeline, next)
+      .then(({ pins: saved }) => setPins(saved))
+      .catch(() => setPins(previous));
+  };
 
   return (
     <section className="flex h-full flex-col p-4">
@@ -187,42 +230,55 @@ function KanbanBoardShell({
             onSortChange={list.setSort}
             activePreset={activePreset}
             onQuickFilter={applyQuickFilter}
-            onNewLead={newLead.open}
+            onNewLead={() => setCreateTarget({})}
           />
         }
       />
 
-      {status === "error" ? (
-        <BoardCentered>
-          <p className="text-ink-muted">Couldn’t load the stages.</p>
-          <RetryLink onClick={reload} />
-        </BoardCentered>
-      ) : status === "loading" ? (
-        <ColumnRow>
-          {Array.from({ length: 6 }, (_, index) => (
-            <ColumnSkeleton key={index} />
-          ))}
-        </ColumnRow>
-      ) : stages.length === 0 ? (
-        <BoardCentered>
-          <p className="text-ink-muted">This pipeline has no stages yet.</p>
-        </BoardCentered>
-      ) : (
-        <KanbanBoardView
-          stages={stages}
-          pipeline={pipeline}
-          query={boardQuery}
-          reloadKey={reloadKey}
-        />
-      )}
+      {/* The card ⋮ menu's handlers + composers live here so a convert/edit/delete
+          reloads the board through the existing `reloadKey` (the New Lead path). */}
+      <KanbanCardActionsProvider
+        onBoardChanged={() => setReloadKey((value) => value + 1)}
+      >
+        {status === "error" ? (
+          <BoardCentered>
+            <p className="text-ink-muted">Couldn’t load the stages.</p>
+            <RetryLink onClick={reload} />
+          </BoardCentered>
+        ) : status === "loading" ? (
+          <ColumnRow>
+            {Array.from({ length: 6 }, (_, index) => (
+              <ColumnSkeleton key={index} />
+            ))}
+          </ColumnRow>
+        ) : stages.length === 0 ? (
+          <BoardCentered>
+            <p className="text-ink-muted">This pipeline has no stages yet.</p>
+          </BoardCentered>
+        ) : (
+          <KanbanBoardView
+            stages={stages}
+            pipeline={pipeline}
+            query={boardQuery}
+            reloadKey={reloadKey}
+            onAddLead={(stage) => setCreateTarget({ stage })}
+            pinnedStage={pinnedStage}
+            onTogglePin={togglePin}
+          />
+        )}
+      </KanbanCardActionsProvider>
 
-      {/* Mounted only while open, so every New Lead starts from a clean form. */}
-      {newLead.isOpen && (
+      {/* Mounted only while open, so every create starts from a clean form. A stage
+          "+" pre-sets the drawer to that stage (defaultStatus); the global New Lead
+          opens with no stage. Either way a save reloads the board. */}
+      {createTarget && (
         <LeadFormDrawer
           open
-          onClose={newLead.close}
+          defaultStatus={createTarget.stage}
+          defaultPipeline={createTarget.stage ? pipeline : undefined}
+          onClose={() => setCreateTarget(null)}
           onSaved={() => {
-            newLead.close();
+            setCreateTarget(null);
             setReloadKey((value) => value + 1);
           }}
         />
@@ -237,11 +293,17 @@ function KanbanBoardView({
   pipeline,
   query,
   reloadKey,
+  onAddLead,
+  pinnedStage,
+  onTogglePin,
 }: {
   stages: Stage[];
   pipeline: string;
   query: BoardQuery;
   reloadKey: number;
+  onAddLead: (stage: string) => void;
+  pinnedStage: string | null;
+  onTogglePin: (stage: string) => void;
 }) {
   // Stable by content: a recolour (same names, same order) leaves this identical, so
   // the board doesn't refetch — only the colours re-render. A rename/reorder/add/
@@ -287,12 +349,19 @@ function KanbanBoardView({
     );
   }
 
+  // A pinned stage renders first so it stays frozen at the board's left edge (sticky,
+  // in KanbanColumn) while the rest scroll past it — one pin per pipeline.
+  const renderOrder =
+    pinnedStage && stageNames.includes(pinnedStage)
+      ? [pinnedStage, ...stageNames.filter((stage) => stage !== pinnedStage)]
+      : stageNames;
+
   return (
     <KanbanDndProvider value={dnd}>
       <ColumnRow>
         {phase === "loading"
           ? stageNames.map((stage) => <ColumnSkeleton key={stage} />)
-          : stageNames.map((stage) => {
+          : renderOrder.map((stage) => {
               const column = columns[stage];
               return column ? (
                 <KanbanColumn
@@ -301,6 +370,9 @@ function KanbanBoardView({
                   activeDragFrom={activeDragFrom}
                   onLoadMore={loadMore}
                   onRetry={retryColumn}
+                  onAddLead={onAddLead}
+                  isPinned={stage === pinnedStage}
+                  onTogglePin={() => onTogglePin(stage)}
                 />
               ) : null;
             })}

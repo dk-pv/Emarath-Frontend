@@ -44,6 +44,36 @@ export async function saveColumnLayout(
 }
 
 /**
+ * The Kanban stage-pin preference (KAN-05.2): a per-pipeline map of the one pinned
+ * (sticky/frozen) stage. Stored per-user, reusing the view-preferences store — one
+ * user's pins never affect another's board.
+ */
+export interface KanbanPins {
+  pins: Record<string, string>;
+}
+
+/** Fetches the caller's Kanban stage pins (per-pipeline → pinned stage name). */
+export function fetchKanbanPins(signal?: AbortSignal): Promise<KanbanPins> {
+  return apiGet<KanbanPins>("/view-preferences/kanban-pins", undefined, signal);
+}
+
+/**
+ * Pins a stage in a pipeline (replacing any previous pin there), or unpins the
+ * pipeline when `stage` is null. Returns the updated map.
+ */
+export function saveKanbanPin(
+  pipeline: string,
+  stage: string | null,
+  signal?: AbortSignal,
+): Promise<KanbanPins> {
+  return apiPut<KanbanPins>(
+    "/view-preferences/kanban-pins",
+    stage === null ? { pipeline } : { pipeline, stage },
+    signal,
+  );
+}
+
+/**
  * Reconciles a saved layout against the columns that exist now.
  *
  * The saved order is honoured; a key no longer present (a column removed or

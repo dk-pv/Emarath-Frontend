@@ -39,6 +39,13 @@ type LeadFormDrawerProps = {
   lead?: LeadEditData;
   /** The active custom-column definitions (LEAD-05.1) to render as extra inputs. */
   customFields?: LeadCustomField[];
+  /**
+   * Create mode only: seed Lead Status and its pipeline. The Kanban stage-header "+"
+   * (KAN-03.1) opens this pre-set to the stage it was clicked on, so the new lead lands
+   * in that exact stage; the field stays editable. Ignored in Edit mode.
+   */
+  defaultStatus?: string;
+  defaultPipeline?: string;
   /** Called with the created or updated row so the list can adopt it. */
   onSaved: (lead: LeadListItem) => void;
 };
@@ -202,6 +209,8 @@ export function LeadFormDrawer({
   onClose,
   lead,
   customFields = [],
+  defaultStatus,
+  defaultPipeline,
   onSaved,
 }: LeadFormDrawerProps) {
   const editing = lead !== undefined;
@@ -209,11 +218,14 @@ export function LeadFormDrawer({
   // starts from the lead's existing assignees. The id comes from the server session (useAuth),
   // never a client-typed value, and the backend re-resolves the caller for scope/authorization.
   const { user } = useAuth();
-  const [form, setForm] = useState<FormState>(() =>
-    lead
-      ? formFromEdit(lead)
-      : { ...initialForm(), assignedAgentIds: user ? [user.id] : [] },
-  );
+  const [form, setForm] = useState<FormState>(() => {
+    if (lead) return formFromEdit(lead);
+    const base = { ...initialForm(), assignedAgentIds: user ? [user.id] : [] };
+    // Stage-scoped create (Kanban "+"): land the lead in the clicked stage/pipeline.
+    if (defaultStatus) base.status = defaultStatus;
+    if (defaultPipeline) base.pipeline = defaultPipeline;
+    return base;
+  });
   const [errors, setErrors] = useState<
     Partial<Record<keyof FormState, string>>
   >({});

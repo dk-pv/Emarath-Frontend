@@ -38,6 +38,35 @@ export function deleteLead(
 }
 
 /**
+ * Move one lead to another pipeline (KAN-03.1 card menu). The lead lands on the target
+ * pipeline's first stage; a pipeline with no stages fails with a clear message. Returns
+ * the updated lead.
+ */
+export function changeLeadPipeline(
+  id: string,
+  pipeline: string,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiPost<LeadListItem>(`/leads/${id}/pipeline`, { pipeline }, signal);
+}
+
+/** Soft-archive one lead (KAN-03.1 card menu) — returns the archived id. */
+export function archiveLead(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ id: string }> {
+  return apiPost<{ id: string }>(`/leads/${id}/archive`, {}, signal);
+}
+
+/** Restore an archived lead (clears the archive) — returns the restored lead. */
+export function unarchiveLead(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadListItem> {
+  return apiPost<LeadListItem>(`/leads/${id}/unarchive`, {}, signal);
+}
+
+/**
  * Pin one lead for the current user (ADR-0031) — returns the lead pinned. The
  * server resolves the caller, so no user id is sent; the list then floats it to
  * the top on the next fetch.

@@ -1,12 +1,22 @@
 "use client";
 
 import { memo, useState } from "react";
-import { IconBrandWhatsapp, IconPhone } from "@tabler/icons-react";
+import Link from "next/link";
+import {
+  IconBrandWhatsapp,
+  IconEdit,
+  IconLoader2,
+  IconPhone,
+  IconPin,
+  IconPinFilled,
+} from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { LeadListItem } from "@/services/leads-service";
+import { useKanbanCardActions } from "./kanban-card-actions";
+import { KanbanCardMenu } from "./kanban-card-menu";
 import { useKanbanDnd } from "./kanban-dnd-context";
 
 /**
@@ -15,12 +25,17 @@ import { useKanbanDnd } from "./kanban-dnd-context";
  * link, as in the list) with a WhatsApp quick-contact icon, a dot status badge, the
  * lead value, phone, the assigned agent and the date — over a stage-coloured border.
  *
- * Reuse over duplication: the WhatsApp deep-link is the shared `whatsappUrl` the
- * list's row actions use (LEAD-10.2), the avatar is the shared `Avatar`, and every
- * colour comes from the one canonical stage catalogue (`useStages`, KAN-05.2) so the
- * badge stays consistent with the list's stage colours (AC3). The address line some
- * cards carry is not shown: it is absent from KAN-03.1's fields and from the list
- * API's `LeadListItem`.
+ * The card-hover reference reveals three more controls beside WhatsApp on hover —
+ * Pin, Edit and a ⋮ Actions menu — so those are shown on hover/focus (WhatsApp stays
+ * always visible). Every action reuses the Leads-list logic through
+ * `useKanbanCardActions`; the menu itself is `KanbanCardMenu`.
+ *
+ * Reuse over duplication: WhatsApp/Pin/Edit and the menu all call the existing
+ * row-action handlers (LEAD-10.x), the avatar is the shared `Avatar`, and every colour
+ * comes from the one canonical stage catalogue (`useStages`, KAN-05.2) so the badge
+ * stays consistent with the list's stage colours (AC3). The address line some cards
+ * carry is not shown: it is absent from KAN-03.1's fields and from the list API's
+ * `LeadListItem`.
  */
 
 // Local money/date formatters until FND-04.1 ships the shared utilities, as
@@ -46,6 +61,10 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
+/** The card's quick-action icon buttons (WhatsApp/Pin/Edit) — one shared shape. */
+const ICON_BUTTON_CLASS =
+  "focus-ring flex size-5 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
+
 export const KanbanCard = memo(function KanbanCard({
   lead,
 }: {
@@ -56,6 +75,9 @@ export const KanbanCard = memo(function KanbanCard({
   const dnd = useKanbanDnd();
   const { colorsFor } = useStages();
   const colors = colorsFor(lead.status);
+  const actions = useKanbanCardActions();
+  const pinned = actions.isPinned(lead);
+  const editing = actions.pendingEditId === lead.id;
   const [dragging, setDragging] = useState(false);
 
   return (
@@ -77,29 +99,88 @@ export const KanbanCard = memo(function KanbanCard({
         dnd.onDragEnd();
       }}
       className={cn(
-        "cursor-grab rounded-surface border bg-surface p-3 shadow-sm active:cursor-grabbing",
+        "group cursor-grab rounded-surface border bg-surface p-2.5 shadow-sm active:cursor-grabbing",
         colors.cardBorder,
         dragging && "opacity-40",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="truncate text-sm font-medium text-ink underline decoration-1 underline-offset-2">
-          {lead.name}
+        {/* The name opens the Lead Detail page, the app-wide Workpex behaviour
+            (CustomerName-Click.mp4, ACT-09.1) — `<Link>` so Back returns to the
+            board. `draggable={false}` keeps the card's own drag as the drag source. */}
+        <p className="truncate text-sm font-medium">
+          <Link
+            href={`/leads/${lead.id}`}
+            draggable={false}
+            className="focus-ring rounded-sm text-ink underline decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:text-ink-muted"
+          >
+            {lead.name}
+          </Link>
         </p>
-        <button
-          type="button"
-          aria-label={wa ? "WhatsApp" : "No phone number"}
-          disabled={!wa}
-          // Stop the click reaching the card, so a card action never starts a move
-          // once drag-and-drop lands (KAN-04.2 / AC5).
-          onClick={(event) => {
-            event.stopPropagation();
-            if (wa) window.open(wa, "_blank", "noopener,noreferrer");
-          }}
-          className="focus-ring flex size-6 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted"
-        >
-          <IconBrandWhatsapp size={16} stroke={1.75} aria-hidden="true" />
-        </button>
+
+        {/* Quick actions (KAN-03.1, from the card-hover reference). WhatsApp is always
+            visible; Pin, Edit and the ⋮ menu reveal on hover/focus, exactly as Workpex
+            shows them. Each stops the click reaching the card so an action never starts
+            a move (KAN-04.2 / AC5), and is `draggable={false}` so it is not a drag
+            source. All reuse the Leads-list handlers via `useKanbanCardActions`. */}
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            aria-label={wa ? "WhatsApp" : "No phone number"}
+            disabled={!wa}
+            draggable={false}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (wa) actions.onWhatsapp(lead);
+            }}
+            className={ICON_BUTTON_CLASS}
+          >
+            <IconBrandWhatsapp size={16} stroke={1.75} aria-hidden="true" />
+          </button>
+
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-(--duration-shell) ease-shell group-hover:opacity-100 group-focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+            <button
+              type="button"
+              aria-label={pinned ? "Unpin lead" : "Pin lead"}
+              aria-pressed={pinned}
+              draggable={false}
+              onClick={(event) => {
+                event.stopPropagation();
+                void actions.onPin(lead);
+              }}
+              className={cn(ICON_BUTTON_CLASS, pinned && "text-brand-strong")}
+            >
+              {pinned ? (
+                <IconPinFilled size={16} stroke={1.75} aria-hidden="true" />
+              ) : (
+                <IconPin size={16} stroke={1.75} aria-hidden="true" />
+              )}
+            </button>
+            <button
+              type="button"
+              aria-label="Edit Lead"
+              disabled={editing}
+              draggable={false}
+              onClick={(event) => {
+                event.stopPropagation();
+                actions.onEdit(lead);
+              }}
+              className={ICON_BUTTON_CLASS}
+            >
+              {editing ? (
+                <IconLoader2
+                  size={16}
+                  stroke={1.75}
+                  className="animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                <IconEdit size={16} stroke={1.75} aria-hidden="true" />
+              )}
+            </button>
+            <KanbanCardMenu lead={lead} />
+          </div>
+        </div>
       </div>
 
       <span
@@ -129,11 +210,16 @@ export const KanbanCard = memo(function KanbanCard({
         <span className="truncate">{lead.primaryPhone}</span>
       </p>
 
-      <div className="mt-1.5 flex items-center justify-between border-t border-hairline pt-1.5">
+      <div className="mt-1 flex items-center justify-between border-t border-hairline pt-1.5">
         {agent ? (
-          <Avatar name={agent.name} initials={initialsOf(agent.name)} size="sm" />
+          <Avatar
+            name={agent.name}
+            initials={initialsOf(agent.name)}
+            size="sm"
+            className="size-5!"
+          />
         ) : (
-          <Avatar name="Unassigned" size="sm" />
+          <Avatar name="Unassigned" size="sm" className="size-5!" />
         )}
         <span className="text-xs text-ink-muted">
           {formatDate(lead.createdAt)}

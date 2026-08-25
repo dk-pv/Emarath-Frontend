@@ -1,14 +1,18 @@
 "use client";
 
 import { memo, useState } from "react";
+import { IconPinFilled, IconPlus } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
 import { KanbanCard } from "./kanban-card";
 import { useKanbanDnd } from "./kanban-dnd-context";
-import { AddStageControl } from "./stage-management/add-stage-control";
 import { ColumnStageMenu } from "./stage-management/column-stage-menu";
 import type { StageColumn } from "./use-kanban-board";
+
+/** The stage-header "+" — Add Lead to this stage (KAN-03.1), the Workpex behaviour. */
+const ADD_LEAD_CLASS =
+  "focus-ring flex size-6 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-surface hover:text-ink";
 
 const AED0 = new Intl.NumberFormat("en-AE", { maximumFractionDigits: 0 });
 
@@ -38,6 +42,12 @@ type KanbanColumnProps = {
   activeDragFrom: string | null;
   onLoadMore: (stage: string) => void;
   onRetry: (stage: string) => void;
+  /** Open the Add New Lead drawer pre-set to this stage (KAN-03.1). */
+  onAddLead: (stage: string) => void;
+  /** Whether this stage is the caller's pinned (sticky) column (KAN-05.2). */
+  isPinned: boolean;
+  /** Toggle this stage's pin (pin if unpinned, unpin if pinned). */
+  onTogglePin: () => void;
 };
 
 /**
@@ -58,6 +68,9 @@ export const KanbanColumn = memo(function KanbanColumn({
   activeDragFrom,
   onLoadMore,
   onRetry,
+  onAddLead,
+  isPinned,
+  onTogglePin,
 }: KanbanColumnProps) {
   const {
     stage,
@@ -97,7 +110,14 @@ export const KanbanColumn = memo(function KanbanColumn({
 
   return (
     <section
-      className="flex h-full w-[267px] shrink-0 flex-col"
+      className={cn(
+        "flex h-full w-[267px] shrink-0 flex-col",
+        // Pinned = a frozen column (KAN-05.2): sticky at the board's left edge, over an
+        // opaque canvas fill (matches the page, so scrolling cards pass invisibly
+        // behind it), lifted above them with z, and set off by a right hairline.
+        isPinned &&
+          "sticky left-0 z-20 border-r border-hairline bg-canvas shadow-sm",
+      )}
       onDragOver={(event) => {
         if (!canDropHere()) return;
         // Mark this a valid drop target and show the move cursor.
@@ -135,10 +155,32 @@ export const KanbanColumn = memo(function KanbanColumn({
         <span className="ml-auto shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">
           {count}
         </span>
+        {isPinned && (
+          <span
+            className="shrink-0 text-brand-strong"
+            title="Pinned stage"
+          >
+            <IconPinFilled size={14} stroke={1.75} aria-hidden="true" />
+            <span className="sr-only">Pinned</span>
+          </span>
+        )}
         {stageEntry && (
           <>
-            <AddStageControl pipeline={stageEntry.pipeline} />
-            <ColumnStageMenu stage={stageEntry} />
+            {/* Workpex: the stage-header "+" adds a lead to THIS stage (not a stage);
+                stage management moved into the ⋮ menu. */}
+            <button
+              type="button"
+              aria-label="Add lead"
+              onClick={() => onAddLead(stage)}
+              className={ADD_LEAD_CLASS}
+            >
+              <IconPlus size={16} stroke={2} aria-hidden="true" />
+            </button>
+            <ColumnStageMenu
+              stage={stageEntry}
+              isPinned={isPinned}
+              onTogglePin={onTogglePin}
+            />
           </>
         )}
       </header>

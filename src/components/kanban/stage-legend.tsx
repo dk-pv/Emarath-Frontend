@@ -20,8 +20,8 @@ import {
  *
  * Driven live by the two API sources, no third copy: colours + order from the stage
  * catalogue (`useStages`), counts from the board summary (`GET /leads/board`, the same
- * figures the columns show). Measured at ~180×32px, rounded, segments touching, the
- * dark app tooltip with a caret.
+ * figures the columns show). Measured at ~168×32px (the colour bar in the reference
+ * spans ~168px), rounded, segments touching, the dark app tooltip with a caret.
  *
  * The counts follow the board toolbar's search + filters (KAN-07.1): the same `query`
  * the board loads with is passed here, so the legend's proportions narrow with the
@@ -82,7 +82,7 @@ export function StageLegend({
 
   if (summary === null) {
     return (
-      <div className="h-8 w-[224px] shrink-0 animate-pulse rounded-control bg-canvas" />
+      <div className="h-8 w-[172px] shrink-0 animate-pulse rounded-control bg-canvas" />
     );
   }
 
@@ -100,7 +100,7 @@ export function StageLegend({
 
   if (total === 0) {
     return (
-      <div className="flex h-8 w-[224px] shrink-0 items-center justify-center rounded-control border border-hairline bg-canvas text-xs text-ink-subtle">
+      <div className="flex h-8 w-[172px] shrink-0 items-center justify-center rounded-control border border-hairline bg-canvas text-xs text-ink-subtle">
         No leads
       </div>
     );
@@ -111,7 +111,7 @@ export function StageLegend({
       <div
         role="img"
         aria-label="Stage distribution by lead count"
-        className="flex h-8 w-[224px] shrink-0 overflow-hidden rounded-control border border-hairline bg-canvas"
+        className="flex h-8 w-[172px] shrink-0 overflow-hidden rounded-control border border-hairline bg-canvas"
       >
         {segments.map((segment) => (
           <div

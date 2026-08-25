@@ -187,8 +187,14 @@ export const KanbanColumn = memo(function KanbanColumn({
 
       <div
         onScroll={onScroll}
+        // Cards must share the header's exact width (Workpex): the body extends into
+        // the inter-column gap by the slim scrollbar's width (Chrome's thin scrollbar
+        // is 10px — `scrollbar-width: thin` disables the 6px ::-webkit-scrollbar rule
+        // since Chrome 121) and a stable gutter reserves exactly that, so the
+        // scrollbar rides in the gap instead of narrowing the cards — with or without
+        // overflow, the card area stays the full 267px.
         className={cn(
-          "mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-control pr-1 transition-colors",
+          "scrollbar-slim -mr-[10px] mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-control transition-colors [scrollbar-gutter:stable]",
           showOver && cn("border-2 border-dashed", colors.tint),
         )}
       >

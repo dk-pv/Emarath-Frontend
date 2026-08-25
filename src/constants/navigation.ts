@@ -25,7 +25,10 @@ import type { Capability } from "@/constants/permissions";
 export type NavItem = {
   /** Sidebar label. */
   label: string;
-  /** Navbar title. Differs from `label` only on /map, which Workpex titles "GPS Map". */
+  /**
+   * Navbar title. Differs from `label` where Workpex's page heading is not the sidebar
+   * word: /leads/kanban is titled "Kanban" (sidebar "Kanban Board") and /map "GPS Map".
+   */
   title: string;
   href: string;
   icon: Icon;
@@ -62,7 +65,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     label: "Kanban Board",
-    title: "Kanban Board",
+    title: "Kanban",
     href: "/leads/kanban",
     icon: IconFilter,
     activeIcon: IconFilterFilled,

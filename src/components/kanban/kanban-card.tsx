@@ -11,6 +11,7 @@ import {
   IconPinFilled,
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
 import { whatsappUrl } from "@/lib/whatsapp";
@@ -123,61 +124,69 @@ export const KanbanCard = memo(function KanbanCard({
             shows them. Each stops the click reaching the card so an action never starts
             a move (KAN-04.2 / AC5), and is `draggable={false}` so it is not a drag
             source. All reuse the Leads-list handlers via `useKanbanCardActions`. */}
+        {/* Each icon names itself in the shared dark tooltip on hover, the same
+            content the Leads-list row actions show (Workpex card-hover tooltips). */}
         <div className="flex shrink-0 items-center gap-0.5">
-          <button
-            type="button"
-            aria-label={wa ? "WhatsApp" : "No phone number"}
-            disabled={!wa}
-            draggable={false}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (wa) actions.onWhatsapp(lead);
-            }}
-            className={ICON_BUTTON_CLASS}
-          >
-            <IconBrandWhatsapp size={16} stroke={1.75} aria-hidden="true" />
-          </button>
-
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-(--duration-shell) ease-shell group-hover:opacity-100 group-focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+          <Tooltip content={wa ? "WhatsApp" : "No phone number"} portal>
             <button
               type="button"
-              aria-label={pinned ? "Unpin lead" : "Pin lead"}
-              aria-pressed={pinned}
+              aria-label={wa ? "WhatsApp" : "No phone number"}
+              disabled={!wa}
               draggable={false}
               onClick={(event) => {
                 event.stopPropagation();
-                void actions.onPin(lead);
-              }}
-              className={cn(ICON_BUTTON_CLASS, pinned && "text-brand-strong")}
-            >
-              {pinned ? (
-                <IconPinFilled size={16} stroke={1.75} aria-hidden="true" />
-              ) : (
-                <IconPin size={16} stroke={1.75} aria-hidden="true" />
-              )}
-            </button>
-            <button
-              type="button"
-              aria-label="Edit Lead"
-              disabled={editing}
-              draggable={false}
-              onClick={(event) => {
-                event.stopPropagation();
-                actions.onEdit(lead);
+                if (wa) actions.onWhatsapp(lead);
               }}
               className={ICON_BUTTON_CLASS}
             >
-              {editing ? (
-                <IconLoader2
-                  size={16}
-                  stroke={1.75}
-                  className="animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <IconEdit size={16} stroke={1.75} aria-hidden="true" />
-              )}
+              <IconBrandWhatsapp size={16} stroke={1.75} aria-hidden="true" />
             </button>
+          </Tooltip>
+
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-(--duration-shell) ease-shell group-hover:opacity-100 group-focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+            <Tooltip content={pinned ? "Unpin lead" : "Pin lead"} portal>
+              <button
+                type="button"
+                aria-label={pinned ? "Unpin lead" : "Pin lead"}
+                aria-pressed={pinned}
+                draggable={false}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void actions.onPin(lead);
+                }}
+                className={cn(ICON_BUTTON_CLASS, pinned && "text-brand-strong")}
+              >
+                {pinned ? (
+                  <IconPinFilled size={16} stroke={1.75} aria-hidden="true" />
+                ) : (
+                  <IconPin size={16} stroke={1.75} aria-hidden="true" />
+                )}
+              </button>
+            </Tooltip>
+            <Tooltip content="Edit Lead" portal>
+              <button
+                type="button"
+                aria-label="Edit Lead"
+                disabled={editing}
+                draggable={false}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  actions.onEdit(lead);
+                }}
+                className={ICON_BUTTON_CLASS}
+              >
+                {editing ? (
+                  <IconLoader2
+                    size={16}
+                    stroke={1.75}
+                    className="animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <IconEdit size={16} stroke={1.75} aria-hidden="true" />
+                )}
+              </button>
+            </Tooltip>
             <KanbanCardMenu lead={lead} />
           </div>
         </div>
@@ -212,12 +221,17 @@ export const KanbanCard = memo(function KanbanCard({
 
       <div className="mt-1 flex items-center justify-between border-t border-hairline pt-1.5">
         {agent ? (
-          <Avatar
-            name={agent.name}
-            initials={initialsOf(agent.name)}
-            size="sm"
-            className="size-5!"
-          />
+          // Hovering the avatar names the assigned agent in the shared dark tooltip,
+          // as the list's Assigned Agents cell does (Workpex card hover). Unassigned
+          // stays a bare placeholder — no name to show.
+          <Tooltip content={agent.name}>
+            <Avatar
+              name={agent.name}
+              initials={initialsOf(agent.name)}
+              size="sm"
+              className="size-5!"
+            />
+          </Tooltip>
         ) : (
           <Avatar name="Unassigned" size="sm" className="size-5!" />
         )}

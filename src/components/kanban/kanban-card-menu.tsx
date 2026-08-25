@@ -17,6 +17,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { whatsappUrl } from "@/lib/whatsapp";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { LeadListItem } from "@/services/leads-service";
 import { useKanbanCardActions } from "./kanban-card-actions";
 
@@ -178,21 +179,24 @@ export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
 
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label="Lead actions"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        draggable={false}
-        onClick={(event) => {
-          event.stopPropagation();
-          toggle();
-        }}
-        className={TRIGGER_CLASS}
-      >
-        <IconDotsVertical size={16} stroke={2} aria-hidden="true" />
-      </button>
+      {/* Suppressed while the menu is open so the tooltip never sits over the panel. */}
+      <Tooltip content="More" disabled={open} portal>
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label="Lead actions"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          draggable={false}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggle();
+          }}
+          className={TRIGGER_CLASS}
+        >
+          <IconDotsVertical size={16} stroke={2} aria-hidden="true" />
+        </button>
+      </Tooltip>
 
       {open &&
         createPortal(

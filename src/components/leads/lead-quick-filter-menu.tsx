@@ -6,6 +6,8 @@ import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button
 import { cn } from "@/lib/cn";
 import {
   DISABLED_PRESET_HINT,
+  QUICK_MENU_ITEM_CLASS,
+  QUICK_MENU_PANEL_CLASS,
   QUICK_PRESETS,
 } from "@/components/leads/lead-quick-filters";
 
@@ -47,6 +49,8 @@ export function LeadQuickFilterMenu({
     <Dropdown
       align="end"
       items={items}
+      panelClassName={QUICK_MENU_PANEL_CLASS}
+      itemClassName={QUICK_MENU_ITEM_CLASS}
       trigger={
         <span
           className={cn(

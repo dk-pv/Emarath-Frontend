@@ -8,6 +8,8 @@ import { useDismissable } from "@/hooks/use-dismissable";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import {
   DISABLED_PRESET_HINT,
+  QUICK_MENU_ITEM_CLASS,
+  QUICK_MENU_PANEL_CLASS,
   QUICK_PRESETS,
 } from "@/components/leads/lead-quick-filters";
 
@@ -93,7 +95,10 @@ export function LeadQuickFilterControl({
         <div
           role="menu"
           aria-label="Quick filter"
-          className="scrollbar-slim absolute top-[calc(100%+8px)] right-0 z-50 flex max-h-[70vh] w-56 flex-col overflow-y-auto rounded-surface border border-hairline bg-surface py-1 shadow-lg"
+          className={cn(
+            "absolute top-[calc(100%+8px)] right-0 z-50 flex w-56 flex-col rounded-surface border border-hairline bg-surface py-1 shadow-lg",
+            QUICK_MENU_PANEL_CLASS,
+          )}
         >
           {QUICK_PRESETS.map((preset) => {
             if (!preset.enabled) {
@@ -102,7 +107,10 @@ export function LeadQuickFilterControl({
                   key={preset.id}
                   aria-disabled="true"
                   title={DISABLED_PRESET_HINT}
-                  className="flex cursor-not-allowed items-center px-4 py-2.5 text-[15px] text-ink opacity-45"
+                  className={cn(
+                    "flex cursor-not-allowed items-center px-4 text-[15px] text-ink opacity-45",
+                    QUICK_MENU_ITEM_CLASS,
+                  )}
                 >
                   {preset.label}
                 </div>
@@ -121,7 +129,8 @@ export function LeadQuickFilterControl({
                   close();
                 }}
                 className={cn(
-                  "focus-ring-inset flex items-center px-4 py-2.5 text-left text-[15px] transition-colors duration-(--duration-shell) ease-shell",
+                  "focus-ring-inset flex items-center px-4 text-left text-[15px] transition-colors duration-(--duration-shell) ease-shell",
+                  QUICK_MENU_ITEM_CLASS,
                   selected
                     ? "bg-brand-subtle font-medium text-brand-strong"
                     : "text-ink hover:bg-canvas",

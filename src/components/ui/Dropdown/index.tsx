@@ -27,6 +27,13 @@ export type DropdownProps = {
   trigger: React.ReactNode;
   items: readonly DropdownItem[];
   align?: "start" | "end";
+  /**
+   * Per-menu overrides for callers whose reference geometry differs from the default —
+   * the Quick Filter menu's 35px rows and 245px scrolling box. Both are unset by
+   * default, so every other menu renders exactly as before.
+   */
+  panelClassName?: string;
+  itemClassName?: string;
 };
 
 const PANEL_CLASS =
@@ -35,7 +42,13 @@ const PANEL_CLASS =
 const ITEM_CLASS =
   "flex w-full items-center gap-3 px-4 py-2.5 text-left text-[15px] text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring-inset";
 
-export function Dropdown({ trigger, items, align = "start" }: DropdownProps) {
+export function Dropdown({
+  trigger,
+  items,
+  align = "start",
+  panelClassName,
+  itemClassName,
+}: DropdownProps) {
   const root = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
 
@@ -65,7 +78,11 @@ export function Dropdown({ trigger, items, align = "start" }: DropdownProps) {
       {isOpen && (
         <div
           role="menu"
-          className={cn(PANEL_CLASS, align === "end" ? "right-0" : "left-0")}
+          className={cn(
+            PANEL_CLASS,
+            align === "end" ? "right-0" : "left-0",
+            panelClassName,
+          )}
         >
           {items.map((item) => {
             if (item.type === "separator") {
@@ -90,7 +107,11 @@ export function Dropdown({ trigger, items, align = "start" }: DropdownProps) {
                   key={item.id}
                   aria-disabled="true"
                   title={item.hint}
-                  className={cn(ITEM_CLASS, "cursor-not-allowed opacity-45")}
+                  className={cn(
+                    ITEM_CLASS,
+                    "cursor-not-allowed opacity-45",
+                    itemClassName,
+                  )}
                 >
                   {ItemIcon && (
                     <ItemIcon size={20} stroke={1.75} className="shrink-0" />
@@ -105,7 +126,7 @@ export function Dropdown({ trigger, items, align = "start" }: DropdownProps) {
                 key={item.id}
                 type="button"
                 role="menuitem"
-                className={cn(ITEM_CLASS, "justify-between")}
+                className={cn(ITEM_CLASS, "justify-between", itemClassName)}
                 onClick={() => {
                   item.onSelect?.();
                   close();

@@ -61,6 +61,9 @@ export function StageLegend({
         pipeline,
         search: query.search ?? "",
         conditions: query.conditions,
+        // Without this the bar would keep its old proportions when only the advanced
+        // filter changed — the legend must narrow with the cards (KAN-07.1 AC5).
+        advancedConditions: query.advancedConditions ?? "",
         reloadKey,
       }),
     [pipeline, query, reloadKey],

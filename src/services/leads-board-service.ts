@@ -37,6 +37,12 @@ export const DEFAULT_PIPELINE = "Lead Pipeline";
 export interface BoardFilterQuery {
   search?: string;
   conditions: readonly FilterCondition[];
+  /**
+   * The advanced filter builder's payload (ADR-0039/0052), as the JSON `conditions`
+   * param. Named apart from the simple `conditions` above — which are the toolbar's
+   * field/quick-filter values — because both ride the same request.
+   */
+  advancedConditions?: string;
 }
 
 /**
@@ -59,6 +65,7 @@ export async function fetchBoard(
       size: 1,
       search: query.search,
       filters: query.conditions,
+      conditions: query.advancedConditions,
     });
   }
   return apiGet<LeadBoardResponse>("/leads/board", params, signal);

@@ -314,3 +314,77 @@ export function buildConditionsPayload(
   });
   return payload.length > 0 ? JSON.stringify(payload) : undefined;
 }
+
+/** One day back from an exclusive upper boundary, as the ISO day the picker shows. */
+function previousDayIso(iso: string): string {
+  const d = new Date(iso);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toISOString();
+}
+
+/** A stored date row's boundary instants back to the day(s) the user picked. */
+function datePickedValues(op: LeadFilterOperator, values: string[]): string[] {
+  switch (op) {
+    case "on":
+    case "before":
+      return values.slice(0, 1);
+    case "after":
+      return [previousDayIso(values[0])];
+    case "between":
+    case "notBetween":
+      return [values[0], previousDayIso(values[1])];
+    default:
+      return [];
+  }
+}
+
+/**
+ * The inverse of `buildConditionsPayload` — a saved preset's stored conditions back
+ * into editable builder rows (ADR-0052). Date rows convert their half-open boundary
+ * instants back to the picked day(s); every other kind carries its values through.
+ *
+ * Anything unrecognisable (bad JSON, an unknown field, an operator the field's kind
+ * no longer allows) is skipped rather than thrown: a preset saved before a field
+ * changed must not break the panel it loads into. An empty result yields one blank row
+ * so the builder always has something to edit.
+ */
+export function rowsFromPayload(
+  json: string | null | undefined,
+): LeadFilterRow[] {
+  if (!json) return [emptyRow()];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [emptyRow()];
+  }
+  if (!Array.isArray(parsed)) return [emptyRow()];
+
+  const rows = parsed.flatMap((entry): LeadFilterRow[] => {
+    if (typeof entry !== "object" || entry === null) return [];
+    const { field, operator, values } = entry as Record<string, unknown>;
+    if (typeof field !== "string" || typeof operator !== "string") return [];
+
+    const def = fieldDef(field);
+    const op = operator as LeadFilterOperator;
+    if (!def || !operatorsFor(def.kind).includes(op)) return [];
+
+    const raw = Array.isArray(values)
+      ? values.filter((v): v is string => typeof v === "string")
+      : [];
+    const next = emptyRow();
+    return [
+      {
+        ...next,
+        field: def.key,
+        operator: op,
+        values:
+          def.kind === "date" && operatorNeedsValue(op)
+            ? datePickedValues(op, raw)
+            : raw,
+      },
+    ];
+  });
+
+  return rows.length > 0 ? rows : [emptyRow()];
+}

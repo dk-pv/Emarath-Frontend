@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   IconColumns,
@@ -20,11 +20,7 @@ import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import { LeadFilterBuilder } from "@/components/leads/lead-filter-builder";
-import {
-  buildConditionsPayload,
-  emptyRow,
-  type LeadFilterRow,
-} from "@/components/leads/lead-filter-config";
+import { useAdvancedFilter } from "@/hooks/use-advanced-filter";
 import { LeadAddColumnMenu } from "@/components/leads/lead-add-column-menu";
 import { LeadBulkBar } from "@/components/leads/lead-bulk-bar";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
@@ -161,22 +157,13 @@ export function LeadsListView() {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [presetFilters, setPresetFilters] = useState<FilterCondition[]>([]);
 
-  // The advanced filter builder (ADR-0039): the draft rows the popover edits, and the
-  // applied conditions (as the JSON `conditions` param) that actually drive the query.
-  // Draft is held here so it survives the popover closing/reopening.
-  const [filterRows, setFilterRows] = useState<LeadFilterRow[]>(() => [
-    emptyRow(),
-  ]);
-  const [appliedConditions, setAppliedConditions] = useState<
-    string | undefined
-  >(undefined);
-  const appliedFilterCount = useMemo(
-    () =>
-      appliedConditions
-        ? (JSON.parse(appliedConditions) as unknown[]).length
-        : 0,
-    [appliedConditions],
-  );
+  // The advanced filter (ADR-0039/0040/0052) — draft rows, the applied `conditions`
+  // payload that drives the query, and the caller's saved presets. The same hook backs
+  // the Kanban board's filter, so list and board can never diverge (KAN-07.1 AC5).
+  // Applying resets to page 1 through a ref, since `list` is created below from it.
+  const resetPageRef = useRef<() => void>(() => {});
+  const onFilterApplied = useCallback(() => resetPageRef.current(), []);
+  const advancedFilter = useAdvancedFilter({ onApplied: onFilterApplied });
 
   // The box tracks the live value; only the value that drives the fetch waits.
   const debouncedSearch = useDebouncedValue(
@@ -193,19 +180,11 @@ export function LeadsListView() {
 
   const list = useListQuery({
     filters: queryState,
-    conditions: appliedConditions,
+    conditions: advancedFilter.appliedConditions,
   });
-
-  // Apply the builder's draft rows to the query (Workpex "Filter"), or clear them all.
-  const applyFilterConditions = () => {
-    setAppliedConditions(buildConditionsPayload(filterRows));
-    list.resetPage();
-  };
-  const clearFilterConditions = () => {
-    setFilterRows([emptyRow()]);
-    setAppliedConditions(undefined);
-    list.resetPage();
-  };
+  useEffect(() => {
+    resetPageRef.current = list.resetPage;
+  }, [list.resetPage]);
 
   // Apply a preset (or clear with null); the menu resolves a re-select to null.
   const applyQuickFilter = (id: string | null) => {
@@ -223,8 +202,7 @@ export function LeadsListView() {
   const clearAllFilters = () => {
     setActivePreset(null);
     setPresetFilters([]);
-    setFilterRows([emptyRow()]);
-    setAppliedConditions(undefined);
+    advancedFilter.clear();
     list.resetPage();
   };
   const { rows, total, isLoading, isFetching, isError, refetch } = useListData(
@@ -758,7 +736,8 @@ export function LeadsListView() {
   // rendered when the settled total is 0 (below); an out-of-range page is corrected, not
   // shown as empty.
   const searchTerm = filters.state.search.trim();
-  const hasActiveFilter = activePreset !== null || appliedFilterCount > 0;
+  const hasActiveFilter =
+    activePreset !== null || advancedFilter.appliedCount > 0;
   const leadsEmptyState = searchTerm ? (
     <EmptyState
       icon={IconSearch}
@@ -820,13 +799,7 @@ export function LeadsListView() {
               placeholder="Search name or phone"
               clearable
             />
-            <LeadFilterBuilder
-              rows={filterRows}
-              onRowsChange={setFilterRows}
-              onApply={applyFilterConditions}
-              onClear={clearFilterConditions}
-              activeCount={appliedFilterCount}
-            />
+            <LeadFilterBuilder filter={advancedFilter} label="Leads" />
             <LeadSortControl
               sort={list.sort}
               onSortChange={list.setSort}

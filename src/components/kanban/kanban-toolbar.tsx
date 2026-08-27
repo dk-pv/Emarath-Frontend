@@ -5,10 +5,14 @@ import { IconFileImport, IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
-import { FilterPanel } from "@/components/filters/filter-panel";
+import { LeadFilterBuilder } from "@/components/leads/lead-filter-builder";
 import { LeadQuickFilterMenu } from "@/components/leads/lead-quick-filter-menu";
-import { LeadSortMenu, type SortColumn } from "@/components/leads/lead-sort-menu";
-import type { FilterCondition, FilterField, SortState } from "@/types";
+import {
+  LeadSortMenu,
+  type SortColumn,
+} from "@/components/leads/lead-sort-menu";
+import type { AdvancedFilterState } from "@/hooks/use-advanced-filter";
+import type { SortState } from "@/types";
 import { PipelineSwitcher } from "./pipeline-switcher";
 
 /**
@@ -28,11 +32,8 @@ type KanbanToolbarProps = {
   onPipelineChange: (pipeline: string) => void;
   search: string;
   onSearchChange: (value: string) => void;
-  filterFields: readonly FilterField[];
-  filterActiveCount: number;
-  filterValueOf: (key: string) => FilterCondition["value"];
-  onFilterChange: (key: string, value: FilterCondition["value"]) => void;
-  onFilterClear: () => void;
+  /** The advanced filter's shared state — the same one the Leads list drives. */
+  advancedFilter: AdvancedFilterState;
   sort: SortState | undefined;
   onSortChange: (sort: SortState) => void;
   activePreset: string | null;
@@ -42,7 +43,8 @@ type KanbanToolbarProps = {
 
 /**
  * The board's shared toolbar (KAN-07.1). Every control is the Leads list's own —
- * New Lead, Search, Filter, Quick Filter, Sort — plus the KAN-06.1 pipeline switcher
+ * New Lead, Search, the advanced Filter builder, Quick Filter, Sort — plus the KAN-06.1
+ * pipeline switcher
  * and the Import link, in Workpex's exact board order (the `kanban-*` toolbar
  * screenshots): New Lead · Search · Filter · Lead Pipeline · Quick Filter · Sort ·
  * Import. No toolbar logic is duplicated; the board only supplies its own Sort
@@ -53,11 +55,7 @@ export function KanbanToolbar({
   onPipelineChange,
   search,
   onSearchChange,
-  filterFields,
-  filterActiveCount,
-  filterValueOf,
-  onFilterChange,
-  onFilterClear,
+  advancedFilter,
   sort,
   onSortChange,
   activePreset,
@@ -75,13 +73,7 @@ export function KanbanToolbar({
         onChange={onSearchChange}
         placeholder="Search name or phone"
       />
-      <FilterPanel
-        fields={filterFields}
-        activeCount={filterActiveCount}
-        valueOf={filterValueOf}
-        onChange={onFilterChange}
-        onClear={onFilterClear}
-      />
+      <LeadFilterBuilder filter={advancedFilter} label="Board" />
       <PipelineSwitcher value={pipeline} onChange={onPipelineChange} />
       <LeadQuickFilterMenu active={activePreset} onChange={onQuickFilter} />
       <LeadSortMenu

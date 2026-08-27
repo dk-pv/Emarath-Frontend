@@ -6,15 +6,12 @@ import { Toolbar } from "@/components/layout/Toolbar";
 import { StagesProvider, useStages } from "@/components/stages/stages-context";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { presetConditions } from "@/components/leads/lead-quick-filters";
+import { useAdvancedFilter } from "@/hooks/use-advanced-filter";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useFilters } from "@/hooks/use-filters";
 import { useListQuery } from "@/hooks/use-list-query";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { DEFAULT_PIPELINE } from "@/services/leads-board-service";
-import {
-  fetchLeadFilterOptions,
-  type LeadFilterOptions,
-} from "@/services/leads-service";
 import type { Stage } from "@/services/stages-service";
 import {
   fetchKanbanPins,
@@ -34,12 +31,8 @@ const PIPELINE_KEY = "kanban.pipeline";
 /** A pause after the last keystroke before the server search runs (LEAD-03.3). */
 const SEARCH_DEBOUNCE_MS = 300;
 
-const NO_OPTIONS: LeadFilterOptions = {
-  sources: [],
-  statuses: [],
-  agents: [],
-  tags: [],
-};
+/** The board filters through the advanced builder, so the shared panel gets no fields. */
+const NO_FILTER_FIELDS: readonly FilterField[] = [];
 
 /**
  * The Kanban board (KAN-02.2 UI, KAN-04.2 drag, KAN-05.2 stages, KAN-06.1 pipelines,
@@ -71,56 +64,13 @@ function KanbanBoardShell({
 }) {
   const { stages, status, reload } = useStages();
 
-  // Filter facets — the same scoped Source / Lead Status / Assigned Agent / Tags the
-  // Leads list offers (LEAD-03.3), so the board and the list filter by identical
-  // fields (KAN-07.1 AC5). The board reuses the whole filter/search/sort machinery.
-  const [options, setOptions] = useState<LeadFilterOptions>(NO_OPTIONS);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchLeadFilterOptions(controller.signal)
-      .then(setOptions)
-      .catch((error: unknown) => {
-        // A superseded request aborts; expected. Any other failure leaves the filter
-        // menu empty — the board itself still works.
-        if (error instanceof DOMException && error.name === "AbortError") return;
-      });
-    return () => controller.abort();
-  }, []);
+  // Search state only: the board's field filtering is the advanced builder below, the
+  // very one the Leads list uses (KAN-07.1 AC1/AC5), so no per-field catalogue is needed.
+  const filters = useFilters(NO_FILTER_FIELDS);
 
-  const filterFields = useMemo<FilterField[]>(
-    () => [
-      {
-        key: "source",
-        label: "Source",
-        type: "multi",
-        options: options.sources.map((value) => ({ label: value, value })),
-      },
-      {
-        key: "status",
-        label: "Lead Status",
-        type: "multi",
-        options: options.statuses.map((value) => ({ label: value, value })),
-      },
-      {
-        key: "assignedAgent",
-        label: "Assigned Agent",
-        type: "multi",
-        options: options.agents.map((agent) => ({
-          label: agent.name,
-          value: agent.id,
-        })),
-      },
-      {
-        key: "tag",
-        label: "Tags",
-        type: "multi",
-        options: options.tags.map((tag) => ({ label: tag.name, value: tag.id })),
-      },
-    ],
-    [options],
-  );
-
-  const filters = useFilters(filterFields);
+  // The advanced filter (ADR-0039/0040/0052) — draft rows, the applied `conditions`
+  // payload, and the caller's saved presets, shared with the list through one hook.
+  const advancedFilter = useAdvancedFilter();
 
   // Quick Filter preset (LEAD-04.1) — one at a time, its conditions riding the same
   // query as the field filters. Kept in its own state so it can be indicated/cleared.
@@ -155,9 +105,12 @@ function KanbanBoardShell({
     () => ({
       search: list.query.search,
       conditions: list.query.filters ?? [],
+      // One payload for the rollup (legend/counts) and every column's cards, so the
+      // two can never show different filtered sets.
+      advancedConditions: advancedFilter.appliedConditions,
       sort: list.query.sort,
     }),
-    [list.query],
+    [list.query, advancedFilter.appliedConditions],
   );
 
   // The create drawer's target: `{}` = the global New Lead button; `{ stage }` = the
@@ -180,7 +133,8 @@ function KanbanBoardShell({
       .catch((error: unknown) => {
         // Aborted on unmount; expected. Any other failure just leaves no pins — the
         // board still works, columns simply aren't sticky.
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
       });
     return () => controller.abort();
   }, []);
@@ -221,11 +175,7 @@ function KanbanBoardShell({
             onPipelineChange={onPipelineChange}
             search={filters.state.search}
             onSearchChange={filters.setSearch}
-            filterFields={filterFields}
-            filterActiveCount={filters.activeCount}
-            filterValueOf={filters.valueOf}
-            onFilterChange={filters.setCondition}
-            onFilterClear={filters.clearAll}
+            advancedFilter={advancedFilter}
             sort={list.sort}
             onSortChange={list.setSort}
             activePreset={activePreset}

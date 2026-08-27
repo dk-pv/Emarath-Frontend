@@ -27,6 +27,12 @@ export type MultiSelectProps = {
   allowCreate?: boolean;
   createLabel?: (query: string) => string;
   onCreate?: (query: string) => void;
+  /**
+   * Caps the chips drawn in the control, the rest collapsing into a "+N" counter —
+   * Workpex's filter row ("ADNAN S +12"), where the control must stay one line tall.
+   * Unset (the default) keeps every chip visible, as the drawers and reports need.
+   */
+  maxVisibleChips?: number;
 };
 
 /** Chips sit inside the control, so the box grows rather than clipping the selection. */
@@ -53,6 +59,7 @@ export function MultiSelect({
   allowCreate = false,
   createLabel = (query) => `Create “${query}”`,
   onCreate,
+  maxVisibleChips,
 }: MultiSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -119,20 +126,40 @@ export function MultiSelect({
 
   // Chips follow the option order so the trigger reads in the same order as the list.
   const selected = options.filter((option) => value.includes(option.value));
+  const capped = maxVisibleChips !== undefined;
+  const shown = capped ? selected.slice(0, maxVisibleChips) : selected;
+  const overflow = selected.length - shown.length;
   const hasVisiblePlaceholder = value.length === 0 && placeholder !== undefined;
 
   return (
     <div ref={root} className={cn("relative", className)}>
-      <div className={CONTROL_CLASS}>
-        {selected.map((option) => (
+      {/* Capped mode is a single-line control: the chips truncate rather than wrap, and
+          the height is fixed rather than a minimum, so the box matches the plain selects
+          beside it in Workpex's filter row instead of standing 2px taller. */}
+      <div
+        className={cn(
+          CONTROL_CLASS,
+          capped && "h-control-md min-h-0 flex-nowrap",
+        )}
+      >
+        {shown.map((option) => (
           <Chip
             key={option.value}
+            className={capped ? "min-w-0" : undefined}
             onRemove={disabled ? undefined : () => toggleValue(option.value)}
             removeLabel={`Remove ${option.label}`}
           >
             {option.label}
           </Chip>
         ))}
+        {overflow > 0 && (
+          <span
+            className="shrink-0 text-sm text-ink-muted"
+            aria-label={`${overflow} more selected`}
+          >
+            +{overflow}
+          </span>
+        )}
 
         <button
           ref={opener}

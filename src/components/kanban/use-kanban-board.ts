@@ -28,11 +28,15 @@ const PAGE_SIZE = 20;
 export interface BoardQuery {
   search?: string;
   conditions: readonly FilterCondition[];
+  /** The advanced filter builder's JSON payload (ADR-0039/0052), if any. */
+  advancedConditions?: string;
   sort?: SortState;
 }
 
 const isQueryActive = (query: BoardQuery): boolean =>
-  Boolean(query.search?.trim()) || query.conditions.length > 0;
+  Boolean(query.search?.trim()) ||
+  query.conditions.length > 0 ||
+  Boolean(query.advancedConditions);
 
 /** One column's live state: its rollup (count/value) and its loaded cards. */
 export type StageColumn = {
@@ -98,6 +102,9 @@ function pageQuery(
     size: PAGE_SIZE,
     sort: query.sort ?? { key: "createdAt", direction: "desc" },
     search: query.search,
+    // The advanced conditions travel verbatim, so a column's cards are narrowed by
+    // exactly the payload the rollup was narrowed by — legend and cards can't diverge.
+    conditions: query.advancedConditions,
     filters: [
       { key: "status", value: [stage] },
       { key: "pipeline", value: pipeline },
@@ -322,6 +329,7 @@ export function useKanbanBoard(
       JSON.stringify({
         search: query.search ?? "",
         conditions: query.conditions,
+        advancedConditions: query.advancedConditions ?? "",
         sort: query.sort ?? null,
       }),
     [query],
@@ -350,7 +358,11 @@ export function useKanbanBoard(
     const applied = queryRef.current;
     fetchBoard(
       pipeline,
-      { search: applied.search, conditions: applied.conditions },
+      {
+        search: applied.search,
+        conditions: applied.conditions,
+        advancedConditions: applied.advancedConditions,
+      },
       controller.signal,
     )
       .then((summary) => {

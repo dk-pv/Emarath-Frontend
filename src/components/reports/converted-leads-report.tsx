@@ -37,21 +37,11 @@ import {
   type ConvertedLeadRow,
   type ConvertedLeadsSummaryRow,
 } from "@/services/converted-leads-report-service";
+import { formatAED } from "@/lib/format";
 import type { TableColumn } from "@/types";
 
 /** Rows differ by view: per-assignee counts + amounts (summary) or the converted leads (detailed). */
 type Row = ConvertedLeadsSummaryRow | ConvertedLeadRow;
-
-/** Workpex renders amounts as "130.00 د.إ" (reports show an "Actual Amount" column); absent shows a dash. */
-const AED = new Intl.NumberFormat("en-AE", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-function formatAmount(value: string | null): string {
-  if (value === null) return "—";
-  const amount = Number(value);
-  return Number.isNaN(amount) ? "—" : `${AED.format(amount)} د.إ`;
-}
 
 /** The summary's first cell: bold "Total", a muted "Unassigned", or an owner avatar + name. */
 function AssignedUserCell({ row }: { row: ConvertedLeadsSummaryRow }) {
@@ -110,7 +100,7 @@ const SUMMARY_COLUMNS: readonly TableColumn<ConvertedLeadsSummaryRow>[] = [
     align: "right",
     render: (row) => (
       <span className={row.isTotal ? "font-semibold text-ink" : undefined}>
-        {formatAmount(row.amount)}
+        {formatAED(row.amount)}
       </span>
     ),
   },
@@ -137,7 +127,7 @@ const DETAILED_COLUMNS: readonly TableColumn<ConvertedLeadRow>[] = [
     key: "actualAmount",
     header: "Actual Amount",
     align: "right",
-    render: (row) => formatAmount(row.actualAmount),
+    render: (row) => formatAED(row.actualAmount),
   },
 ];
 

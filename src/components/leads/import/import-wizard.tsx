@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -166,7 +167,7 @@ export function ImportWizard() {
 
   return (
     <div className="flex min-h-full flex-col p-4">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-surface border border-hairline bg-surface shadow-sm">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-sm">
         <div className="overflow-x-auto border-b border-hairline px-6 py-5 scrollbar-slim">
           <div className="min-w-[640px]">
             <Stepper steps={IMPORT_STEPS} current={step} />
@@ -276,7 +277,7 @@ export function ImportWizard() {
             }
           />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

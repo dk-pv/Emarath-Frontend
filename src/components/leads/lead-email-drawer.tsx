@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { FormError } from "@/components/ui/FormError";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { ApiError } from "@/lib/api-client";
+import { EMAIL_PATTERN } from "@/lib/validation";
 import { sendLeadEmail } from "@/services/leads-row-actions-service";
 import type { LeadListItem } from "@/services/leads-service";
 
@@ -21,14 +23,13 @@ type LeadEmailDrawerProps = {
 
 // A pragmatic address check — the backend re-validates every recipient (@IsEmail),
 // so this is UX, not the trust boundary.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const parseEmails = (raw: string): string[] =>
   raw
     .split(/[,\s]+/)
     .map((value) => value.trim())
     .filter(Boolean);
 const invalidEmails = (list: string[]): string[] =>
-  list.filter((value) => !EMAIL_RE.test(value));
+  list.filter((value) => !EMAIL_PATTERN.test(value));
 
 /**
  * The Lead Email composer (LEAD-10.2, ADR-0032). Opens on the row's Email icon and
@@ -125,14 +126,7 @@ export function LeadEmailDrawer({
       }
     >
       <div className="flex flex-col gap-4">
-        {apiError && (
-          <p
-            role="alert"
-            className="rounded-control border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger"
-          >
-            {apiError}
-          </p>
-        )}
+        {apiError && <FormError>{apiError}</FormError>}
 
         <FormField label="To" required error={errors.to}>
           {(control) => (

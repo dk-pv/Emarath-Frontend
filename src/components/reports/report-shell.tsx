@@ -14,6 +14,10 @@ import {
 import { cn } from "@/lib/cn";
 import { Card } from "@/components/ui/Card";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
+import {
+  SegmentedControl,
+  type SegmentedOption,
+} from "@/components/ui/SegmentedControl";
 import { Toolbar } from "@/components/layout/Toolbar";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -34,7 +38,8 @@ export type ReportState = "loading" | "empty" | "error" | "ready";
  * The shell holds NO business logic: it renders what it is handed and reports state changes
  * through callbacks. `onExport` must run the same role-scoped backend query as the visible
  * report (never a client-side dump of unscoped data). The Workpex kebab (Schedule / Report
- * Scheduler List) is intentionally omitted — scheduling is not in the RPT backlog.
+ * Scheduler List) is opt-in through `trailingActions`, so a report only shows it when its
+ * task asks for it — see `ReportMoreMenu`.
  */
 export interface ReportShellProps {
   report: ReportDefinition;
@@ -45,6 +50,11 @@ export interface ReportShellProps {
   filterBar?: React.ReactNode;
   /** Extra toolbar controls, e.g. Manage Columns in the detailed view. */
   toolbarActions?: React.ReactNode;
+  /**
+   * Controls rendered after the Summary/Detailed toggle — the far right of the toolbar.
+   * Opt-in so a report that has no kebab menu is visually unchanged.
+   */
+  trailingActions?: React.ReactNode;
   /** Optional chart region; the area is hidden entirely when a report has no chart. */
   chart?: React.ReactNode;
   /** Runs the export for the current view. Omit to disable the Export control. */
@@ -59,13 +69,9 @@ export interface ReportShellProps {
   children?: React.ReactNode;
 }
 
-const VIEW_MODES: {
-  mode: ReportViewMode;
-  label: string;
-  icon: typeof IconTable;
-}[] = [
-  { mode: "summary", label: "Summary View", icon: IconLayoutList },
-  { mode: "detailed", label: "Detailed View", icon: IconTable },
+const VIEW_MODES: SegmentedOption<ReportViewMode>[] = [
+  { value: "summary", label: "Summary View", icon: IconLayoutList },
+  { value: "detailed", label: "Detailed View", icon: IconTable },
 ];
 
 function ReportViewToggle({
@@ -73,33 +79,13 @@ function ReportViewToggle({
   onViewModeChange,
 }: Pick<ReportShellProps, "viewMode" | "onViewModeChange">) {
   return (
-    <div
-      role="group"
+    <SegmentedControl
       aria-label="Report view mode"
-      className="inline-flex items-center gap-0.5 rounded-control border border-hairline p-0.5"
-    >
-      {VIEW_MODES.map(({ mode, label, icon: Glyph }) => {
-        const active = viewMode === mode;
-        return (
-          <button
-            key={mode}
-            type="button"
-            aria-pressed={active}
-            title={label}
-            onClick={() => onViewModeChange(mode)}
-            className={cn(
-              "flex size-8 items-center justify-center rounded-[6px] transition-colors duration-(--duration-shell) ease-shell focus-ring",
-              active
-                ? "bg-brand text-white"
-                : "text-ink-muted hover:bg-canvas hover:text-ink",
-            )}
-          >
-            <Glyph size={18} stroke={1.75} aria-hidden="true" />
-            <span className="sr-only">{label}</span>
-          </button>
-        );
-      })}
-    </div>
+      options={VIEW_MODES}
+      value={viewMode}
+      onChange={onViewModeChange}
+      iconOnly
+    />
   );
 }
 
@@ -168,6 +154,7 @@ export function ReportShell({
   onViewModeChange,
   filterBar,
   toolbarActions,
+  trailingActions,
   chart,
   onExport,
   exporting = false,
@@ -205,6 +192,7 @@ export function ReportShell({
                 viewMode={viewMode}
                 onViewModeChange={onViewModeChange}
               />
+              {trailingActions}
             </>
           }
         />

@@ -8,8 +8,6 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { requestPasswordReset } from "@/services/auth-service";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /**
  * The forgot-password form (AUTH-03.1). Submits an email and then shows the same generic
  * confirmation regardless of whether the account exists — the UI must not reveal it either

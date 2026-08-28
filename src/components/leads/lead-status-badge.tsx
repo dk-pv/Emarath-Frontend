@@ -10,8 +10,11 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import { IconCheck, IconLoader2 } from "@tabler/icons-react";
+import {
+  AnchoredLayer,
+  type AnchoredLayerCloseReason,
+} from "@/components/ui/AnchoredLayer";
 import { cn } from "@/lib/cn";
 import { useStages } from "@/components/stages/stages-context";
 import type { LeadListItem } from "@/services/leads-service";
@@ -76,52 +79,15 @@ function InteractiveStatusBadge({
 }) {
   const { stages, colorsFor } = useStages();
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pending = ctx.pendingId === lead.id;
 
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (
-        !btnRef.current?.contains(target) &&
-        !panelRef.current?.contains(target)
-      ) {
-        close();
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      // Escape closes and returns focus to the trigger (keyboard close).
-      if (event.key === "Escape") {
-        close();
-        btnRef.current?.focus();
-      }
-    };
-    // The panel is viewport-fixed at the badge, so an ancestor/page scroll would
-    // detach it — but a scroll *inside* the panel (keyboard focus moving through a
-    // long status list) must not close it.
-    const onScroll = (event: Event) => {
-      if (panelRef.current?.contains(event.target as Node)) return;
-      close();
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", close);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", close);
-    };
-  }, [open]);
+  // Escape returns focus to the badge; the layer handles every other dismissal.
+  const close = (reason: AnchoredLayerCloseReason) => {
+    setOpen(false);
+    if (reason === "escape") btnRef.current?.focus();
+  };
 
   // When opened by keyboard (Enter/Space report a click detail of 0), pull focus
   // into the list on open; a mouse open (detail ≥ 1) leaves focus untouched, so
@@ -130,8 +96,6 @@ function InteractiveStatusBadge({
 
   const toggle = (event?: ReactMouseEvent<HTMLButtonElement>) => {
     if (pending) return;
-    const r = btnRef.current?.getBoundingClientRect();
-    if (r) setRect({ top: r.bottom + 4, left: r.left, width: r.width });
     focusOnOpenRef.current = !open && (event?.detail ?? 0) === 0;
     setOpen((value) => !value);
   };
@@ -157,7 +121,7 @@ function InteractiveStatusBadge({
   };
 
   // Arrow keys roam the options; Enter/Space on a focused option selects it via the
-  // button's own click, and Escape is handled by the document listener above.
+  // button's own click; Escape is handled by the layer's onClose.
   const onListKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
     const options =
@@ -195,56 +159,49 @@ function InteractiveStatusBadge({
         )}
       </button>
 
-      {open &&
-        rect &&
-        createPortal(
-          <div
-            ref={panelRef}
-            role="listbox"
-            aria-label="Set lead status"
-            onKeyDown={onListKeyDown}
-            style={{
-              position: "fixed",
-              top: rect.top,
-              left: rect.left,
-              minWidth: Math.max(rect.width, 208),
-            }}
-            className="z-50 max-h-72 overflow-y-auto rounded-surface border border-hairline bg-surface py-1 shadow-lg"
-          >
-            {stages.map((option) => {
-              const selected = option.name === lead.status;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  tabIndex={-1}
-                  onClick={() => pick(option.name)}
-                  className="focus-ring-inset flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas"
-                >
-                  <span
-                    className={cn(
-                      "size-3.5 shrink-0 rounded-sm",
-                      colorsFor(option.name).swatch,
-                    )}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0 flex-1">{option.name}</span>
-                  {selected && (
-                    <IconCheck
-                      size={16}
-                      stroke={2}
-                      className="shrink-0 text-brand-strong"
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
+      <AnchoredLayer
+        open={open}
+        onClose={close}
+        anchorRef={btnRef}
+        ref={panelRef}
+        minWidth={208}
+        role="listbox"
+        aria-label="Set lead status"
+        onKeyDown={onListKeyDown}
+        className="max-h-72 overflow-y-auto py-1"
+      >
+        {stages.map((option) => {
+          const selected = option.name === lead.status;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="option"
+              aria-selected={selected}
+              tabIndex={-1}
+              onClick={() => pick(option.name)}
+              className="focus-ring-inset flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas"
+            >
+              <span
+                className={cn(
+                  "size-3.5 shrink-0 rounded-sm",
+                  colorsFor(option.name).swatch,
+                )}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1">{option.name}</span>
+              {selected && (
+                <IconCheck
+                  size={16}
+                  stroke={2}
+                  className="shrink-0 text-brand-strong"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          );
+        })}
+      </AnchoredLayer>
     </>
   );
 }

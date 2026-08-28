@@ -1,29 +1,7 @@
+import { formatDate, formatDateTime } from "@/lib/format";
 import type { LeadListItem } from "@/services/leads-service";
 import type { LeadCustomField } from "@/services/leads-custom-fields-service";
 import type { TableColumn } from "@/types";
-
-/** Workpex date display, e.g. "16-07-2026" — matches the standard date columns. */
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  return `${dd}-${mm}-${date.getFullYear()}`;
-}
-
-/** Workpex date-time display, e.g. "16-07-2026, 11:39 AM" — matches Created Date. */
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${date.getFullYear()}, ${time}`;
-}
 
 /** A custom column's cell: the lead's value formatted by type; blank shows the same
  * muted em dash the standard columns use, so an empty cell never reads as a gap. */

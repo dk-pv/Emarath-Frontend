@@ -5,6 +5,7 @@ import { IconDownload, IconLock, IconLogout } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { useAuth } from "@/components/auth/auth-context";
+import { initialsOf } from "@/lib/format";
 
 /**
  * Traced from ui-reference/dashboard/dashboard-avatar-user-menu-open.png: an identity
@@ -25,16 +26,6 @@ function formatRole(role: string): string {
     .join(" ");
 }
 
-/** Up to two leading initials from the display name, for the avatar. */
-function initialsFrom(name: string): string {
-  const letters = name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase());
-  return letters.join("") || "?";
-}
-
 export function UserMenu() {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -43,7 +34,7 @@ export function UserMenu() {
   // fall back defensively rather than assuming it.
   const name = user?.name ?? "Account";
   const email = user?.email ?? "";
-  const initials = user ? initialsFrom(name) : undefined;
+  const initials = user ? initialsOf(name) || "?" : undefined;
 
   async function handleLogout() {
     await logout();

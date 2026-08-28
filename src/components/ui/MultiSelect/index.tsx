@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { IconChevronDown, IconPlus, IconSearch } from "@tabler/icons-react";
+import { IconChevronDown, IconPlus } from "@tabler/icons-react";
+import { PanelSearch } from "@/components/ui/PanelSearch";
 import { cn } from "@/lib/cn";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Chip } from "@/components/ui/Chip";
@@ -186,21 +187,12 @@ export function MultiSelect({
         <div id={panelId} className={PANEL_CLASS}>
           {searchable && (
             <div className="sticky top-0 border-b border-hairline bg-surface p-2">
-              <span className="relative block">
-                <IconSearch
-                  aria-hidden="true"
-                  stroke={1.75}
-                  className="pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2 text-ink-muted"
-                />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search"
-                  aria-label="Search options"
-                  className="h-control-sm w-full rounded-control border border-hairline bg-surface pr-2 pl-8 text-sm text-ink focus-ring"
-                />
-              </span>
+              <PanelSearch
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label="Search options"
+              />
             </div>
           )}
 

@@ -1,4 +1,5 @@
 import { IconCircleCheck } from "@tabler/icons-react";
+import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/cn";
 import { SETTINGS_ACCENTS, type SettingsCategory } from "./settings-registry";
 
@@ -16,7 +17,7 @@ export function SettingsCard({ category }: { category: SettingsCategory }) {
   const Glyph = category.icon;
 
   return (
-    <div className="flex h-full flex-col rounded-surface border border-hairline bg-surface p-6">
+    <Card className="flex h-full flex-col p-6">
       <div className="flex items-start justify-between gap-3">
         <span
           className={cn(
@@ -50,6 +51,6 @@ export function SettingsCard({ category }: { category: SettingsCategory }) {
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }

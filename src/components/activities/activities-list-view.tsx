@@ -14,7 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/Toast";
-import { DEFAULT_PAGE_SIZE } from "@/constants/table";
+import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useFilters } from "@/hooks/use-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
@@ -47,9 +47,6 @@ import {
 import { ApiError } from "@/lib/api-client";
 import { dayBoundaries } from "@/lib/day-boundaries";
 import type { FilterField, SelectOption } from "@/types";
-
-/** A pause after the last keystroke before the server search runs (LEAD-03.3). */
-const SEARCH_DEBOUNCE_MS = 300;
 
 const NO_OPTIONS: {
   agents: SelectOption[];

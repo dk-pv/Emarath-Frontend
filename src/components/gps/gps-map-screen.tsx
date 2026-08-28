@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IconList, IconMapPin, IconRefresh } from "@tabler/icons-react";
-import { cn } from "@/lib/cn";
 import { ContentContainer } from "@/components/layout/ContentContainer";
 import { Button } from "@/components/ui/Button";
+import {
+  SegmentedControl,
+  type SegmentedOption,
+} from "@/components/ui/SegmentedControl";
 import { FilterPanel } from "@/components/filters/filter-panel";
 import { GpsKpiCards } from "@/components/gps/gps-kpi-cards";
 import { GpsMapView } from "@/components/gps/gps-map-view";
@@ -34,9 +37,9 @@ const AUTO_REFRESH_MS = 60_000;
 
 type View = "map" | "list";
 
-const VIEWS: { id: View; label: string; icon: typeof IconMapPin }[] = [
-  { id: "map", label: "Map view", icon: IconMapPin },
-  { id: "list", label: "List view", icon: IconList },
+const VIEWS: SegmentedOption<View>[] = [
+  { value: "map", label: "Map view", icon: IconMapPin },
+  { value: "list", label: "List view", icon: IconList },
 ];
 
 /** The GPS Filter's persisted selection — survives navigation within a session (AC3). */
@@ -84,8 +87,7 @@ export function GpsMapScreen() {
     [agents],
   );
 
-  const activeCount =
-    (filters.userId ? 1 : 0) + (filters.date ? 1 : 0);
+  const activeCount = (filters.userId ? 1 : 0) + (filters.date ? 1 : 0);
   const valueOf = useCallback(
     (key: string) => filters[key as keyof GpsFilters] ?? null,
     [filters],
@@ -98,10 +100,7 @@ export function GpsMapScreen() {
       })),
     [setFilters],
   );
-  const onClear = useCallback(
-    () => setFilters(EMPTY_FILTERS),
-    [setFilters],
-  );
+  const onClear = useCallback(() => setFilters(EMPTY_FILTERS), [setFilters]);
 
   // One query drives the KPIs, map and list, so all three reflect the same period
   // and Team Member (AC2). Identity changes only when a filter changes.
@@ -144,29 +143,13 @@ export function GpsMapScreen() {
           onClear={onClear}
         />
 
-        <div
-          role="group"
+        <SegmentedControl
           aria-label="View"
-          className="flex rounded-control border border-hairline bg-surface p-0.5"
-        >
-          {VIEWS.map(({ id, label, icon: ViewIcon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={view === id}
-              aria-label={label}
-              onClick={() => setView(id)}
-              className={cn(
-                "focus-ring flex size-control-sm items-center justify-center rounded-[calc(var(--radius-control)-2px)]",
-                view === id
-                  ? "bg-brand text-white"
-                  : "text-ink-muted hover:text-ink",
-              )}
-            >
-              <ViewIcon size={18} stroke={1.75} aria-hidden="true" />
-            </button>
-          ))}
-        </div>
+          options={VIEWS}
+          value={view}
+          onChange={setView}
+          iconOnly
+        />
 
         <Button variant="secondary" size="sm" onClick={refresh}>
           <IconRefresh size={16} stroke={1.75} aria-hidden="true" />
@@ -174,7 +157,9 @@ export function GpsMapScreen() {
         </Button>
 
         {/* GPS-08.1 — exports the current scoped/filtered view (period + Team Member). */}
-        <GpsExportMenu onExport={(format) => downloadGpsExport(format, query)} />
+        <GpsExportMenu
+          onExport={(format) => downloadGpsExport(format, query)}
+        />
       </div>
 
       <GpsKpiCards query={query} reloadToken={reloadToken} />

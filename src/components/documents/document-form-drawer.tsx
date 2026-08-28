@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IconCloudUpload, IconFileCheck, IconX } from "@tabler/icons-react";
+import { FormError } from "@/components/ui/FormError";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { FormField } from "@/components/ui/FormField";
@@ -140,14 +141,7 @@ export function DocumentFormDrawer({
           void submit();
         }}
       >
-        {apiError && (
-          <p
-            role="alert"
-            className="rounded-control border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger"
-          >
-            {apiError}
-          </p>
-        )}
+        {apiError && <FormError>{apiError}</FormError>}
 
         <FormField label="File name" required error={titleError ?? undefined}>
           {(control) => (

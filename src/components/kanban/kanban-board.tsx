@@ -7,6 +7,7 @@ import { StagesProvider, useStages } from "@/components/stages/stages-context";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { presetConditions } from "@/components/leads/lead-quick-filters";
 import { useAdvancedFilter } from "@/hooks/use-advanced-filter";
+import { SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useFilters } from "@/hooks/use-filters";
 import { useListQuery } from "@/hooks/use-list-query";
@@ -27,9 +28,6 @@ import { type BoardQuery, useKanbanBoard } from "./use-kanban-board";
 
 /** The selected pipeline survives the session (KAN-06.1 AC4). */
 const PIPELINE_KEY = "kanban.pipeline";
-
-/** A pause after the last keystroke before the server search runs (LEAD-03.3). */
-const SEARCH_DEBOUNCE_MS = 300;
 
 /** The board filters through the advanced builder, so the shared panel gets no fields. */
 const NO_FILTER_FIELDS: readonly FilterField[] = [];

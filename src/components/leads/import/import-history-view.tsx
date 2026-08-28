@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IconDownload, IconFileImport, IconHistory } from "@tabler/icons-react";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table } from "@/components/ui/Table";
 import { cn } from "@/lib/cn";
+import { formatDateTime } from "@/lib/format";
 import {
   fetchImportErrors,
   fetchImportHistory,
@@ -37,17 +39,6 @@ function StatusPill({ status }: { status: ImportJob["status"] }) {
       {label}
     </span>
   );
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 /**
@@ -114,12 +105,13 @@ export function ImportHistoryView() {
     {
       key: "startedAt",
       header: "Started At",
-      render: (job) => formatDateTime(job.startedAt),
+      render: (job) => (job.startedAt ? formatDateTime(job.startedAt) : "—"),
     },
     {
       key: "completedAt",
       header: "Completed At",
-      render: (job) => formatDateTime(job.completedAt),
+      render: (job) =>
+        job.completedAt ? formatDateTime(job.completedAt) : "—",
     },
     {
       key: "importedBy",
@@ -168,7 +160,7 @@ export function ImportHistoryView() {
         }
       />
 
-      <div className="overflow-hidden rounded-surface border border-hairline bg-surface">
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto scrollbar-slim">
           <Table
             columns={columns}
@@ -193,7 +185,7 @@ export function ImportHistoryView() {
             }
           />
         </div>
-      </div>
+      </Card>
 
       {selected && (
         <JobDetailsModal job={selected} onClose={() => setSelected(null)} />

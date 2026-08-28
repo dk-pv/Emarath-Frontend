@@ -14,9 +14,18 @@ export interface NoActivityLeadRow {
   name: string;
   firstName: string | null;
   primaryPhone: string;
-  source: string | null;
+  secondaryPhone: string | null;
+  /** Decimal as a string, so the precision survives the wire — pass it to `formatAED`. */
+  actualAmount: string | null;
+  pipeline: string;
   status: string;
+  /** Stage colour key (KAN-05.1) for the status badge; null renders neutral. */
+  statusColor: string | null;
   assignedTo: NoActivityAgentRef[];
+  source: string | null;
+  category: string | null;
+  country: string | null;
+  street: string | null;
   /** ISO instant of the lead's most recent completed activity, or null if never engaged. */
   lastActivityAt: string | null;
 }
@@ -28,12 +37,16 @@ export interface NoActivitySummaryRow {
   count: number;
 }
 
-/** The report's period/agent/source filters (RPT-02.1 AC2). */
+/** The report's toolbar filters (RPT-02.1 AC2): By Date, Sales Agent, Pipeline and Filter. */
 export interface NoActivityFilters {
   /** Recency window lower bound — an ISO instant, derived from the selected period preset. */
   from?: string;
   source?: string[];
   agent?: string[];
+  /** One exact board name; a lead belongs to exactly one pipeline. */
+  pipeline?: string;
+  /** Only leads with no assignee — what the summary's "Unassigned" row drills into. */
+  unassigned?: boolean;
 }
 
 /**
@@ -74,6 +87,8 @@ function appendFilters(
   filters: NoActivityFilters,
 ): void {
   if (filters.from) params.set("from", filters.from);
+  if (filters.pipeline) params.set("pipeline", filters.pipeline);
+  if (filters.unassigned) params.set("unassigned", "true");
   for (const source of filters.source ?? []) params.append("source", source);
   for (const agent of filters.agent ?? []) params.append("agent", agent);
 }

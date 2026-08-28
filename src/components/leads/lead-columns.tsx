@@ -4,45 +4,9 @@ import { LeadNameCell } from "@/components/leads/lead-name-cell";
 import { LeadRowActions } from "@/components/leads/lead-row-actions";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
+import { formatAED, formatDateTime, initialsOf } from "@/lib/format";
 import type { LeadListItem } from "@/services/leads-service";
 import type { TableColumn } from "@/types";
-
-/**
- * Formatting is kept local to the Leads module for now; FND-04.1 introduces the
- * shared money/number/date utilities and these move to it.
- */
-const AED = new Intl.NumberFormat("en-AE", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-/** Workpex renders amounts as "130.00 د.إ"; an absent amount shows as a dash. */
-function formatAmount(value: string | null): string {
-  if (value === null) return "—";
-  const amount = Number(value);
-  return Number.isNaN(amount) ? "—" : `${AED.format(amount)} د.إ`;
-}
-
-/** Workpex date format, e.g. "16-07-2026, 11:39 AM". Client-only, so no SSR skew. */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${yyyy}, ${time}`;
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
 
 /** Muted em dash for any empty cell, so a blank never reads as a layout gap. */
 function orDash(value: string | null) {
@@ -169,13 +133,13 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     key: "actualAmount",
     header: "Actual Amount",
     align: "right",
-    render: (row) => formatAmount(row.actualAmount),
+    render: (row) => formatAED(row.actualAmount),
   },
   {
     key: "forecastedAmount",
     header: "Forecasted Amount",
     align: "right",
-    render: (row) => formatAmount(row.forecastedAmount),
+    render: (row) => formatAED(row.forecastedAmount),
   },
   {
     key: "callStatus",

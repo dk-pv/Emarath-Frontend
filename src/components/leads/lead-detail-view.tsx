@@ -31,28 +31,7 @@ import {
   type LeadTimelineEvent,
 } from "@/services/leads-service";
 import { deleteLead } from "@/services/leads-row-actions-service";
-
-/** Initials for the avatar placeholder; duplicated pending FND-04.1's shared utils. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
-
-/** Workpex date format, e.g. "20-08-2026, 11:39 AM". Client-only, so no SSR skew. */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${yyyy}, ${time}`;
-}
+import { formatDateTime, initialsOf } from "@/lib/format";
 
 /** Workpex's shared empty copy, identical under every Details section. */
 const EMPTY = "Records will appear here once they are added.";

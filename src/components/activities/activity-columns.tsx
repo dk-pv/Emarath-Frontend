@@ -12,10 +12,11 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
-import { cn } from "@/lib/cn";
+import { formatDateTime, initialsOf } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { ActivityListItem } from "@/services/activities-service";
 import type { TableColumn } from "@/types";
@@ -59,25 +60,6 @@ export function ActivityRowProvider({
  * `formatDateTime`/`initialsOf` are duplicated from the Leads columns for now;
  * FND-04.1 introduces the shared formatters and both move to it.
  */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${yyyy}, ${time}`;
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
 
 function orDash(value: string | null) {
   return value ? value : <span className="text-ink-subtle">—</span>;
@@ -177,9 +159,6 @@ function EditControl({ row }: { row: ActivityListItem }) {
   );
 }
 
-const ACTION_CLASS =
-  "flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
-
 /**
  * The per-row quick actions at the right edge (ACT-08.1): WhatsApp, Email,
  * Duplicate, Delete — the same right-aligned icon cluster as the Leads list.
@@ -202,32 +181,28 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
   return (
     <span className="flex items-center justify-end gap-0.5">
       <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
-        <button
-          type="button"
+        <IconButton
           aria-label="WhatsApp"
           disabled={!waUrl}
           onClick={() =>
             waUrl && window.open(waUrl, "_blank", "noopener,noreferrer")
           }
-          className={ACTION_CLASS}
         >
           <IconBrandWhatsapp size={18} stroke={1.75} aria-hidden="true" />
-        </button>
+        </IconButton>
       </Tooltip>
 
       <Tooltip content="No email address on this lead">
-        <button type="button" aria-label="Email" disabled className={ACTION_CLASS}>
+        <IconButton aria-label="Email" disabled>
           <IconMail size={18} stroke={1.75} aria-hidden="true" />
-        </button>
+        </IconButton>
       </Tooltip>
 
       <Tooltip content="Duplicate">
-        <button
-          type="button"
+        <IconButton
           aria-label="Duplicate"
           disabled={busy}
           onClick={() => ctx.onRequestDuplicate(row)}
-          className={ACTION_CLASS}
         >
           {pending === "duplicate" ? (
             <IconLoader2
@@ -239,19 +214,18 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
           ) : (
             <IconCopy size={18} stroke={1.75} aria-hidden="true" />
           )}
-        </button>
+        </IconButton>
       </Tooltip>
 
       <Tooltip content="Delete">
-        <button
-          type="button"
+        <IconButton
           aria-label="Delete"
           disabled={busy}
           onClick={() => ctx.onRequestDelete(row)}
-          className={cn(ACTION_CLASS, "hover:text-danger")}
+          tone="danger"
         >
           <IconTrash size={18} stroke={1.75} aria-hidden="true" />
-        </button>
+        </IconButton>
       </Tooltip>
     </span>
   );

@@ -12,6 +12,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Pagination } from "@/components/ui/Pagination";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { ManageColumns } from "@/components/table/manage-columns";
@@ -24,6 +25,7 @@ import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useFilters } from "@/hooks/use-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/cn";
+import { formatDate, formatTime } from "@/lib/format";
 import type { FilterField, TableColumn } from "@/types";
 import type { LeadListItem } from "@/services/leads-service";
 import {
@@ -53,20 +55,6 @@ function orDash(value: string | null) {
 }
 
 /** "26-07-2026, 11:30:35 PM" — the Workpex call timestamp. */
-function formatDateTime(iso: string): { date: string; time: string } {
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return {
-    date: `${dd}-${mm}-${d.getFullYear()}`,
-    time: d.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    }),
-  };
-}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -132,7 +120,8 @@ const COLUMNS: TableColumn<CallLogRow>[] = [
     key: "dateTime",
     header: "Date & Time",
     render: (row) => {
-      const { date, time } = formatDateTime(row.startedAt);
+      const date = formatDate(row.startedAt);
+      const time = formatTime(row.startedAt, { seconds: true });
       return (
         <span className="flex flex-col">
           <span className="text-ink">{date}</span>
@@ -165,7 +154,8 @@ const COLUMNS: TableColumn<CallLogRow>[] = [
     render: (row) =>
       row.nextFollowUp ? (
         (() => {
-          const { date, time } = formatDateTime(row.nextFollowUp);
+          const date = formatDate(row.nextFollowUp);
+          const time = formatTime(row.nextFollowUp, { seconds: true });
           return (
             <span className="flex flex-col">
               <span className="text-ink">{date}</span>
@@ -289,14 +279,24 @@ export function CallLog({ period }: { period: PeriodId }) {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFailed(requestKey);
       });
     return () => {
       active = false;
       controller.abort();
     };
-  }, [page, outcome, debouncedSearch, agentId, range, leadStatus, requestKey, reloadToken]);
+  }, [
+    page,
+    outcome,
+    debouncedSearch,
+    agentId,
+    range,
+    leadStatus,
+    requestKey,
+    reloadToken,
+  ]);
 
   const data = loaded?.key === requestKey ? loaded.data : null;
   const isError = failed === requestKey;
@@ -313,7 +313,7 @@ export function CallLog({ period }: { period: PeriodId }) {
   };
 
   return (
-    <section className="rounded-surface border border-hairline bg-surface">
+    <Card as="section">
       <SectionHeader title="Recent Call Log" />
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-2">
@@ -419,6 +419,6 @@ export function CallLog({ period }: { period: PeriodId }) {
           />
         </div>
       )}
-    </section>
+    </Card>
   );
 }

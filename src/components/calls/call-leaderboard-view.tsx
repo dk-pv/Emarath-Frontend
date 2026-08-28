@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import type { SortState, TableColumn } from "@/types";
@@ -80,7 +81,8 @@ function sortRows(
   return [...rows].sort((a, b) => {
     const av = a[sort.key as keyof LeaderboardEntry];
     const bv = b[sort.key as keyof LeaderboardEntry];
-    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    if (typeof av === "number" && typeof bv === "number")
+      return (av - bv) * dir;
     return String(av).localeCompare(String(bv)) * dir;
   });
 }
@@ -111,7 +113,8 @@ export function CallLeaderboard({ period }: { period: PeriodId }) {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFailed(period);
       });
     return () => {
@@ -126,7 +129,7 @@ export function CallLeaderboard({ period }: { period: PeriodId }) {
   const sorted = useMemo(() => sortRows(rows ?? [], sort), [rows, sort]);
 
   return (
-    <section className="rounded-surface border border-hairline bg-surface">
+    <Card as="section">
       <SectionHeader title="Leaderboard" />
 
       {isError ? (
@@ -159,6 +162,6 @@ export function CallLeaderboard({ period }: { period: PeriodId }) {
           />
         </ResponsiveTableContainer>
       )}
-    </section>
+    </Card>
   );
 }

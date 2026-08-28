@@ -2,6 +2,7 @@
 
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { Toolbar } from "@/components/layout/Toolbar";
+import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { AppliedFilterChips } from "@/components/filters/applied-filter-chips";
@@ -122,7 +123,7 @@ export function TablePageLayout({
           the scroll region to the card's radius; `flex-1 min-h-0` gives the card the
           leftover height so the region scrolls and the footer stays pinned to the
           card's bottom. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-surface border border-hairline bg-surface">
+      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* The one region that scrolls — `min-h-0 flex-1` so it takes the leftover
             height and its own body scrolls, keeping the footer below it on screen. */}
         <ResponsiveTableContainer
@@ -148,7 +149,7 @@ export function TablePageLayout({
             />
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import {
   IconArchive,
   IconArrowsExchange2,
@@ -17,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { whatsappUrl } from "@/lib/whatsapp";
+import { AnchoredLayer } from "@/components/ui/AnchoredLayer";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { LeadListItem } from "@/services/leads-service";
 import { useKanbanCardActions } from "./kanban-card-actions";
@@ -65,50 +65,9 @@ type Row =
 export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
   const actions = useKanbanCardActions();
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>(
-    { left: 0 },
-  );
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target)) return;
-      if (panelRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    // A fixed panel would drift from the scrolling card — close on any scroll/resize.
-    const onReposition = () => setOpen(false);
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("scroll", onReposition, true);
-    window.addEventListener("resize", onReposition);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("scroll", onReposition, true);
-      window.removeEventListener("resize", onReposition);
-    };
-  }, [open]);
-
-  const toggle = () => {
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const left = Math.max(8, rect.right - PANEL_WIDTH);
-    // Open upward when the trigger sits low in the viewport (no clamp/overflow).
-    const openUp = rect.bottom > window.innerHeight * 0.6;
-    setPos(
-      openUp
-        ? { left, bottom: window.innerHeight - rect.top + 4 }
-        : { left, top: rect.bottom + 4 },
-    );
-    setOpen((value) => !value);
-  };
+  const toggle = () => setOpen((value) => !value);
 
   const wa = whatsappUrl(lead.primaryPhone);
   const pinned = actions.isPinned(lead);
@@ -198,78 +157,71 @@ export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
         </button>
       </Tooltip>
 
-      {open &&
-        createPortal(
-          <div
-            ref={panelRef}
-            role="menu"
-            aria-label={`${lead.name} actions`}
-            style={{
-              position: "fixed",
-              left: pos.left,
-              top: pos.top,
-              bottom: pos.bottom,
-              width: PANEL_WIDTH,
-            }}
-            className="z-[200] max-h-[70vh] overflow-y-auto rounded-surface border border-hairline bg-surface py-1 shadow-lg"
-          >
-            {rows.map((row) => {
-              if (row.kind === "separator") {
-                return <hr key={row.id} className="my-1 border-hairline" />;
-              }
-              if (row.kind === "label") {
-                return (
-                  <p
-                    key={row.id}
-                    className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-subtle"
-                  >
-                    {row.label}
-                  </p>
-                );
-              }
-              const RowIcon = row.icon;
-              if (row.disabled) {
-                return (
-                  <div
-                    key={row.id}
-                    aria-disabled="true"
-                    title={row.hint}
-                    className={cn(ITEM_CLASS, "cursor-not-allowed opacity-45")}
-                  >
-                    <RowIcon
-                      size={18}
-                      stroke={1.75}
-                      className="shrink-0"
-                      aria-hidden="true"
-                    />
-                    {row.label}
-                  </div>
-                );
-              }
-              return (
-                <button
-                  key={row.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    row.onSelect();
-                    setOpen(false);
-                  }}
-                  className={cn(ITEM_CLASS, row.danger && "hover:text-danger")}
-                >
-                  <RowIcon
-                    size={18}
-                    stroke={1.75}
-                    className="shrink-0"
-                    aria-hidden="true"
-                  />
-                  {row.label}
-                </button>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
+      <AnchoredLayer
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={triggerRef}
+        align="end"
+        width={PANEL_WIDTH}
+        role="menu"
+        aria-label={`${lead.name} actions`}
+        className="max-h-[70vh] overflow-y-auto py-1"
+      >
+        {rows.map((row) => {
+          if (row.kind === "separator") {
+            return <hr key={row.id} className="my-1 border-hairline" />;
+          }
+          if (row.kind === "label") {
+            return (
+              <p
+                key={row.id}
+                className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-subtle"
+              >
+                {row.label}
+              </p>
+            );
+          }
+          const RowIcon = row.icon;
+          if (row.disabled) {
+            return (
+              <div
+                key={row.id}
+                aria-disabled="true"
+                title={row.hint}
+                className={cn(ITEM_CLASS, "cursor-not-allowed opacity-45")}
+              >
+                <RowIcon
+                  size={18}
+                  stroke={1.75}
+                  className="shrink-0"
+                  aria-hidden="true"
+                />
+                {row.label}
+              </div>
+            );
+          }
+          return (
+            <button
+              key={row.id}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                row.onSelect();
+                setOpen(false);
+              }}
+              className={cn(ITEM_CLASS, row.danger && "hover:text-danger")}
+            >
+              <RowIcon
+                size={18}
+                stroke={1.75}
+                className="shrink-0"
+                aria-hidden="true"
+              />
+              {row.label}
+            </button>
+          );
+        })}
+      </AnchoredLayer>
     </>
   );
 }

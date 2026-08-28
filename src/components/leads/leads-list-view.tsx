@@ -41,6 +41,7 @@ import { presetConditions } from "@/components/leads/lead-quick-filters";
 import { LeadSortControl } from "@/components/leads/lead-sort-control";
 import { leadColumns } from "@/components/leads/lead-columns";
 import { buildCustomColumns } from "@/components/leads/lead-custom-columns";
+import { SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useFilters } from "@/hooks/use-filters";
@@ -102,9 +103,6 @@ import type {
   FilterState,
   TableColumn,
 } from "@/types";
-
-/** A pause after the last keystroke before the server search runs (LEAD-03.3). */
-const SEARCH_DEBOUNCE_MS = 300;
 
 /**
  * useFilters supplies the search state; Leads renders no shared FilterPanel, so it

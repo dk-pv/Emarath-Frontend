@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useStages } from "@/components/stages/stages-context";
@@ -10,9 +11,6 @@ import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api-client";
 import { createStage } from "@/services/stages-service";
 import { StageSwatches } from "./stage-swatches";
-
-const TRIGGER_CLASS =
-  "focus-ring flex size-6 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-surface hover:text-ink";
 
 /**
  * The `+` stage control in a column header (KAN-05.2 AC1). The backlog says the `+`
@@ -62,14 +60,14 @@ export function AddStageControl({ pipeline }: { pipeline: string }) {
 
   return (
     <>
-      <button
-        type="button"
+      <IconButton
+        size="sm"
+        onCanvas
         aria-label="Add stage"
-        className={TRIGGER_CLASS}
         onClick={() => setOpen(true)}
       >
         <IconPlus size={16} stroke={2} aria-hidden="true" />
-      </button>
+      </IconButton>
 
       <Modal
         open={open}
@@ -93,7 +91,9 @@ export function AddStageControl({ pipeline }: { pipeline: string }) {
       >
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-ink">Name</span>
+            <span className="mb-1 block text-sm font-medium text-ink">
+              Name
+            </span>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -103,7 +103,9 @@ export function AddStageControl({ pipeline }: { pipeline: string }) {
             />
           </label>
           <div>
-            <span className="mb-2 block text-sm font-medium text-ink">Colour</span>
+            <span className="mb-2 block text-sm font-medium text-ink">
+              Colour
+            </span>
             <StageSwatches value={color} onChange={setColor} />
           </div>
         </div>

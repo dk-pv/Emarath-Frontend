@@ -1,5 +1,6 @@
 import { IconCheck, IconExternalLink } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
+import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
 import {
   INTEGRATION_ACCENTS,
@@ -29,7 +30,7 @@ export function IntegrationCard({
   const Glyph = integration.icon;
 
   return (
-    <div className="flex h-full min-h-72 flex-col rounded-surface border border-hairline bg-surface p-5 transition-shadow duration-(--duration-shell) ease-shell hover:shadow-sm">
+    <Card className="flex h-full min-h-72 flex-col p-5 transition-shadow duration-(--duration-shell) ease-shell hover:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <span
           className={cn(
@@ -79,6 +80,6 @@ export function IntegrationCard({
           </a>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

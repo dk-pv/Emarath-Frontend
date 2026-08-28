@@ -11,9 +11,11 @@ import {
   IconPinFilled,
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
+import { formatAED, formatDate, initialsOf } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { LeadListItem } from "@/services/leads-service";
 import { useKanbanCardActions } from "./kanban-card-actions";
@@ -38,33 +40,6 @@ import { useKanbanDnd } from "./kanban-dnd-context";
  * carry is not shown: it is absent from KAN-03.1's fields and from the list API's
  * `LeadListItem`.
  */
-
-// Local money/date formatters until FND-04.1 ships the shared utilities, as
-// `lead-columns` does. Cards read whole AED values ("130 د.إ", "0 د.إ").
-const AED = new Intl.NumberFormat("en-AE", { maximumFractionDigits: 0 });
-
-function formatValue(value: string | null): string {
-  const amount = value === null ? 0 : Number(value);
-  return `${AED.format(Number.isNaN(amount) ? 0 : amount)} د.إ`;
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  return `${dd}-${mm}-${date.getFullYear()}`;
-}
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
-
-/** The card's quick-action icon buttons (WhatsApp/Pin/Edit) — one shared shape. */
-const ICON_BUTTON_CLASS =
-  "focus-ring flex size-5 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
 
 export const KanbanCard = memo(function KanbanCard({
   lead,
@@ -128,8 +103,8 @@ export const KanbanCard = memo(function KanbanCard({
             content the Leads-list row actions show (Workpex card-hover tooltips). */}
         <div className="flex shrink-0 items-center gap-0.5">
           <Tooltip content={wa ? "WhatsApp" : "No phone number"} portal>
-            <button
-              type="button"
+            <IconButton
+              size="xs"
               aria-label={wa ? "WhatsApp" : "No phone number"}
               disabled={!wa}
               draggable={false}
@@ -137,16 +112,15 @@ export const KanbanCard = memo(function KanbanCard({
                 event.stopPropagation();
                 if (wa) actions.onWhatsapp(lead);
               }}
-              className={ICON_BUTTON_CLASS}
             >
               <IconBrandWhatsapp size={16} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
 
           <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-(--duration-shell) ease-shell group-hover:opacity-100 group-focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
             <Tooltip content={pinned ? "Unpin lead" : "Pin lead"} portal>
-              <button
-                type="button"
+              <IconButton
+                size="xs"
                 aria-label={pinned ? "Unpin lead" : "Pin lead"}
                 aria-pressed={pinned}
                 draggable={false}
@@ -154,18 +128,18 @@ export const KanbanCard = memo(function KanbanCard({
                   event.stopPropagation();
                   void actions.onPin(lead);
                 }}
-                className={cn(ICON_BUTTON_CLASS, pinned && "text-brand-strong")}
+                className={cn(pinned && "text-brand-strong")}
               >
                 {pinned ? (
                   <IconPinFilled size={16} stroke={1.75} aria-hidden="true" />
                 ) : (
                   <IconPin size={16} stroke={1.75} aria-hidden="true" />
                 )}
-              </button>
+              </IconButton>
             </Tooltip>
             <Tooltip content="Edit Lead" portal>
-              <button
-                type="button"
+              <IconButton
+                size="xs"
                 aria-label="Edit Lead"
                 disabled={editing}
                 draggable={false}
@@ -173,7 +147,6 @@ export const KanbanCard = memo(function KanbanCard({
                   event.stopPropagation();
                   actions.onEdit(lead);
                 }}
-                className={ICON_BUTTON_CLASS}
               >
                 {editing ? (
                   <IconLoader2
@@ -185,7 +158,7 @@ export const KanbanCard = memo(function KanbanCard({
                 ) : (
                   <IconEdit size={16} stroke={1.75} aria-hidden="true" />
                 )}
-              </button>
+              </IconButton>
             </Tooltip>
             <KanbanCardMenu lead={lead} />
           </div>
@@ -206,7 +179,7 @@ export const KanbanCard = memo(function KanbanCard({
       </span>
 
       <p className="mt-1 text-base font-semibold text-ink">
-        {formatValue(lead.actualAmount)}
+        {formatAED(lead.actualAmount ?? 0, { digits: 0 })}
       </p>
 
       <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted">

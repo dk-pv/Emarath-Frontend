@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -31,7 +32,7 @@ export function LeadDetailFollowUps() {
   const [tab, setTab] = useState<Tab>("followup");
 
   return (
-    <section className="rounded-surface border border-hairline bg-surface">
+    <Card as="section">
       <div className="flex items-center justify-between gap-3 border-b border-hairline px-5">
         <div role="tablist" aria-label="Follow-up and history" className="flex">
           {TABS.map((entry) => (
@@ -82,6 +83,6 @@ export function LeadDetailFollowUps() {
           />
         )}
       </div>
-    </section>
+    </Card>
   );
 }

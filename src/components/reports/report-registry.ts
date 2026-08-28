@@ -6,8 +6,11 @@ import {
   IconCalendarEvent,
   IconCalendarUp,
   IconCalendarX,
+  IconClockBolt,
+  IconCopyCheck,
   IconFilterDollar,
   IconFilterX,
+  IconHourglassLow,
   IconReportMoney,
   IconStatusChange,
   IconTrendingUp,
@@ -20,12 +23,13 @@ import {
  * pure navigation: it lists the pre-built reports and links out; the report screens
  * themselves arrive with the shell (RPT-01.2) and are intentionally not built here.
  *
- * Scope authority is the backlog (project-docs/emarath-backlog.txt), NOT Workpex. Workpex's
- * Leads hub shows 8–9 cards across captures (it adds "Lead Aging & Stale Leads" and, in the
- * overview video, "Lead First Response"); neither is one of the seven RPT-02.x tasks, so both
- * are deliberately omitted. Titles/descriptions for Leads and Follow Ups are transcribed
- * verbatim from the Workpex reference. Sales is NOT a Reports category — in Workpex it lives
- * under the separate Analytics module — so it is defined in ANALYTICS_CATEGORIES below, not here.
+ * Scope comes from the backlog (project-docs/emarath-backlog.txt) plus direct client requests.
+ * The seven RPT-02.x reports are backlog tasks; "Lead Aging & Stale Leads", "Lead First Response"
+ * and "Duplicate Enquiries" were added on client request (the first two also appear in Workpex's
+ * Leads hub, which shows 8–9 cards across captures) and carry no backlog task yet — see the
+ * `taskId` note below. Titles/descriptions for Leads and Follow Ups are transcribed verbatim from
+ * the Workpex reference. Sales is NOT a Reports category — in Workpex it lives under the separate
+ * Analytics module — so it is defined in ANALYTICS_CATEGORIES below, not here.
  */
 
 /** A hue key → literal Tailwind classes. Literal so Tailwind emits them (see stage-palette.ts, CLAUDE.md §7). */
@@ -80,8 +84,12 @@ export const REPORT_ACCENTS: Record<ReportAccent, ReportAccentClasses> = {
 };
 
 export interface ReportDefinition {
-  /** The backlog task this card will open once its report is built. */
-  taskId: string;
+  /**
+   * The backlog task this card will open once its report is built. Absent on cards requested
+   * directly by the client that the backlog has not picked up yet — an invented id would assert
+   * a task that does not exist. Metadata only; nothing renders it.
+   */
+  taskId?: string;
   slug: string;
   title: string;
   description: string;
@@ -169,6 +177,33 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
         description: "Analyze leads that were lost and reasons why",
         icon: IconFilterX,
         accent: "rose",
+      },
+      // Client-requested (no backlog task yet). Like every other unbuilt report, these route to
+      // the shared ReportView placeholder — live shell chrome, no fabricated rows — until their
+      // data is available. None of the three has a backend endpoint today.
+      {
+        slug: "lead-aging-stale-leads",
+        title: "Lead Aging & Stale Leads",
+        description:
+          "Identify neglected and stagnant leads that are at risk of going cold",
+        icon: IconHourglassLow,
+        accent: "amber",
+      },
+      {
+        slug: "lead-first-response",
+        title: "Lead First Response",
+        description:
+          "Track the time between lead creation and the first recorded activity",
+        icon: IconClockBolt,
+        accent: "emerald",
+      },
+      {
+        slug: "duplicate-enquiries",
+        title: "Duplicate Enquiries",
+        description:
+          "View the history of duplicate lead enquiries and repeated attempts",
+        icon: IconCopyCheck,
+        accent: "violet",
       },
     ]),
   },

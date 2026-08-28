@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FormError } from "@/components/ui/FormError";
 import { Button } from "@/components/ui/Button";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -439,14 +440,7 @@ export function LeadFormDrawer({
           void submit();
         }}
       >
-        {apiError && (
-          <p
-            role="alert"
-            className="rounded-control border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger"
-          >
-            {apiError}
-          </p>
-        )}
+        {apiError && <FormError>{apiError}</FormError>}
 
         <FormField label="Customer Name" required error={errors.name}>
           {(control) => (

@@ -8,38 +8,14 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
+import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
-import { cn } from "@/lib/cn";
+import { formatDateTime, initialsOf } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { LeadListItem } from "@/services/leads-service";
-
-/** Initials for the avatar placeholder; duplicated pending FND-04.1's shared utils. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
-
-/** Workpex shows "Created 19-08-2026, 02:15 PM"; keep the same client-only format. */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${yyyy}, ${time}`;
-}
-
-/** The bordered square icon buttons in the Basic Info action row (Workpex's header). */
-const ACTION_CLASS =
-  "flex size-9 items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
 
 export type LeadBasicInfoActions = {
   onWhatsapp: () => void;
@@ -70,53 +46,51 @@ export function LeadDetailBasicInfo({
   const waUrl = whatsappUrl(lead.primaryPhone);
 
   return (
-    <section
-      aria-label="Basic Info"
-      className="rounded-surface border border-hairline bg-surface p-5"
-    >
+    <Card as="section" aria-label="Basic Info" className="p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-ink">Basic Info</h2>
         <div className="flex items-center gap-1.5">
           <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
-            <button
-              type="button"
+            <IconButton
+              size="xl"
+              variant="outline"
               aria-label="WhatsApp"
               disabled={!waUrl}
               onClick={actions.onWhatsapp}
-              className={ACTION_CLASS}
             >
               <IconBrandWhatsapp size={18} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
           <Tooltip content="Email">
-            <button
-              type="button"
+            <IconButton
+              size="xl"
+              variant="outline"
               aria-label="Email"
               onClick={actions.onEmail}
-              className={ACTION_CLASS}
             >
               <IconMail size={18} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
           <Tooltip content="Convert isn’t available yet">
-            <button
-              type="button"
+            <IconButton
+              size="xl"
+              variant="outline"
               aria-label="Convert"
               disabled
-              className={ACTION_CLASS}
             >
               <IconArrowsExchange size={18} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
           <Tooltip content="Delete">
-            <button
-              type="button"
+            <IconButton
+              size="xl"
+              variant="outline"
               aria-label="Delete"
               onClick={actions.onDelete}
-              className={cn(ACTION_CLASS, "hover:text-danger")}
+              tone="danger"
             >
               <IconTrash size={18} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
         </div>
       </div>
@@ -139,14 +113,14 @@ export function LeadDetailBasicInfo({
             <dd className="mt-1 truncate text-sm text-ink">{lead.name}</dd>
           </div>
           <Tooltip content="Edit Lead">
-            <button
-              type="button"
+            <IconButton
+              size="xl"
+              variant="outline"
               aria-label="Edit Lead"
               onClick={actions.onEdit}
-              className={ACTION_CLASS}
             >
               <IconEdit size={16} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
         </div>
 
@@ -192,7 +166,7 @@ export function LeadDetailBasicInfo({
       <p className="mt-5 border-t border-hairline pt-4 text-xs text-ink-muted">
         Created {formatDateTime(lead.createdAt)}
       </p>
-    </section>
+    </Card>
   );
 }
 

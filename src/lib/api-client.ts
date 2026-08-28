@@ -268,3 +268,8 @@ async function throwApiError(
     messages,
   );
 }
+
+/** True for the rejection a cancelled `AbortController` produces — a superseded request, never a failure. */
+export function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}

@@ -37,24 +37,11 @@ import {
   type OverdueFollowUpRow,
   type OverdueFollowUpsSummaryRow,
 } from "@/services/overdue-follow-ups-report-service";
+import { formatDateTime } from "@/lib/format";
 import type { TableColumn } from "@/types";
 
 /** Rows differ by view: per-assignee counts (summary) or the overdue follow-ups (detailed). */
 type Row = OverdueFollowUpsSummaryRow | OverdueFollowUpRow;
-
-/** dd-mm-yyyy, h:mm AM/PM — the Activities list's due-date format (FND-04.1 will share it). */
-function formatDueDate(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${yyyy}, ${time}`;
-}
 
 /** The summary's first cell: a muted "Unassigned", or an assignee avatar + name. */
 function AssignedUserCell({ row }: { row: OverdueFollowUpsSummaryRow }) {
@@ -116,7 +103,7 @@ const DETAILED_COLUMNS: readonly TableColumn<OverdueFollowUpRow>[] = [
   {
     key: "dueAt",
     header: "Due Date",
-    render: (row) => formatDueDate(row.dueAt),
+    render: (row) => formatDateTime(row.dueAt),
   },
   {
     key: "primaryPhone",

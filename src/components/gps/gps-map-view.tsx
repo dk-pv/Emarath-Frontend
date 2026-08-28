@@ -10,6 +10,10 @@ import {
 import { cn } from "@/lib/cn";
 import { env } from "@/lib/env";
 import { ErrorState } from "@/components/ui/ErrorState";
+import {
+  SegmentedControl,
+  type SegmentedOption,
+} from "@/components/ui/SegmentedControl";
 import { Spinner } from "@/components/ui/Spinner";
 import { GpsLegend, PIN_COLORS } from "@/components/gps/gps-legend";
 import type { GpsPinRecord } from "@/services/gps-service";
@@ -25,6 +29,11 @@ const MAP_OPTIONS: google.maps.MapOptions = {
 };
 
 type MapType = "roadmap" | "satellite";
+
+const BASE_LAYERS: SegmentedOption<MapType>[] = [
+  { value: "roadmap", label: "Map" },
+  { value: "satellite", label: "Satellite" },
+];
 
 /** A filled circle in the pin's legend colour. Info windows/hover are deferred
  * (no populated-map screenshot to match), so the marker is presentational only. */
@@ -167,28 +176,14 @@ export function GpsMapView({
         )}
 
         {/* Map / Satellite base-layer toggle (AC2), top-left. */}
-        <div
-          role="group"
+        <SegmentedControl
           aria-label="Base layer"
-          className="absolute top-4 left-4 flex rounded-control border border-hairline bg-surface p-0.5 shadow-sm"
-        >
-          {(["roadmap", "satellite"] as const).map((type) => (
-            <button
-              key={type}
-              type="button"
-              aria-pressed={mapType === type}
-              onClick={() => setMapType(type)}
-              className={cn(
-                "focus-ring h-control-sm rounded-[calc(var(--radius-control)-2px)] px-3 text-sm capitalize",
-                mapType === type
-                  ? "bg-canvas font-medium text-ink shadow-sm"
-                  : "text-ink-muted hover:text-ink",
-              )}
-            >
-              {type === "roadmap" ? "Map" : "Satellite"}
-            </button>
-          ))}
-        </div>
+          options={BASE_LAYERS}
+          value={mapType}
+          onChange={setMapType}
+          variant="subtle"
+          className="absolute top-4 left-4 shadow-sm"
+        />
 
         {/* Last-refreshed indicator + manual refresh (AC3/AC4) and fullscreen (AC5). */}
         <div className="absolute top-4 right-4 flex items-center gap-2">

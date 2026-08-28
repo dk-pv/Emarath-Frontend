@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
 import { whatsappUrl } from "@/lib/whatsapp";
+import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { LeadListItem } from "@/services/leads-service";
 
@@ -91,9 +92,6 @@ export function LeadRowActionsProvider({
   return <RowActionsContext value={value}>{children}</RowActionsContext>;
 }
 
-const ACTION_CLASS =
-  "flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
-
 export function LeadRowActions({ lead }: { lead: LeadListItem }) {
   const ctx = useContext(RowActionsContext);
   const pending = ctx?.pendingId === lead.id ? ctx.pendingAction : null;
@@ -108,13 +106,12 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
       {/* Pin — a personal, per-user pin (ADR-0031). Filled + brand-green when the
           caller has it pinned; toggles off on a second click. */}
       <Tooltip content={pinned ? "Unpin lead" : "Pin lead"}>
-        <button
-          type="button"
+        <IconButton
           aria-label={pinned ? "Unpin lead" : "Pin lead"}
           aria-pressed={pinned}
           disabled={busy}
           onClick={() => ctx?.onPin(lead)}
-          className={cn(ACTION_CLASS, pinned && "text-brand-strong")}
+          className={cn(pinned && "text-brand-strong")}
         >
           {pending === "pin" ? (
             <IconLoader2
@@ -128,45 +125,36 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
           ) : (
             <IconPin size={18} stroke={1.75} aria-hidden="true" />
           )}
-        </button>
+        </IconButton>
       </Tooltip>
 
       {/* WhatsApp — opens the "Send Whatsapp Message" composer (LEAD-10.2). The
           wa.me deep-link fires from the drawer's Send, never from this icon. */}
       <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
-        <button
-          type="button"
+        <IconButton
           aria-label="WhatsApp"
           disabled={!waUrl}
           onClick={() => waUrl && ctx?.onWhatsapp(lead)}
-          className={ACTION_CLASS}
         >
           <IconBrandWhatsapp size={18} stroke={1.75} aria-hidden="true" />
-        </button>
+        </IconButton>
       </Tooltip>
 
       {/* Email — opens the Send Email composer (LEAD-10.2, ADR-0032). Enabled for
           every lead: one with no email opens an empty, still-usable composer. */}
       <Tooltip content="Email">
-        <button
-          type="button"
-          aria-label="Email"
-          onClick={() => ctx?.onEmail(lead)}
-          className={ACTION_CLASS}
-        >
+        <IconButton aria-label="Email" onClick={() => ctx?.onEmail(lead)}>
           <IconMail size={18} stroke={1.75} aria-hidden="true" />
-        </button>
+        </IconButton>
       </Tooltip>
 
       {/* Edit Lead — opens the shared New Lead form in edit mode, prefilled from the
           record (LEAD-06 edit mode). Shows a spinner while the record is fetched. */}
       <Tooltip content="Edit Lead">
-        <button
-          type="button"
+        <IconButton
           aria-label="Edit Lead"
           disabled={busy}
           onClick={() => ctx?.onEdit(lead)}
-          className={ACTION_CLASS}
         >
           {pending === "edit" ? (
             <IconLoader2
@@ -178,32 +166,25 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
           ) : (
             <IconEdit size={18} stroke={1.75} aria-hidden="true" />
           )}
-        </button>
+        </IconButton>
       </Tooltip>
 
       {/* Add Note — opens the Add Note composer (LEAD-10.2, ADR-0035). Like Email
           and WhatsApp it only opens the drawer; the note is saved from the drawer's
           Submit, so there is no per-row spinner here. */}
       <Tooltip content="Add Note">
-        <button
-          type="button"
-          aria-label="Add Note"
-          onClick={() => ctx?.onAddNote(lead)}
-          className={ACTION_CLASS}
-        >
+        <IconButton aria-label="Add Note" onClick={() => ctx?.onAddNote(lead)}>
           <IconNote size={18} stroke={1.75} aria-hidden="true" />
-        </button>
+        </IconButton>
       </Tooltip>
 
       {/* Reassign — single-lead reassign (LEAD-10.1 API); managers/admins only (AUTH-02.2). */}
       {ctx?.canReassign && (
         <Tooltip content="Reassign">
-          <button
-            type="button"
+          <IconButton
             aria-label="Reassign"
             disabled={busy}
             onClick={() => ctx.onReassign(lead)}
-            className={ACTION_CLASS}
           >
             {pending === "reassign" ? (
               <IconLoader2
@@ -215,7 +196,7 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
             ) : (
               <IconUserEdit size={18} stroke={1.75} aria-hidden="true" />
             )}
-          </button>
+          </IconButton>
         </Tooltip>
       )}
 
@@ -246,12 +227,11 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
 
       {/* Delete — single-lead hard delete (LEAD-10.1 API), confirmed first. */}
       <Tooltip content="Delete">
-        <button
-          type="button"
+        <IconButton
           aria-label="Delete"
           disabled={busy}
           onClick={() => ctx?.onDelete(lead)}
-          className={cn(ACTION_CLASS, "hover:text-danger")}
+          tone="danger"
         >
           {pending === "delete" ? (
             <IconLoader2
@@ -263,7 +243,7 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
           ) : (
             <IconTrash size={18} stroke={1.75} aria-hidden="true" />
           )}
-        </button>
+        </IconButton>
       </Tooltip>
     </span>
   );

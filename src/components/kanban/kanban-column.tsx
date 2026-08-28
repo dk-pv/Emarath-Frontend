@@ -2,36 +2,15 @@
 
 import { memo, useState } from "react";
 import { IconPinFilled, IconPlus } from "@tabler/icons-react";
+import { IconButton } from "@/components/ui/IconButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useStages } from "@/components/stages/stages-context";
 import { cn } from "@/lib/cn";
+import { formatAEDCompact } from "@/lib/format";
 import { KanbanCard } from "./kanban-card";
 import { useKanbanDnd } from "./kanban-dnd-context";
 import { ColumnStageMenu } from "./stage-management/column-stage-menu";
 import type { StageColumn } from "./use-kanban-board";
-
-/** The stage-header "+" — Add Lead to this stage (KAN-03.1), the Workpex behaviour. */
-const ADD_LEAD_CLASS =
-  "focus-ring flex size-6 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-surface hover:text-ink";
-
-const AED0 = new Intl.NumberFormat("en-AE", { maximumFractionDigits: 0 });
-
-/**
- * Column header total — Workpex abbreviates large sums (`kanban-board-default-…png`
- * reads "1.4K", "16K", "45K" but "509" below a thousand), always in AED.
- */
-function abbreviate(value: number, divisor: number, suffix: string): string {
-  const scaled = value / divisor;
-  return `${scaled >= 10 ? Math.round(scaled) : Number(scaled.toFixed(1))}${suffix}`;
-}
-
-function formatTotal(value: string): string {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "0 د.إ";
-  if (n >= 1_000_000) return `${abbreviate(n, 1_000_000, "M")} د.إ`;
-  if (n >= 1000) return `${abbreviate(n, 1000, "K")} د.إ`;
-  return `${AED0.format(n)} د.إ`;
-}
 
 /** Trigger a page load once the scroll nears the bottom (KAN-02.2 AC3). */
 const NEAR_BOTTOM_PX = 160;
@@ -91,7 +70,8 @@ export const KanbanColumn = memo(function KanbanColumn({
   const [isOver, setIsOver] = useState(false);
 
   // Highlight from render state (may lag a frame — that's fine for a visual cue).
-  const showOver = activeDragFrom !== null && activeDragFrom !== stage && isOver;
+  const showOver =
+    activeDragFrom !== null && activeDragFrom !== stage && isOver;
 
   // Drop acceptance from the drag ref (synchronous): a card can never be dropped
   // onto the column it came from, and a drop is valid the instant a drag begins.
@@ -150,16 +130,13 @@ export const KanbanColumn = memo(function KanbanColumn({
         />
         <span className="truncate text-sm font-semibold text-ink">{stage}</span>
         <span className="shrink-0 text-sm text-ink-muted">
-          | {formatTotal(totalValue)}
+          | {formatAEDCompact(totalValue)}
         </span>
         <span className="ml-auto shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">
           {count}
         </span>
         {isPinned && (
-          <span
-            className="shrink-0 text-brand-strong"
-            title="Pinned stage"
-          >
+          <span className="shrink-0 text-brand-strong" title="Pinned stage">
             <IconPinFilled size={14} stroke={1.75} aria-hidden="true" />
             <span className="sr-only">Pinned</span>
           </span>
@@ -168,14 +145,14 @@ export const KanbanColumn = memo(function KanbanColumn({
           <>
             {/* Workpex: the stage-header "+" adds a lead to THIS stage (not a stage);
                 stage management moved into the ⋮ menu. */}
-            <button
-              type="button"
+            <IconButton
+              size="sm"
+              onCanvas
               aria-label="Add lead"
               onClick={() => onAddLead(stage)}
-              className={ADD_LEAD_CLASS}
             >
               <IconPlus size={16} stroke={2} aria-hidden="true" />
-            </button>
+            </IconButton>
             <ColumnStageMenu
               stage={stageEntry}
               isPinned={isPinned}
@@ -200,7 +177,10 @@ export const KanbanColumn = memo(function KanbanColumn({
       >
         {loading ? (
           Array.from({ length: 3 }, (_, index) => (
-            <Skeleton key={index} className="h-[160px] w-full rounded-surface" />
+            <Skeleton
+              key={index}
+              className="h-[160px] w-full rounded-surface"
+            />
           ))
         ) : error ? (
           <div className="px-2 py-8 text-center text-sm">

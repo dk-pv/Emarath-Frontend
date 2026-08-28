@@ -1,17 +1,21 @@
+import { createElement } from "react";
 import { cn } from "@/lib/cn";
 
 type DivProps = React.ComponentPropsWithoutRef<"div">;
 
-export function Card({ className, ...props }: DivProps) {
-  return (
-    <div
-      className={cn(
-        "rounded-surface border border-hairline bg-surface",
-        className,
-      )}
-      {...props}
-    />
-  );
+/** The bordered white surface every panel sits on; `as="section"` keeps landmark semantics. */
+export function Card({
+  as = "div",
+  className,
+  ...props
+}: DivProps & { as?: "div" | "section" }) {
+  return createElement(as, {
+    className: cn(
+      "rounded-surface border border-hairline bg-surface",
+      className,
+    ),
+    ...props,
+  });
 }
 
 export function CardHeader({ className, ...props }: DivProps) {

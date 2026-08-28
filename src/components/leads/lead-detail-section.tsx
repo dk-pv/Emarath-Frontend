@@ -1,4 +1,5 @@
 import { IconLoader2, IconPlus } from "@tabler/icons-react";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -45,7 +46,7 @@ export function LeadDetailSection({
   onRetry,
 }: LeadDetailSectionProps) {
   return (
-    <section className="rounded-surface border border-hairline bg-surface">
+    <Card as="section">
       <div className="flex items-center justify-between gap-3 px-5 py-4">
         <h3 className="text-sm font-semibold text-ink">{title}</h3>
         {action}
@@ -122,7 +123,7 @@ export function LeadDetailSection({
           </tbody>
         </table>
       </div>
-    </section>
+    </Card>
   );
 }
 

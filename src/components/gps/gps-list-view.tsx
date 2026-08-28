@@ -8,22 +8,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { PIN_COLORS, PIN_LABELS } from "@/components/gps/gps-legend";
+import { formatDateTime } from "@/lib/format";
 import type { GpsPinRecord } from "@/services/gps-service";
 import type { TableColumn } from "@/types";
-
-/** "26-07-2026, 11:30:35 PM" — the Workpex timestamp format (matches the Call log). */
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const time = d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${d.getFullYear()}, ${time}`;
-}
 
 const COLUMNS: TableColumn<GpsPinRecord>[] = [
   {
@@ -34,7 +21,7 @@ const COLUMNS: TableColumn<GpsPinRecord>[] = [
   {
     key: "dateTime",
     header: "Date & Time",
-    render: (row) => formatDateTime(row.timestamp),
+    render: (row) => formatDateTime(row.timestamp, { seconds: true }),
   },
   {
     key: "status",

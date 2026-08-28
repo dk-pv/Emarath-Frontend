@@ -15,8 +15,7 @@ import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/components/auth/auth-context";
 import { ApiError } from "@/lib/api-client";
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { EMAIL_PATTERN } from "@/lib/validation";
 
 /**
  * The sign-in form (AUTH-01.6). Validates client-side, then hands credentials to the

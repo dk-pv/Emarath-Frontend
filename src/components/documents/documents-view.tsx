@@ -11,15 +11,18 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { IconButton } from "@/components/ui/IconButton";
 import { Table } from "@/components/ui/Table";
 import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { useAuth } from "@/components/auth/auth-context";
+import { SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import { ApiError } from "@/lib/api-client";
+import { formatDateTime } from "@/lib/format";
 import { DocumentFormDrawer } from "@/components/documents/document-form-drawer";
 import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
 import { DocumentTypeFilter } from "@/components/documents/document-type-filter";
@@ -37,23 +40,6 @@ import {
 import type { TableColumn } from "@/types";
 
 const PAGE_SIZE = 25;
-
-/** A pause after the last keystroke before the server search runs (matches Leads). */
-const SEARCH_DEBOUNCE_MS = 300;
-
-/** "12-06-2026, 11:56:24 AM" — the Workpex timestamp format (matches the other lists). */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${date.getFullYear()}, ${time}`;
-}
 
 /** The short "Type" label the reference shows ("png") — the file's own extension. */
 function typeLabel(row: DocumentListItem): string {
@@ -117,7 +103,7 @@ const DATA_COLUMNS: TableColumn<DocumentListItem>[] = [
     key: "createdAt",
     header: "Date and Time",
     sortable: true,
-    render: (row) => formatDateTime(row.createdAt),
+    render: (row) => formatDateTime(row.createdAt, { seconds: true }),
   },
 ];
 
@@ -288,23 +274,24 @@ export function DocumentsView() {
           if (!canManage) return null;
           return (
             <div className="inline-flex items-center gap-1">
-              <button
-                type="button"
+              <IconButton
+                size="lg"
+                variant="outline"
                 onClick={() => setEditingId(row.id)}
                 aria-label={`Edit ${row.title}`}
-                className="focus-ring inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink"
               >
                 <IconPencil size={16} stroke={1.75} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
+              </IconButton>
+              <IconButton
+                size="lg"
+                variant="outline"
+                tone="danger"
                 onClick={() => setDeleteTarget(row)}
                 disabled={deletePendingId === row.id}
                 aria-label={`Delete ${row.title}`}
-                className="focus-ring inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-danger/5 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <IconTrash size={16} stroke={1.75} aria-hidden="true" />
-              </button>
+              </IconButton>
             </div>
           );
         },

@@ -19,8 +19,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
+import { formatDateTime, initialsOf } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { LeadTimeline } from "@/components/leads/lead-timeline";
 import { TYPE_LABEL } from "@/components/activities/activity-form-parts";
@@ -31,28 +33,6 @@ import {
   type LeadListItem,
   type LeadTimelineEvent,
 } from "@/services/leads-service";
-
-/** Initials for the avatar placeholder; duplicated pending FND-04.1's shared utils. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "";
-  const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
-  return (first + last).toUpperCase();
-}
-
-/** Workpex's Next Follow-up date format, e.g. "20-08-2026, 04:25 PM". */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yyyy = date.getFullYear();
-  const time = date.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${dd}-${mm}-${yyyy}, ${time}`;
-}
 
 /**
  * A lead's follow-ups become timeline entries on the client — one "created" event
@@ -87,9 +67,6 @@ function followUpEvents(activities: LeadActivity[]): LeadTimelineEvent[] {
 }
 
 /** The bordered square icon buttons in the detail header (Workpex's action row). */
-const HEADER_ACTION_CLASS =
-  "flex size-9 items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
-
 /** The header actions the detail drawer delegates to the list's existing flows. */
 export type LeadDetailActions = {
   onPin: (lead: LeadListItem) => void;
@@ -213,80 +190,79 @@ export function LeadDetailDrawer({
 
       <span className="ml-auto flex items-center gap-1.5">
         <Tooltip content={pinned ? "Unpin lead" : "Pin lead"}>
-          <button
-            type="button"
+          <IconButton
+            size="xl"
+            variant="outline"
             aria-label={pinned ? "Unpin lead" : "Pin lead"}
             aria-pressed={pinned}
             onClick={() => actions.onPin(lead)}
-            className={cn(
-              HEADER_ACTION_CLASS,
-              pinned && "border-brand text-brand-strong",
-            )}
+            className={cn(pinned && "border-brand text-brand-strong")}
           >
             {pinned ? (
               <IconPinFilled size={18} stroke={1.75} aria-hidden="true" />
             ) : (
               <IconPin size={18} stroke={1.75} aria-hidden="true" />
             )}
-          </button>
+          </IconButton>
         </Tooltip>
 
         <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
-          <button
-            type="button"
+          <IconButton
+            size="xl"
+            variant="outline"
             aria-label="WhatsApp"
             disabled={!waUrl}
             onClick={() => waUrl && actions.onWhatsapp(lead)}
-            className={HEADER_ACTION_CLASS}
           >
             <IconBrandWhatsapp size={18} stroke={1.75} aria-hidden="true" />
-          </button>
+          </IconButton>
         </Tooltip>
 
         <Tooltip content="Email">
-          <button
-            type="button"
+          <IconButton
+            size="xl"
+            variant="outline"
             aria-label="Email"
             onClick={() => actions.onEmail(lead)}
-            className={HEADER_ACTION_CLASS}
           >
             <IconMail size={18} stroke={1.75} aria-hidden="true" />
-          </button>
+          </IconButton>
         </Tooltip>
 
         <Tooltip content="Edit Lead">
-          <button
-            type="button"
+          <IconButton
+            size="xl"
+            variant="outline"
             aria-label="Edit Lead"
             onClick={() => actions.onEdit(lead)}
-            className={HEADER_ACTION_CLASS}
           >
             <IconEdit size={18} stroke={1.75} aria-hidden="true" />
-          </button>
+          </IconButton>
         </Tooltip>
 
         {actions.canReassign && (
           <Tooltip content="Reassign">
-            <button
-              type="button"
+            <IconButton
+              size="xl"
+              variant="outline"
               aria-label="Reassign"
               onClick={() => actions.onReassign(lead)}
-              className={HEADER_ACTION_CLASS}
             >
               <IconUserEdit size={18} stroke={1.75} aria-hidden="true" />
-            </button>
+            </IconButton>
           </Tooltip>
         )}
 
         <Tooltip content="Delete">
-          <button
-            type="button"
+          <IconButton
+            size="xl"
+            variant="outline"
             aria-label="Delete"
             onClick={() => actions.onDelete(lead)}
-            className={cn(HEADER_ACTION_CLASS, "hover:text-danger")}
+            tone="danger"
           >
             <IconTrash size={18} stroke={1.75} aria-hidden="true" />
-          </button>
+          </IconButton>
         </Tooltip>
       </span>
     </header>
@@ -310,7 +286,7 @@ export function LeadDetailDrawer({
                 <dd>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-ink">
-                      {formatDateTime(nextFollowUp.dueAt)}
+                      {formatDateTime(nextFollowUp.dueAt, { padHour: true })}
                     </span>
                     <Tooltip content="Mark As Complete">
                       <button

@@ -2,6 +2,7 @@ import { IconTrophy } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import type { LeaderboardRow, TableColumn } from "@/types";
@@ -60,7 +61,7 @@ const columns: TableColumn<LeaderboardRow>[] = [
  */
 export function Leaderboard({ rows }: { rows: readonly LeaderboardRow[] }) {
   return (
-    <section className="rounded-surface border border-hairline bg-surface">
+    <Card as="section">
       <SectionHeader
         title="Leaderboard"
         description="Agent performance across leads, calls and conversion."
@@ -80,6 +81,6 @@ export function Leaderboard({ rows }: { rows: readonly LeaderboardRow[] }) {
           }
         />
       </ResponsiveTableContainer>
-    </section>
+    </Card>
   );
 }

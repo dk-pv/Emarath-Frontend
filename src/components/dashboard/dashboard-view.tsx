@@ -8,6 +8,7 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { ContentContainer } from "@/components/layout/ContentContainer";
 import { DashboardGrid } from "@/components/layout/DashboardGrid";
 import { Leaderboard } from "./leaderboard";
+import { Card } from "@/components/ui/Card";
 import { SummaryCards } from "./summary-cards";
 import { TeamRevenue } from "./team-revenue";
 import type { DashboardData } from "@/services/dashboard-service";
@@ -40,14 +41,14 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
       <SummaryCards cards={data.summary} />
 
-      <section className="rounded-surface border border-hairline bg-surface p-5">
+      <Card as="section" className="p-5">
         <SectionHeader title="Sales Team Activity Board" />
         {/* Team Revenue is a fixed rail beside the leaderboard, which takes the rest. */}
         <DashboardGrid className="mt-4 md:grid-cols-1 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
           <TeamRevenue />
           <Leaderboard rows={data.leaderboard} />
         </DashboardGrid>
-      </section>
+      </Card>
     </ContentContainer>
   );
 }

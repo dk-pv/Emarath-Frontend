@@ -21,6 +21,8 @@ export type ConfirmDialogProps = {
   title: string;
   description: string;
   confirmLabel?: string;
+  /** Workpex pairs some confirms as No / Yes; defaults to Cancel. */
+  cancelLabel?: string;
   tone?: Tone;
   /**
    * The confirm mutation is running: the confirm button shows the shared loading
@@ -38,6 +40,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   tone = "danger",
   busy = false,
 }: ConfirmDialogProps) {
@@ -50,7 +53,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="secondary" onClick={onCancel} disabled={busy}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button
             variant={TONE_VARIANT[tone]}

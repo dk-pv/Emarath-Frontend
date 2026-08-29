@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { IconCalendarEvent, IconColumns, IconPlus } from "@tabler/icons-react";
+import {
+  IconCalendarEvent,
+  IconColumns,
+  IconListCheck,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
@@ -11,6 +17,7 @@ import { TabStrip } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useFilters } from "@/hooks/use-filters";
@@ -188,6 +195,11 @@ export function ActivitiesListView() {
     () => new Set(),
   );
   const [statusPendingId, setStatusPendingId] = useState<string | null>(null);
+  // The bulk action bar's two flows, each behind its own confirmation.
+  const [bulkAction, setBulkAction] = useState<"complete" | "delete" | null>(
+    null,
+  );
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [emailTarget, setEmailTarget] = useState<ActivityListItem | null>(null);
   // The lead whose activity timeline the ↗ beside its name opened.
   const [timelineLead, setTimelineLead] = useState<LeadListItem | null>(null);
@@ -288,6 +300,54 @@ export function ActivitiesListView() {
       if (row) void handleStatusChange(row, status);
     },
     pendingId: statusPendingId,
+  };
+
+  /**
+   * Bulk Mark as Complete / Delete from the selection bar.
+   *
+   * Reuses the per-activity APIs (ACT-04.1 / ACT-06.1) one call per row rather than
+   * adding a bulk endpoint: each call keeps its own scope check and its own
+   * location gate, so a row the caller may not complete still fails on its own and
+   * the rest succeed. `allSettled`, so one rejection cannot abandon the others.
+   */
+  const runBulk = async (action: "complete" | "delete") => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        action === "complete" ? completeActivity(id) : deleteActivity(id),
+      ),
+    );
+    const done = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - done;
+    setBulkBusy(false);
+    setBulkAction(null);
+
+    if (done > 0) {
+      // Only the rows that actually succeeded leave the selection; a failed one
+      // stays selected so it can be retried.
+      const failedIds = new Set(
+        ids.filter((_, index) => results[index]?.status === "rejected"),
+      );
+      setSelectedIds(failedIds);
+      refetch();
+      const noun = done === 1 ? "activity" : "activities";
+      toast({
+        title:
+          action === "complete"
+            ? `${done} ${noun} marked as completed`
+            : `${done} ${noun} deleted`,
+        tone: "success",
+      });
+    }
+    if (failed > 0) {
+      const noun = failed === 1 ? "activity" : "activities";
+      toast({
+        title: `Couldn’t ${action === "complete" ? "complete" : "delete"} ${failed} ${noun}`,
+        tone: "danger",
+      });
+    }
   };
 
   const changeBucket = (id: string) => {
@@ -575,6 +635,60 @@ export function ActivitiesListView() {
       }}
     >
       {table}
+
+      {/* Workpex's floating selection bar — the shared `BulkActionBar` the Leads
+          list uses, with this module's two actions. */}
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          label={
+            selectedIds.size === 1 ? "Activity Selected" : "Activities Selected"
+          }
+          busy={bulkBusy}
+          onClear={() => setSelectedIds(new Set())}
+          actions={[
+            {
+              key: "complete",
+              label: "Mark as Complete",
+              Icon: IconListCheck,
+              onClick: () => setBulkAction("complete"),
+            },
+            {
+              key: "delete",
+              label: "Delete",
+              Icon: IconTrash,
+              onClick: () => setBulkAction("delete"),
+            },
+          ]}
+        />
+      )}
+
+      <ConfirmDialog
+        open={bulkAction === "complete"}
+        onCancel={() => setBulkAction(null)}
+        onConfirm={() => void runBulk("complete")}
+        title="Confirmation"
+        description={`Are you sure you want to mark ${selectedIds.size} ${
+          selectedIds.size === 1 ? "activity" : "activities"
+        } as completed? This action cannot be undone`}
+        confirmLabel="Yes"
+        cancelLabel="No"
+        tone="brand"
+        busy={bulkBusy}
+      />
+
+      <ConfirmDialog
+        open={bulkAction === "delete"}
+        onCancel={() => setBulkAction(null)}
+        onConfirm={() => void runBulk("delete")}
+        title="Confirmation"
+        description={`Are you sure you want to delete ${selectedIds.size} ${
+          selectedIds.size === 1 ? "activity" : "activities"
+        }? This action cannot be undone`}
+        confirmLabel="Yes"
+        cancelLabel="No"
+        busy={bulkBusy}
+      />
 
       <ConfirmDialog
         open={completeTarget !== null}

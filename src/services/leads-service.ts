@@ -54,6 +54,10 @@ export interface LeadListItem {
   callAttempts: number;
   whatsappAttempts: number;
   createdAt: string;
+  /** Address parts the board card joins into its one location line (KAN-03.1). */
+  state: string | null;
+  street: string | null;
+  city: string | null;
   assignedAgents: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   /**

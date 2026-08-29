@@ -40,7 +40,9 @@ import {
  * completed follow-up shows on the feed without a new backend timeline source. The
  * actor is not recorded on the activity, so it is deliberately absent.
  */
-function followUpEvents(activities: LeadActivity[]): LeadTimelineEvent[] {
+export function followUpEvents(
+  activities: LeadActivity[],
+): LeadTimelineEvent[] {
   return activities.flatMap((activity) => {
     const events: LeadTimelineEvent[] = [
       {

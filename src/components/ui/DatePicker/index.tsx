@@ -152,13 +152,18 @@ const DAY_SELECTED_CLASS =
 
 const DAY_TODAY_CLASS = "border-brand";
 
-type CalendarProps = {
+export type CalendarProps = {
   value: Date | null;
   labelId: string;
   onSelect: (date: Date) => void;
 };
 
-function Calendar({ value, labelId, onSelect }: CalendarProps) {
+/**
+ * The month grid on its own, so a caller that needs the calendar inside a different
+ * shell (the Activities row date editor, which pairs it with a time row) reuses this
+ * one rather than growing a second implementation.
+ */
+export function Calendar({ value, labelId, onSelect }: CalendarProps) {
   const grid = useRef<HTMLTableElement>(null);
   const today = useMemo(() => startOfDay(new Date()), []);
   const [viewMonth, setViewMonth] = useState(() =>

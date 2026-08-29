@@ -1,21 +1,29 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
 import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  IconArrowUpRight,
   IconBrandWhatsapp,
   IconCircle,
   IconCircleCheck,
-  IconCopy,
-  IconLoader2,
   IconMail,
+  IconNote,
   IconPencil,
   IconTrash,
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { CustomerNameLink } from "@/components/leads/customer-name-link";
+import { ActivityDueDateEditor } from "@/components/activities/activity-due-date-editor";
+import { LeadNameCell } from "@/components/leads/lead-name-cell";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
+import { cn } from "@/lib/cn";
 import { formatDateTime, initialsOf } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { ActivityListItem } from "@/services/activities-service";
@@ -27,13 +35,25 @@ import type { TableColumn } from "@/types";
  * actions use. Without a provider the row is read-only (ACT-02.2), so the
  * columns render in either mode with no branching at the call site.
  */
-type RowActionKind = "complete" | "duplicate" | "delete";
+type RowActionKind = "complete" | "delete";
 
 type RowContextValue = {
   onRequestComplete: (row: ActivityListItem) => void;
   onRequestEdit: (row: ActivityListItem) => void;
   onRequestDelete: (row: ActivityListItem) => void;
-  onRequestDuplicate: (row: ActivityListItem) => void;
+  /** Opens the lead's email composer — the same drawer the Leads row action uses. */
+  onRequestEmail: (row: ActivityListItem) => void;
+  /** Commits an in-place due date/time change from the row (ACT-05.1). */
+  onSaveDueDate: (row: ActivityListItem, dueAt: string) => void;
+  /** Opens the lead's existing activity timeline (the ↗ beside the customer name). */
+  onRequestTimeline: (row: ActivityListItem) => void;
+  /**
+   * Local midnight as an ISO instant — a row due before it is overdue. Supplied by
+   * the view (it is the same `todayStart` the query sends), so the cells stay pure
+   * and the red styling agrees exactly with the server's Overdue bucket instead of
+   * drifting against a second clock.
+   */
+  overdueBefore: string;
   /** The row with an action in flight, and which — disables it and spins the icon. */
   pendingId: string | null;
   pendingAction: RowActionKind | null;
@@ -65,8 +85,56 @@ function orDash(value: string | null) {
   return value ? value : <span className="text-ink-subtle">—</span>;
 }
 
-/** The activity title stays frozen at the left edge while the row scrolls. */
-const STICKY_FIRST = "sticky left-0 z-10 bg-surface group-hover:bg-canvas";
+/**
+ * Workpex keeps the lead columns compact and lets a long value ellipse rather than
+ * widening the table. The cap has to sit on the cell's own content box: `max-width`
+ * on a `<td>` is advisory in an auto table layout, so the column widens to the text
+ * regardless and nothing ever measures as clipped. A short value still shrinks the
+ * column — only an over-long one is cut.
+ */
+const TRUNCATE_CAP = "max-w-[240px]";
+
+/**
+ * A one-line cell that reveals its full value on hover. The tooltip is only
+ * attached when the text is actually clipped, so a short value that is fully
+ * visible carries no redundant tooltip.
+ */
+function Truncated({ text }: { text: string }) {
+  const [clipped, setClipped] = useState(false);
+  /**
+   * Measure once per value. Re-measuring after the clipped branch has mounted is
+   * what makes this oscillate: the tooltip wrapper is a different box from the
+   * bare span the first measurement came from, so the second measurement
+   * disagrees, the tree switches back, and the two states alternate until React
+   * gives up with "Maximum update depth exceeded".
+   */
+  const measuredFor = useRef<string | null>(null);
+  const measure = (el: HTMLSpanElement | null) => {
+    if (!el || measuredFor.current === text) return;
+    measuredFor.current = text;
+    setClipped(el.scrollWidth > el.clientWidth);
+  };
+  const cell = (
+    <span ref={measure} className={cn("block truncate", TRUNCATE_CAP)}>
+      {text}
+    </span>
+  );
+  if (!clipped) return cell;
+  return (
+    <Tooltip content={text} portal>
+      {cell}
+    </Tooltip>
+  );
+}
+
+/**
+ * The activity title stays frozen at the left edge while the row scrolls. The width
+ * is capped so a long title ellipses inside the cell instead of stretching the
+ * column and squeezing the lead's columns off-screen — Workpex keeps this column a
+ * fixed, compact width.
+ */
+const STICKY_FIRST =
+  "sticky left-0 z-10 w-[380px] max-w-[380px] bg-surface group-hover:bg-canvas";
 
 function AssignedAvatars({
   assignees,
@@ -141,34 +209,19 @@ function CompletionControl({ row }: { row: ActivityListItem }) {
   );
 }
 
-/** The edit affordance on the title (ACT-05.1); hidden without a provider. */
-function EditControl({ row }: { row: ActivityListItem }) {
-  const ctx = useContext(RowContext);
-  if (!ctx) return null;
-  return (
-    <Tooltip content="Edit Follow-up">
-      <button
-        type="button"
-        aria-label="Edit Follow-up"
-        onClick={() => ctx.onRequestEdit(row)}
-        className="focus-ring flex shrink-0 rounded-control p-0.5 text-ink-subtle opacity-0 transition-opacity duration-(--duration-shell) ease-shell group-hover:opacity-100 hover:text-ink"
-      >
-        <IconPencil size={15} stroke={1.75} aria-hidden="true" />
-      </button>
-    </Tooltip>
-  );
-}
-
 /**
  * The per-row quick actions at the right edge (ACT-08.1): WhatsApp, Email,
- * Duplicate, Delete — the same right-aligned icon cluster as the Leads list.
+ * Edit, Delete — the same right-aligned icon cluster as the Leads list. Edit is
+ * the third action, replacing Duplicate, and is the only edit affordance on the
+ * row: the title carries no second pencil.
  * Hidden without a provider, so the read-only list (ACT-02.2) shows no controls.
  *
  * WhatsApp is a `wa.me` deep-link from the lead's primary phone; Email is disabled
  * because a lead carries no email address for a `mailto:` (the Leads/ADR-0013
- * constraint applies identically). Duplicate and Delete call the scoped ACT-08.1 /
- * ACT-06.1 APIs — which 404 anything out of the caller's scope, so a user can only
- * act on rows they may already see (AC5). Delete confirms first (AC3).
+ * constraint applies identically). Edit opens the existing Edit Follow-up drawer
+ * (ACT-05.1); Delete calls the scoped ACT-06.1 API — which 404s anything out of the
+ * caller's scope, so a user can only act on rows they may already see (AC5). Delete
+ * confirms first (AC3).
  */
 function ActivityRowActions({ row }: { row: ActivityListItem }) {
   const ctx = useContext(RowContext);
@@ -192,28 +245,26 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
         </IconButton>
       </Tooltip>
 
-      <Tooltip content="No email address on this lead">
-        <IconButton aria-label="Email" disabled>
+      {/* Reuses the Leads email composer (LEAD-10.2): it opens for every lead, one
+          with no address simply starting empty — the same behaviour as the Leads
+          row action, rather than a dead control. */}
+      <Tooltip content="Mail">
+        <IconButton
+          aria-label="Mail"
+          disabled={busy}
+          onClick={() => ctx.onRequestEmail(row)}
+        >
           <IconMail size={18} stroke={1.75} aria-hidden="true" />
         </IconButton>
       </Tooltip>
 
-      <Tooltip content="Duplicate">
+      <Tooltip content="Edit">
         <IconButton
-          aria-label="Duplicate"
+          aria-label="Edit"
           disabled={busy}
-          onClick={() => ctx.onRequestDuplicate(row)}
+          onClick={() => ctx.onRequestEdit(row)}
         >
-          {pending === "duplicate" ? (
-            <IconLoader2
-              size={18}
-              stroke={1.75}
-              className="animate-spin"
-              aria-hidden="true"
-            />
-          ) : (
-            <IconCopy size={18} stroke={1.75} aria-hidden="true" />
-          )}
+          <IconPencil size={18} stroke={1.75} aria-hidden="true" />
         </IconButton>
       </Tooltip>
 
@@ -231,19 +282,108 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
   );
 }
 
+/**
+ * The note affordance beside the title. Workpex marks the activities that carry a
+ * note with a small sheet icon whose tooltip is the note itself — see the "booking"
+ * tooltip in the supplied Activities capture. Absent when there is no note, so a
+ * bare row stays bare.
+ */
+function NoteMark({ note }: { note: string }) {
+  return (
+    <Tooltip content={note} portal>
+      <span className="flex shrink-0 text-ink-subtle">
+        <IconNote size={14} stroke={1.75} aria-label={`Note: ${note}`} />
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
+ * The due date/time. Workpex makes it the edit affordance — "click to change date"
+ * on hover, then a calendar and time row in place. Read-only (no provider) it stays
+ * plain text, so the list still renders without row actions (ACT-02.2).
+ */
+function DueDate({
+  row,
+  overdue,
+}: {
+  row: ActivityListItem;
+  overdue: boolean;
+}) {
+  const ctx = useContext(RowContext);
+  if (!ctx)
+    return (
+      <span
+        className={cn("text-xs", overdue ? "text-rose-600" : "text-ink-muted")}
+      >
+        {formatDateTime(row.dueAt)}
+      </span>
+    );
+
+  return (
+    <ActivityDueDateEditor
+      row={row}
+      overdue={overdue}
+      onSave={ctx.onSaveDueDate}
+    />
+  );
+}
+
 function ActivityCell({ row }: { row: ActivityListItem }) {
+  // Workpex prints an open, past-due follow-up in red — the worklist's whole point
+  // is that an overdue item reads as overdue in every tab, not just Overdue.
+  const ctx = useContext(RowContext);
+  const overdue =
+    ctx !== null && row.completedAt === null && row.dueAt < ctx.overdueBefore;
+
   return (
     <span className="flex items-center gap-2">
       <CompletionControl row={row} />
-      <span className="flex flex-col">
-        <span className="flex items-center gap-1.5">
-          <span className="font-medium text-ink">{row.title}</span>
-          <EditControl row={row} />
+      <span className="flex min-w-0 flex-col">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Tooltip content={row.title} portal className="min-w-0 flex-1">
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate font-medium",
+                overdue ? "text-rose-600" : "text-ink",
+              )}
+            >
+              {row.title}
+            </span>
+          </Tooltip>
+          {row.description && <NoteMark note={row.description} />}
         </span>
-        <span className="text-xs text-ink-muted">
-          {formatDateTime(row.dueAt)}
-        </span>
+        <DueDate row={row} overdue={overdue} />
       </span>
+    </span>
+  );
+}
+
+/**
+ * Customer Name plus Workpex's ↗ affordance. The name keeps its own click target and
+ * navigates to the Lead Detail page (ACT-09.1); the ↗ is a separate control that opens
+ * that lead's activity timeline — the existing `LeadTimeline` feed the Lead Detail
+ * drawer renders, not a second history system. It rests hidden and appears on row hover
+ * or keyboard focus, as the Leads list's own arrow does.
+ */
+function CustomerNameCell({ row }: { row: ActivityListItem }) {
+  const ctx = useContext(RowContext);
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <LeadNameCell lead={row.lead} />
+      {ctx && (
+        <Tooltip content="Open activity timeline">
+          <button
+            type="button"
+            aria-label={`Open ${row.lead.name} activity timeline`}
+            onClick={() => ctx.onRequestTimeline(row)}
+            className="focus-ring flex size-5 shrink-0 items-center justify-center rounded-control border border-hairline text-ink-subtle opacity-0 transition-opacity duration-(--duration-shell) ease-shell group-hover:opacity-100 hover:text-ink focus-visible:opacity-100"
+          >
+            <IconArrowUpRight size={13} stroke={2} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      )}
     </span>
   );
 }
@@ -261,24 +401,27 @@ export const activityColumns: TableColumn<ActivityListItem>[] = [
     render: (row) => <AssignedAvatars assignees={row.assignees} />,
   },
   {
-    // ACT-09.1: navigates to /leads/{leadId} — matches the Workpex
-    // CustomerName-Click behaviour. Uses the shared CustomerNameLink so both
-    // the Activities list and the Leads list resolve to the same destination.
+    // The shared Leads cell (no `LeadDetailProvider` here, so the name navigates to
+    // the Lead Detail page — ACT-09.1), plus Workpex's ↗ beside it. One cell, no
+    // second customer-name implementation.
     key: "customerName",
     header: "Customer Name",
-    render: (row) => (
-      <CustomerNameLink leadId={row.lead.id} name={row.lead.name} />
-    ),
+    render: (row) => <CustomerNameCell row={row} />,
   },
   {
     key: "pipeline",
     header: "Lead Pipeline",
-    render: (row) => row.lead.pipeline,
+    render: (row) => <Truncated text={row.lead.pipeline} />,
   },
   {
     key: "callStatus",
     header: "Call Status",
-    render: (row) => orDash(row.lead.callStatus),
+    render: (row) =>
+      row.lead.callStatus ? (
+        <Truncated text={row.lead.callStatus} />
+      ) : (
+        orDash(null)
+      ),
   },
   {
     // Read-only here (no LeadStatusProvider): a plain colour-coded pill from the
@@ -291,7 +434,7 @@ export const activityColumns: TableColumn<ActivityListItem>[] = [
     // The right-edge quick actions (ACT-08.1). A control column, not data, so
     // Manage Columns keeps it fixed and it is not part of the reorderable set.
     key: "actions",
-    header: "",
+    header: "Actions",
     render: (row) => <ActivityRowActions row={row} />,
   },
 ];

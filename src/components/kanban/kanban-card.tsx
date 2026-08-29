@@ -6,6 +6,7 @@ import {
   IconBrandWhatsapp,
   IconEdit,
   IconLoader2,
+  IconMapPin,
   IconPhone,
   IconPin,
   IconPinFilled,
@@ -41,12 +42,28 @@ import { useKanbanDnd } from "./kanban-dnd-context";
  * `LeadListItem`.
  */
 
+/**
+ * The card's single address line, joined from the lead's address parts in the order
+ * Workpex prints them (street, then city, then state). Empty when the lead carries no
+ * address at all, which is how the row stays absent rather than rendering blank.
+ */
+function locationOf(lead: LeadListItem): string {
+  return [lead.street, lead.city, lead.state]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(", ");
+}
+
 export const KanbanCard = memo(function KanbanCard({
   lead,
 }: {
   lead: LeadListItem;
 }) {
   const agent = lead.assignedAgents[0];
+  const location = locationOf(lead);
+  // Workpex shows one avatar per card; when a lead carries several assignees the
+  // tooltip names them all rather than inventing a second avatar or a "+N" chip.
+  const assignedLabel = lead.assignedAgents.map((a) => a.name).join(", ");
   const wa = whatsappUrl(lead.primaryPhone);
   const dnd = useKanbanDnd();
   const { colorsFor } = useStages();
@@ -84,14 +101,19 @@ export const KanbanCard = memo(function KanbanCard({
         {/* The name opens the Lead Detail page, the app-wide Workpex behaviour
             (CustomerName-Click.mp4, ACT-09.1) — `<Link>` so Back returns to the
             board. `draggable={false}` keeps the card's own drag as the drag source. */}
-        <p className="truncate text-sm font-medium">
-          <Link
-            href={`/leads/${lead.id}`}
-            draggable={false}
-            className="focus-ring rounded-sm text-ink underline decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:text-ink-muted"
-          >
-            {lead.name}
-          </Link>
+        {/* The name is the most frequently clipped value on the card, so it names
+            itself in full on hover (portalled, or the column's overflow would cut
+            the panel off). */}
+        <p className="min-w-0 truncate text-sm font-medium">
+          <Tooltip content={lead.name} portal>
+            <Link
+              href={`/leads/${lead.id}`}
+              draggable={false}
+              className="focus-ring rounded-sm text-ink underline decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:text-ink-muted"
+            >
+              {lead.name}
+            </Link>
+          </Tooltip>
         </p>
 
         {/* Quick actions (KAN-03.1, from the card-hover reference). WhatsApp is always
@@ -165,9 +187,13 @@ export const KanbanCard = memo(function KanbanCard({
         </div>
       </div>
 
+      {/* The badge takes the stage tint's fill but not its border: in
+          `kanban-board-default-legend-tooltip-converted.png` the New card's badge runs
+          straight from the card's white into the fill at x268 with no edge pixel, unlike
+          the column header, which Workpex does outline. */}
       <span
         className={cn(
-          "mt-1 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-ink",
+          "mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-ink",
           colors.tint,
         )}
       >
@@ -189,15 +215,38 @@ export const KanbanCard = memo(function KanbanCard({
           className="shrink-0"
           aria-hidden="true"
         />
-        <span className="truncate">{lead.primaryPhone}</span>
+        {/* `min-w-0 flex-1` on the wrapper: it is the flex item here, and without it
+            its `min-width: auto` floor keeps the truncating span at full text width,
+            so a long value would spill past the card instead of ellipsing. */}
+        <Tooltip content={lead.primaryPhone} portal className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 truncate">{lead.primaryPhone}</span>
+        </Tooltip>
       </p>
+
+      {/* Workpex prints a pinned address under the phone on the cards that carry one
+          (`kanban-lead-pipeline-dropdown-open-card-hover.png`: "Near Salmaniya Medical
+          Complex, ..", "MUWAILA. NEAR, Sharjah Emirate"), truncated to one line with
+          the full text on hover. A lead with no address renders no row at all, so the
+          card keeps its compact height. */}
+      {location && (
+        <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted">
+          <IconMapPin
+            size={14}
+            stroke={1.75}
+            className="shrink-0"
+            aria-hidden="true"
+          />
+          <Tooltip content={location} portal className="min-w-0 flex-1">
+            <span className="min-w-0 flex-1 truncate">{location}</span>
+          </Tooltip>
+        </p>
+      )}
 
       <div className="mt-1 flex items-center justify-between border-t border-hairline pt-1.5">
         {agent ? (
           // Hovering the avatar names the assigned agent in the shared dark tooltip,
-          // as the list's Assigned Agents cell does (Workpex card hover). Unassigned
-          // stays a bare placeholder — no name to show.
-          <Tooltip content={agent.name}>
+          // as the list's Assigned Agents cell does (Workpex card hover).
+          <Tooltip content={assignedLabel} portal>
             <Avatar
               name={agent.name}
               initials={initialsOf(agent.name)}
@@ -206,7 +255,10 @@ export const KanbanCard = memo(function KanbanCard({
             />
           </Tooltip>
         ) : (
-          <Avatar name="Unassigned" size="sm" className="size-5!" />
+          // Workpex writes "Unassigned" where the avatar would sit rather than drawing
+          // an empty one — see the "My Life My Rules" card in
+          // `kanban-sort-dropdown-open-columns-10-15-add-lead.png`.
+          <span className="truncate text-xs text-ink-subtle">Unassigned</span>
         )}
         <span className="text-xs text-ink-muted">
           {formatDate(lead.createdAt)}

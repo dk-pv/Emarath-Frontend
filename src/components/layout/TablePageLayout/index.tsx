@@ -37,6 +37,13 @@ export type TablePageLayoutProps = {
   /** Extra toolbar controls (export, manage columns, view switchers). */
   toolbarActions?: React.ReactNode;
 
+  /**
+   * Rendered at the left of the toolbar row, opposite `toolbarActions` — the
+   * Activities worklist puts its tab strip here, matching Workpex's single row of
+   * tabs-left / controls-right above the table.
+   */
+  toolbarLeft?: React.ReactNode;
+
   /** The table itself — already scrolls horizontally via ResponsiveTableContainer. */
   children: React.ReactNode;
 
@@ -79,6 +86,7 @@ export function TablePageLayout({
   search,
   filters,
   toolbarActions,
+  toolbarLeft,
   children,
   pagination,
   tableLabel,
@@ -104,7 +112,9 @@ export function TablePageLayout({
       {/* Workpex's toolbar is one right-aligned cluster; the module composes it in
           order (New Lead · Search · Filter · Sort · …) and passes it whole, so the
           search and filter controls sit inside the cluster rather than pinned left. */}
-      {toolbarActions && <Toolbar right={toolbarActions} />}
+      {(toolbarActions || toolbarLeft) && (
+        <Toolbar left={toolbarLeft} right={toolbarActions} />
+      )}
 
       {filters && search && (
         <AppliedFilterChips

@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { IconCalendarEvent, IconColumns } from "@tabler/icons-react";
-import { PageContainer } from "@/components/layout/PageContainer";
-import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
+import {
+  IconCalendarEvent,
+  IconColumns,
+  IconListCheck,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
+import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import { FilterPanel } from "@/components/filters/filter-panel";
 import { Table } from "@/components/ui/Table";
-import { Tabs } from "@/components/ui/Tabs";
-import { Pagination } from "@/components/ui/Pagination";
+import { TabStrip } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useFilters } from "@/hooks/use-filters";
@@ -23,10 +28,16 @@ import {
   ActivityRowProvider,
 } from "@/components/activities/activity-columns";
 import { ActivityFormDrawer } from "@/components/activities/activity-form-drawer";
+import { LeadFollowUpFormDrawer } from "@/components/leads/lead-followup-form-drawer";
+import { ActivityTimelineDrawer } from "@/components/activities/activity-timeline-drawer";
 import {
   LeadManageColumnsDrawer,
   type ManageableColumn,
 } from "@/components/leads/lead-manage-columns-drawer";
+import { LeadStatusProvider } from "@/components/leads/lead-status-badge";
+import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
+import { setLeadStatus } from "@/services/leads-row-actions-service";
+import type { LeadListItem } from "@/services/leads-service";
 import { useActivitiesList } from "@/components/activities/use-activities-list";
 import { fetchAssignableAgents, fetchLookup } from "@/services/lookups-service";
 import {
@@ -39,7 +50,7 @@ import {
   ACTIVITY_BUCKETS,
   completeActivity,
   deleteActivity,
-  duplicateActivity,
+  updateActivity,
   type ActivitiesQuery,
   type ActivityBucket,
   type ActivityListItem,
@@ -128,6 +139,7 @@ export function ActivitiesListView() {
 
   const filters = useFilters(filterFields);
   const manageColumns = useDisclosure();
+  const addFollowUp = useDisclosure();
 
   // The box tracks the live value; only the value that drives the fetch waits.
   const debouncedSearch = useDebouncedValue(
@@ -175,8 +187,22 @@ export function ActivitiesListView() {
   );
   const [pending, setPending] = useState<{
     id: string;
-    action: "complete" | "duplicate" | "delete";
+    action: "complete" | "delete";
   } | null>(null);
+  // Row selection (the leading checkbox column Workpex shows) and the lead-status
+  // + email targets, all reusing the shared Table/badge/drawer wiring.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [statusPendingId, setStatusPendingId] = useState<string | null>(null);
+  // The bulk action bar's two flows, each behind its own confirmation.
+  const [bulkAction, setBulkAction] = useState<"complete" | "delete" | null>(
+    null,
+  );
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<ActivityListItem | null>(null);
+  // The lead whose activity timeline the ↗ beside its name opened.
+  const [timelineLead, setTimelineLead] = useState<LeadListItem | null>(null);
 
   // Optimistic row patches (completion + edit field overrides, delete removals),
   // tied to the current `rows` identity so they drop automatically on the next
@@ -243,9 +269,91 @@ export function ActivitiesListView() {
       return { ...prev, removed };
     });
 
+  /**
+   * Lead Status is editable from the worklist, as it is on the Leads list: the same
+   * `LeadStatusProvider` + `setLeadStatus` API, so both pages share one status
+   * catalogue, one set of colours and one write path. Only this row's lead changes —
+   * the optimistic override reverts if the server rejects it.
+   */
+  const handleStatusChange = async (row: ActivityListItem, status: string) => {
+    setStatusPendingId(row.lead.id);
+    applyOverride(row.id, { lead: { ...row.lead, status } });
+    try {
+      const updated = await setLeadStatus(row.lead.id, status);
+      applyOverride(row.id, {
+        lead: { ...updated, isPinned: row.lead.isPinned },
+      });
+      toast({ title: `${row.lead.name} set to ${status}`, tone: "success" });
+    } catch {
+      applyOverride(row.id, { lead: row.lead });
+      toast({ title: "Couldn’t update status", tone: "danger" });
+    } finally {
+      setStatusPendingId(null);
+    }
+  };
+
+  // The badge reads its lead from the row, so map the lead the provider hands back
+  // to the activity row that carries it.
+  const statusValue = {
+    onChange: (lead: LeadListItem, status: string) => {
+      const row = displayRows.find((r) => r.lead.id === lead.id);
+      if (row) void handleStatusChange(row, status);
+    },
+    pendingId: statusPendingId,
+  };
+
+  /**
+   * Bulk Mark as Complete / Delete from the selection bar.
+   *
+   * Reuses the per-activity APIs (ACT-04.1 / ACT-06.1) one call per row rather than
+   * adding a bulk endpoint: each call keeps its own scope check and its own
+   * location gate, so a row the caller may not complete still fails on its own and
+   * the rest succeed. `allSettled`, so one rejection cannot abandon the others.
+   */
+  const runBulk = async (action: "complete" | "delete") => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        action === "complete" ? completeActivity(id) : deleteActivity(id),
+      ),
+    );
+    const done = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - done;
+    setBulkBusy(false);
+    setBulkAction(null);
+
+    if (done > 0) {
+      // Only the rows that actually succeeded leave the selection; a failed one
+      // stays selected so it can be retried.
+      const failedIds = new Set(
+        ids.filter((_, index) => results[index]?.status === "rejected"),
+      );
+      setSelectedIds(failedIds);
+      refetch();
+      const noun = done === 1 ? "activity" : "activities";
+      toast({
+        title:
+          action === "complete"
+            ? `${done} ${noun} marked as completed`
+            : `${done} ${noun} deleted`,
+        tone: "success",
+      });
+    }
+    if (failed > 0) {
+      const noun = failed === 1 ? "activity" : "activities";
+      toast({
+        title: `Couldn’t ${action === "complete" ? "complete" : "delete"} ${failed} ${noun}`,
+        tone: "danger",
+      });
+    }
+  };
+
   const changeBucket = (id: string) => {
     setBucket(id as ActivityBucket);
     setPage(1);
+    setSelectedIds(new Set());
   };
 
   const changeSize = (next: number) => {
@@ -285,19 +393,35 @@ export function ActivitiesListView() {
     }
   };
 
-  // Duplicate (ACT-08.1 AC2): the server copies the scoped row into a fresh
-  // follow-up; its sorted position depends on the due date, so the new row is
-  // picked up by a refetch rather than inserted optimistically.
-  const handleDuplicate = async (row: ActivityListItem) => {
-    setPending({ id: row.id, action: "duplicate" });
+  /**
+   * An in-place due date/time change from the row (Workpex edits the date on the
+   * worklist, not only in the drawer). Reuses the existing `PATCH /activities/:id`
+   * (ACT-05.1) — that endpoint is a full replace of the editable fields, so the row's
+   * own current values are sent back alongside the new instant; no second API and no
+   * sparse-patch variant. Optimistic, and reverted if the server rejects it.
+   */
+  const handleSaveDueDate = async (row: ActivityListItem, dueAt: string) => {
+    if (row.description === null) {
+      // The API requires a description on update, so a note-less row cannot be
+      // saved from here without inventing one — send the user to the drawer.
+      setEditTarget(row);
+      return;
+    }
+    applyOverride(row.id, { dueAt });
     try {
-      await duplicateActivity(row.id);
+      await updateActivity(row.id, {
+        type: row.type,
+        description: row.description,
+        dueAt,
+        endAt: row.endAt ?? undefined,
+        locationId: row.locationId ?? undefined,
+        assigneeIds: row.assignees.map((assignee) => assignee.id),
+      });
       refetch();
-      toast({ title: "Follow-up duplicated", tone: "success" });
+      toast({ title: "Follow-up date updated", tone: "success" });
     } catch {
-      toast({ title: "Couldn’t duplicate the activity", tone: "danger" });
-    } finally {
-      setPending(null);
+      clearOverride(row.id);
+      toast({ title: "Couldn't update the date", tone: "danger" });
     }
   };
 
@@ -384,101 +508,187 @@ export function ActivitiesListView() {
   }, [columnOrder, hiddenColumns]);
 
   // One table node shared by every tab, so switching buckets re-fetches in place
-  // rather than remounting the table.
-  const panel = (
-    <>
-      <ResponsiveTableContainer label="Activities table">
-        <ActivityRowProvider
-          value={{
-            onRequestComplete: setCompleteTarget,
-            onRequestEdit: setEditTarget,
-            onRequestDelete: setDeleteTarget,
-            onRequestDuplicate: (row) => void handleDuplicate(row),
-            pendingId: pending?.id ?? null,
-            pendingAction: pending?.action ?? null,
+  // rather than remounting the table. The scroll region, sticky header and pinned
+  // pagination footer around it are `TablePageLayout`'s — the same frame the Leads
+  // list uses, so the two tables match without a second implementation.
+  const table = (
+    <ActivityRowProvider
+      value={{
+        onRequestComplete: setCompleteTarget,
+        onRequestEdit: setEditTarget,
+        onRequestDelete: setDeleteTarget,
+        onRequestEmail: setEmailTarget,
+        onRequestTimeline: (row) => setTimelineLead(row.lead),
+        onSaveDueDate: (row, dueAt) => void handleSaveDueDate(row, dueAt),
+        overdueBefore: boundaries.todayStart,
+        pendingId: pending?.id ?? null,
+        pendingAction: pending?.action ?? null,
+      }}
+    >
+      <LeadStatusProvider value={statusValue}>
+        <Table
+          columns={visibleColumns}
+          rows={displayRows}
+          getRowId={(row) => row.id}
+          selection={{
+            selectedIds,
+            onToggleRow: (id) =>
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              }),
+            onToggleAll: (ids) =>
+              setSelectedIds((prev) => {
+                const allOn = ids.every((id) => prev.has(id));
+                const next = new Set(prev);
+                ids.forEach((id) => (allOn ? next.delete(id) : next.add(id)));
+                return next;
+              }),
+            rowLabel: (row) => `Select ${row.title}`,
+            allLabel: "Select all activities on this page",
           }}
-        >
-          <Table
-            columns={visibleColumns}
-            rows={displayRows}
-            getRowId={(row) => row.id}
-            isLoading={isLoading}
-            emptyState={
-              <EmptyState
-                icon={IconCalendarEvent}
-                title="No activities"
-                description="There are no activities in this view."
+          isLoading={isLoading}
+          emptyState={
+            <EmptyState
+              icon={IconCalendarEvent}
+              title="No activities"
+              description="There are no activities in this view."
+            />
+          }
+          errorState={
+            isError ? (
+              <ErrorState
+                title="Couldn’t load activities"
+                description="Something went wrong while loading activities. Check your connection and try again."
+                onRetry={refetch}
               />
-            }
-            errorState={
-              isError ? (
-                <ErrorState
-                  title="Couldn’t load activities"
-                  description="Something went wrong while loading activities. Check your connection and try again."
-                  onRetry={refetch}
-                />
-              ) : undefined
-            }
-          />
-        </ActivityRowProvider>
-      </ResponsiveTableContainer>
-
-      {total > 0 && (
-        <Pagination
-          page={page}
-          pageCount={pageCount}
-          total={total}
-          onPageChange={setPage}
-          pageSize={size}
-          onPageSizeChange={changeSize}
+            ) : undefined
+          }
         />
-      )}
-    </>
+      </LeadStatusProvider>
+    </ActivityRowProvider>
   );
 
   const tabs = ACTIVITY_BUCKETS.map((id) => ({
     id,
     label: counts ? `${BUCKET_LABEL[id]} (${counts[id]})` : BUCKET_LABEL[id],
-    content: panel,
   }));
 
   return (
-    <PageContainer>
-      {/* Shared Workpex toolbar controls: Search · Filter · Manage Columns.
-          Each resets the page and combines with the active tab (AC5). */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <ToolbarSearch
-          value={filters.state.search}
-          onChange={(value) => {
-            filters.setSearch(value);
-            setPage(1);
-          }}
-          placeholder="Search name or title"
-        />
-        <FilterPanel
-          fields={filterFields}
-          activeCount={filters.activeCount}
-          valueOf={filters.valueOf}
-          onChange={(key, value) => {
-            filters.setCondition(key, value);
-            setPage(1);
-          }}
-          onClear={() => {
-            filters.clearAll();
-            setPage(1);
-          }}
-        />
-        <button
-          type="button"
-          onClick={manageColumns.open}
-          className={TOOLBAR_BUTTON_CLASS}
-        >
-          <IconColumns size={18} stroke={1.75} />
-          Manage Columns
-        </button>
-      </div>
+    <TablePageLayout
+      title="Activities"
+      tableLabel="Activities table"
+      // Workpex puts the tabs and the toolbar on one row above the table.
+      toolbarLeft={
+        <TabStrip tabs={tabs} value={bucket} onValueChange={changeBucket} />
+      }
+      toolbarActions={
+        <>
+          <ToolbarSearch
+            value={filters.state.search}
+            onChange={(value) => {
+              filters.setSearch(value);
+              setPage(1);
+            }}
+            placeholder="Search name or title"
+          />
+          <FilterPanel
+            fields={filterFields}
+            activeCount={filters.activeCount}
+            valueOf={filters.valueOf}
+            onChange={(key, value) => {
+              filters.setCondition(key, value);
+              setPage(1);
+            }}
+            onClear={() => {
+              filters.clearAll();
+              setPage(1);
+            }}
+          />
+          <button
+            type="button"
+            onClick={manageColumns.open}
+            className={TOOLBAR_BUTTON_CLASS}
+          >
+            <IconColumns size={18} stroke={1.75} />
+            Manage Columns
+          </button>
+          <button
+            type="button"
+            onClick={addFollowUp.open}
+            className={TOOLBAR_BUTTON_CLASS}
+          >
+            <IconPlus size={18} stroke={1.75} />
+            Add Follow-up
+          </button>
+        </>
+      }
+      pagination={{
+        page,
+        pageCount,
+        total,
+        onPageChange: setPage,
+        pageSize: size,
+        onPageSizeChange: changeSize,
+      }}
+    >
+      {table}
 
-      <Tabs value={bucket} onValueChange={changeBucket} tabs={tabs} />
+      {/* Workpex's floating selection bar — the shared `BulkActionBar` the Leads
+          list uses, with this module's two actions. */}
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          label={
+            selectedIds.size === 1 ? "Activity Selected" : "Activities Selected"
+          }
+          busy={bulkBusy}
+          onClear={() => setSelectedIds(new Set())}
+          actions={[
+            {
+              key: "complete",
+              label: "Mark as Complete",
+              Icon: IconListCheck,
+              onClick: () => setBulkAction("complete"),
+            },
+            {
+              key: "delete",
+              label: "Delete",
+              Icon: IconTrash,
+              onClick: () => setBulkAction("delete"),
+            },
+          ]}
+        />
+      )}
+
+      <ConfirmDialog
+        open={bulkAction === "complete"}
+        onCancel={() => setBulkAction(null)}
+        onConfirm={() => void runBulk("complete")}
+        title="Confirmation"
+        description={`Are you sure you want to mark ${selectedIds.size} ${
+          selectedIds.size === 1 ? "activity" : "activities"
+        } as completed? This action cannot be undone`}
+        confirmLabel="Yes"
+        cancelLabel="No"
+        tone="brand"
+        busy={bulkBusy}
+      />
+
+      <ConfirmDialog
+        open={bulkAction === "delete"}
+        onCancel={() => setBulkAction(null)}
+        onConfirm={() => void runBulk("delete")}
+        title="Confirmation"
+        description={`Are you sure you want to delete ${selectedIds.size} ${
+          selectedIds.size === 1 ? "activity" : "activities"
+        }? This action cannot be undone`}
+        confirmLabel="Yes"
+        cancelLabel="No"
+        busy={bulkBusy}
+      />
 
       <ConfirmDialog
         open={completeTarget !== null}
@@ -498,6 +708,46 @@ export function ActivitiesListView() {
         confirmLabel="Delete"
         tone="danger"
       />
+
+      {/* The lead's email composer, reused from the Leads row action (LEAD-10.2) so
+          the worklist's Mail icon opens the same drawer rather than a second one. */}
+      {emailTarget && (
+        <LeadEmailDrawer
+          open
+          lead={emailTarget.lead}
+          onClose={() => setEmailTarget(null)}
+          onSent={() => {
+            setEmailTarget(null);
+            toast({ title: "Email sent", tone: "success" });
+          }}
+        />
+      )}
+
+      {/* Add Follow-up (ACT-03.2): the same create drawer the Lead Detail panel opens,
+          with no lead fixed, so it renders its "Search Leads" picker instead. */}
+      {addFollowUp.isOpen && (
+        <LeadFollowUpFormDrawer
+          onClose={addFollowUp.close}
+          onCreated={() => {
+            addFollowUp.close();
+            // A refetch is what places the new follow-up: it reloads the active tab
+            // and every bucket count, so the row surfaces in whichever tab its due
+            // date puts it in rather than being guessed into the current one.
+            refetch();
+            toast({ title: "Follow-up created", tone: "success" });
+          }}
+        />
+      )}
+
+      {/* The lead's activity timeline (the ↗ beside a customer name) — the same
+          `LeadTimeline` feed the Lead Detail drawer renders, in a drawer shell. */}
+      {timelineLead && (
+        <ActivityTimelineDrawer
+          key={timelineLead.id}
+          lead={timelineLead}
+          onClose={() => setTimelineLead(null)}
+        />
+      )}
 
       {/* Mounted per-open (keyed) so each edit prefills from its own row. */}
       {editTarget && (
@@ -528,6 +778,6 @@ export function ActivitiesListView() {
           }}
         />
       )}
-    </PageContainer>
+    </TablePageLayout>
   );
 }

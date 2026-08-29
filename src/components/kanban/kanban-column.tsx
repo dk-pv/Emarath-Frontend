@@ -164,14 +164,18 @@ export const KanbanColumn = memo(function KanbanColumn({
 
       <div
         onScroll={onScroll}
-        // Cards must share the header's exact width (Workpex): the body extends into
-        // the inter-column gap by the slim scrollbar's width (Chrome's thin scrollbar
-        // is 10px — `scrollbar-width: thin` disables the 6px ::-webkit-scrollbar rule
-        // since Chrome 121) and a stable gutter reserves exactly that, so the
-        // scrollbar rides in the gap instead of narrowing the cards — with or without
-        // overflow, the card area stays the full 267px.
+        // Workpex shows no track down the column (a gap-strip scan of
+        // `kanban-board-default-legend-tooltip-converted.png` at x533 is a flat
+        // #f9f9f9 for the column's full height), so `scrollbar-none` hides it while
+        // wheel, trackpad and keyboard scrolling stay live. With no scrollbar there
+        // is nothing to park in the gap, so the negative margin and stable gutter
+        // that used to reserve its 10px are gone and the cards line up with the
+        // header on their own.
+        //
+        // `space-y-3.5` is Workpex's measured inter-card gap: cards in the New column
+        // sit at y309–461, 476–629, 643–796 and 811–964, i.e. 13/14px apart.
         className={cn(
-          "scrollbar-slim -mr-[10px] mt-2 min-h-0 flex-1 space-y-2 overflow-y-auto rounded-control transition-colors [scrollbar-gutter:stable]",
+          "scrollbar-none mt-2 min-h-0 flex-1 space-y-3.5 overflow-y-auto rounded-control transition-colors",
           showOver && cn("border-2 border-dashed", colors.tint),
         )}
       >
@@ -193,18 +197,34 @@ export const KanbanColumn = memo(function KanbanColumn({
               Try again
             </button>
           </div>
-        ) : rows.length === 0 ? (
-          <p className="px-2 py-8 text-center text-sm text-ink-muted">
-            No leads in this stage.
-          </p>
         ) : (
           <>
-            {rows.map((lead) => (
-              <KanbanCard key={lead.id} lead={lead} />
-            ))}
+            {rows.length === 0 ? (
+              <p className="px-2 py-8 text-center text-sm text-ink-muted">
+                No leads in this stage.
+              </p>
+            ) : (
+              rows.map((lead) => <KanbanCard key={lead.id} lead={lead} />)
+            )}
             {loadingMore && (
               <Skeleton className="h-[160px] w-full rounded-surface" />
             )}
+
+            {/* Workpex closes every column with a dashed "+ Add Lead" row — measured
+                at y476–505 (30px, 1px dashed) one card-gap below the last card in
+                `kanban-sort-dropdown-open-columns-10-15-add-lead.png`. It sits inside
+                the scroller so it trails the cards rather than pinning to the column,
+                and reuses the same `onAddLead` the stage header's "+" already calls,
+                so the drawer opens pre-set to this stage. */}
+            <button
+              type="button"
+              onClick={() => onAddLead(stage)}
+              aria-label={`Add lead to ${stage}`}
+              className="focus-ring flex h-[30px] w-full shrink-0 items-center justify-center gap-1 rounded-control border border-dashed border-hairline text-xs text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:border-ink-subtle hover:text-ink"
+            >
+              <IconPlus size={14} stroke={2} aria-hidden="true" />
+              Add Lead
+            </button>
           </>
         )}
       </div>

@@ -14,6 +14,11 @@ export type ManageColumnsProps<TRow> = {
   columns: readonly TableColumn<TRow>[];
   prefs: ColumnPrefs;
   onChange: (prefs: ColumnPrefs) => void;
+  /**
+   * Replaces the trigger's styling so it can sit in a toolbar of borderless pills
+   * (`TOOLBAR_BUTTON_CLASS`) instead of reading as a taller standalone button.
+   */
+  triggerClassName?: string;
 };
 
 const ROW_CLASS =
@@ -34,6 +39,7 @@ export function ManageColumns<TRow>({
   columns,
   prefs,
   onChange,
+  triggerClassName,
 }: ManageColumnsProps<TRow>) {
   const [open, setOpen] = useState(false);
   const [order, setOrder] = useState<string[]>([]);
@@ -78,10 +84,17 @@ export function ManageColumns<TRow>({
 
   return (
     <>
-      <Button variant="ghost" size="md" onClick={openDrawer}>
-        <IconColumns3 size={18} stroke={1.75} />
-        Manage Columns
-      </Button>
+      {triggerClassName ? (
+        <button type="button" onClick={openDrawer} className={triggerClassName}>
+          <IconColumns3 size={18} stroke={1.75} aria-hidden="true" />
+          Manage Columns
+        </button>
+      ) : (
+        <Button variant="ghost" size="md" onClick={openDrawer}>
+          <IconColumns3 size={18} stroke={1.75} />
+          Manage Columns
+        </Button>
+      )}
 
       <Drawer
         open={open}

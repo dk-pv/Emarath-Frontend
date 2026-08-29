@@ -16,6 +16,8 @@ type FilterPanelProps = {
   valueOf: (key: string) => FilterCondition["value"];
   onChange: (key: string, value: FilterCondition["value"]) => void;
   onClear: () => void;
+  /** Escapes an ancestor `overflow-hidden` (a report's results Card). */
+  portal?: boolean;
 };
 
 /**
@@ -31,10 +33,13 @@ export function FilterPanel({
   valueOf,
   onChange,
   onClear,
+  portal = false,
 }: FilterPanelProps) {
   return (
     <Popover
       align="end"
+      portal={portal}
+      triggerClassName="rounded-control"
       trigger={
         <span className={cn(TOOLBAR_BUTTON_CLASS, "relative")}>
           <IconFilter size={18} stroke={1.75} />
@@ -48,7 +53,7 @@ export function FilterPanel({
         </span>
       }
     >
-      <div className="w-80 max-w-[90vw] p-4">
+      <div className="w-80 max-w-full p-4">
         <div className="flex flex-col gap-3">
           {fields.map((field) => (
             <FormField key={field.key} label={field.label}>

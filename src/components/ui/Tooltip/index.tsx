@@ -72,6 +72,13 @@ export type TooltipProps = {
   disabled?: boolean;
   /** Renders the panel fixed in <body>, escaping ancestor overflow clipping. */
   portal?: boolean;
+  /**
+   * Extra classes for the wrapper the trigger sits in. Needed where the wrapper is
+   * itself a flex item that has to shrink — `min-w-0 flex-1` — because its default
+   * `min-width: auto` would otherwise stop a truncating child from ever shrinking.
+   * Omitted everywhere else, so the wrapper keeps its plain `relative inline-flex`.
+   */
+  className?: string;
 };
 
 export function Tooltip({
@@ -80,6 +87,7 @@ export function Tooltip({
   placement = "top",
   disabled = false,
   portal = false,
+  className,
 }: TooltipProps) {
   const root = useRef<HTMLSpanElement>(null);
   const { isOpen, open, close } = useDisclosure();
@@ -122,7 +130,7 @@ export function Tooltip({
   return (
     <span
       ref={root}
-      className="relative inline-flex"
+      className={cn("relative inline-flex", className)}
       onMouseEnter={disabled ? undefined : openTip}
       onMouseLeave={close}
       onFocus={disabled ? undefined : openTip}

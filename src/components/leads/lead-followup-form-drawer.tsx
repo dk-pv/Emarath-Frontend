@@ -14,6 +14,7 @@ import {
   TimeRow,
   composeIso,
 } from "@/components/activities/activity-form-parts";
+import { LeadSearchSelect } from "@/components/activities/lead-search-select";
 import { ApiError } from "@/lib/api-client";
 import { fetchAssignableAgents } from "@/services/lookups-service";
 import {
@@ -25,7 +26,7 @@ import type { SelectOption } from "@/types";
 
 type LeadFollowUpFormDrawerProps = {
   /** The lead the drawer was opened on — the follow-up's fixed Lead. */
-  lead: LeadListItem;
+  lead?: LeadListItem;
   onClose: () => void;
   /** Called after the follow-up persists so the parent can toast + refresh the drawer. */
   onCreated: () => void;
@@ -33,6 +34,7 @@ type LeadFollowUpFormDrawerProps = {
 
 type FormState = {
   type: ActivityType | null;
+  lead: LeadListItem | null;
   description: string;
   assigneeIds: string[];
   date: Date | null;
@@ -53,9 +55,11 @@ type FormState = {
  *
  * Reuses the existing follow-up form idiom — the shared Drawer, FormField and inputs,
  * and the `activity-form-parts` time helpers the Edit Follow-up drawer uses — and
- * posts through the existing `POST /api/activities` (no new endpoint). The Lead is
- * fixed to the drawer's lead (no picker); Assigned To defaults to the lead's assigned
- * agents. Only a successful create closes the panel; a failure keeps the entered data.
+ * posts through the existing `POST /api/activities` (no new endpoint). Opened from a
+ * lead (Lead Detail, Leads row action) the Lead is fixed and Assigned To defaults to
+ * that lead's agents; opened from the Activities toolbar (ACT-03.2) there is no lead
+ * yet, so the Lead field is the Workpex "Search Leads" picker. Only a successful
+ * create closes the panel; a failure keeps the entered data.
  */
 export function LeadFollowUpFormDrawer({
   lead,
@@ -64,8 +68,9 @@ export function LeadFollowUpFormDrawer({
 }: LeadFollowUpFormDrawerProps) {
   const [form, setForm] = useState<FormState>(() => ({
     type: null,
+    lead: lead ?? null,
     description: "",
-    assigneeIds: lead.assignedAgents.map((a) => a.id),
+    assigneeIds: lead?.assignedAgents.map((a) => a.id) ?? [],
     date: null,
     startHour: null,
     startMinute: null,
@@ -102,10 +107,10 @@ export function LeadFollowUpFormDrawer({
   // them in so their default chips still render with a name.
   const agentOptions = useMemo(() => {
     const byId = new Map(agents.map((a) => [a.value, a]));
-    for (const a of lead.assignedAgents)
+    for (const a of form.lead?.assignedAgents ?? [])
       if (!byId.has(a.id)) byId.set(a.id, { value: a.id, label: a.name });
     return [...byId.values()];
-  }, [agents, lead.assignedAgents]);
+  }, [agents, form.lead]);
 
   const typeSelected = form.type !== null;
   const showEnd = form.type === "MEETING" || form.type === "TASK";
@@ -114,6 +119,7 @@ export function LeadFollowUpFormDrawer({
   function validate(): boolean {
     const next: Partial<Record<keyof FormState, string>> = {};
     if (!form.type) next.type = "Follow Up Type is required";
+    if (!form.lead) next.lead = "Lead is required";
     if (!form.description.trim())
       next.description = "Follow-up Description is required";
     if (form.assigneeIds.length === 0)
@@ -133,7 +139,7 @@ export function LeadFollowUpFormDrawer({
 
   async function submit() {
     setApiError(null);
-    if (!validate() || !form.type || !form.date) return;
+    if (!validate() || !form.type || !form.date || !form.lead) return;
 
     const dueAt = composeIso(
       form.date,
@@ -150,7 +156,7 @@ export function LeadFollowUpFormDrawer({
     try {
       await createActivity({
         type: form.type,
-        leadId: lead.id,
+        leadId: form.lead.id,
         description: form.description.trim(),
         dueAt,
         endAt,
@@ -230,10 +236,18 @@ export function LeadFollowUpFormDrawer({
               />
             </FormField>
 
-            <FormField label="Lead" required>
-              <div className="flex h-control-md items-center rounded-control border border-hairline bg-canvas px-3 text-sm text-ink">
-                {lead.name}
-              </div>
+            <FormField label="Lead" required error={errors.lead}>
+              {lead ? (
+                <div className="flex h-control-md items-center rounded-control border border-hairline bg-canvas px-3 text-sm text-ink">
+                  {lead.name}
+                </div>
+              ) : (
+                <LeadSearchSelect
+                  value={form.lead}
+                  onChange={(picked) => set("lead", picked)}
+                  invalid={Boolean(errors.lead)}
+                />
+              )}
             </FormField>
 
             <FormField label="Due Date" required error={errors.date}>

@@ -148,19 +148,3 @@ export async function deleteActivity(
 ): Promise<{ id: string }> {
   return apiDelete<{ id: string }>(`/activities/${id}`, signal);
 }
-
-/**
- * Duplicates a follow-up (ACT-08.1). The server copies the scoped source into a
- * fresh incomplete follow-up; the new row is picked up by a refetch (its sorted
- * position depends on the due date, so it isn't inserted optimistically).
- */
-export async function duplicateActivity(
-  id: string,
-  signal?: AbortSignal,
-): Promise<{ id: string }> {
-  return apiPost<{ id: string }>(
-    `/activities/${id}/duplicate`,
-    undefined,
-    signal,
-  );
-}

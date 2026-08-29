@@ -21,10 +21,12 @@ import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { ActivityDueDateEditor } from "@/components/activities/activity-due-date-editor";
+import { TYPE_LABEL } from "@/components/activities/activity-form-parts";
 import { LeadNameCell } from "@/components/leads/lead-name-cell";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
+import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
 import { cn } from "@/lib/cn";
-import { formatDateTime, initialsOf } from "@/lib/format";
+import { formatAED, formatDateTime, initialsOf } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { ActivityListItem } from "@/services/activities-service";
 import type { TableColumn } from "@/types";
@@ -43,6 +45,8 @@ type RowContextValue = {
   onRequestDelete: (row: ActivityListItem) => void;
   /** Opens the lead's email composer — the same drawer the Leads row action uses. */
   onRequestEmail: (row: ActivityListItem) => void;
+  /** Opens the lead's WhatsApp composer — the same drawer the Leads row action uses. */
+  onRequestWhatsapp: (row: ActivityListItem) => void;
   /** Commits an in-place due date/time change from the row (ACT-05.1). */
   onSaveDueDate: (row: ActivityListItem, dueAt: string) => void;
   /** Opens the lead's existing activity timeline (the ↗ beside the customer name). */
@@ -216,7 +220,10 @@ function CompletionControl({ row }: { row: ActivityListItem }) {
  * row: the title carries no second pencil.
  * Hidden without a provider, so the read-only list (ACT-02.2) shows no controls.
  *
- * WhatsApp is a `wa.me` deep-link from the lead's primary phone; Email is disabled
+ * WhatsApp opens the Leads "Send Whatsapp Message" composer (LEAD-10.2) for the
+ * linked lead, prefilled with that lead's own primary phone — the same drawer, and
+ * only its Send button reaches the `wa.me` hand-off. Disabled when the lead carries
+ * no dialable number, so the composer never opens on an unsendable row; Email is disabled
  * because a lead carries no email address for a `mailto:` (the Leads/ADR-0013
  * constraint applies identically). Edit opens the existing Edit Follow-up drawer
  * (ACT-05.1); Delete calls the scoped ACT-06.1 API — which 404s anything out of the
@@ -236,10 +243,8 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
       <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
         <IconButton
           aria-label="WhatsApp"
-          disabled={!waUrl}
-          onClick={() =>
-            waUrl && window.open(waUrl, "_blank", "noopener,noreferrer")
-          }
+          disabled={!waUrl || busy}
+          onClick={() => ctx.onRequestWhatsapp(row)}
         >
           <IconBrandWhatsapp size={18} stroke={1.75} aria-hidden="true" />
         </IconButton>
@@ -429,6 +434,149 @@ export const activityColumns: TableColumn<ActivityListItem>[] = [
     key: "leadStatus",
     header: "Lead Status",
     render: (row) => <LeadStatusBadge lead={row.lead} />,
+  },
+  // ── Additional columns, hidden by default ──────────────────────────────────
+  //
+  // Workpex's Activities Manage Columns offers the linked lead's fields alongside
+  // the five above (its capture shows Primary Phone and First Name below the fold),
+  // so the worklist can be widened into a lead view without leaving the page. They
+  // render from data `GET /activities` already returns — the row's activity plus its
+  // whole `lead` — so none of them costs an extra request. All start hidden, leaving
+  // the default worklist exactly as Workpex's default shows it.
+  {
+    key: "followUpType",
+    header: "Follow Up Type",
+    render: (row) => <Truncated text={TYPE_LABEL[row.type]} />,
+  },
+  {
+    key: "dueDate",
+    header: "Due Date",
+    render: (row) => <Truncated text={formatDateTime(row.dueAt)} />,
+  },
+  {
+    key: "endDate",
+    header: "End Date",
+    render: (row) =>
+      row.endAt ? <Truncated text={formatDateTime(row.endAt)} /> : orDash(null),
+  },
+  {
+    key: "completedAt",
+    header: "Completed On",
+    render: (row) =>
+      row.completedAt ? (
+        <Truncated text={formatDateTime(row.completedAt)} />
+      ) : (
+        orDash(null)
+      ),
+  },
+  {
+    key: "note",
+    header: "Note",
+    render: (row) =>
+      row.description ? <Truncated text={row.description} /> : orDash(null),
+  },
+  {
+    key: "primaryPhone",
+    header: "Primary Phone",
+    render: (row) => <Truncated text={row.lead.primaryPhone} />,
+  },
+  {
+    key: "secondaryPhone",
+    header: "Secondary Phone",
+    render: (row) =>
+      row.lead.secondaryPhone ? (
+        <Truncated text={row.lead.secondaryPhone} />
+      ) : (
+        orDash(null)
+      ),
+  },
+  {
+    key: "firstName",
+    header: "First Name",
+    render: (row) =>
+      row.lead.firstName ? (
+        <Truncated text={row.lead.firstName} />
+      ) : (
+        orDash(null)
+      ),
+  },
+  {
+    key: "email",
+    header: "Email",
+    render: (row) =>
+      row.lead.email ? <Truncated text={row.lead.email} /> : orDash(null),
+  },
+  {
+    key: "source",
+    header: "Source",
+    render: (row) =>
+      row.lead.source ? <Truncated text={row.lead.source} /> : orDash(null),
+  },
+  {
+    key: "country",
+    header: "Country",
+    render: (row) =>
+      row.lead.country ? <Truncated text={row.lead.country} /> : orDash(null),
+  },
+  {
+    key: "city",
+    header: "City",
+    render: (row) =>
+      row.lead.city ? <Truncated text={row.lead.city} /> : orDash(null),
+  },
+  {
+    key: "language",
+    header: "Language",
+    render: (row) =>
+      row.lead.language ? <Truncated text={row.lead.language} /> : orDash(null),
+  },
+  {
+    key: "category",
+    header: "Category",
+    render: (row) =>
+      row.lead.category ? <Truncated text={row.lead.category} /> : orDash(null),
+  },
+  {
+    // The shared Leads tags cell. Read-only here — no `LeadTagsProvider` in the
+    // worklist — so it shows the pills without the add/remove affordance.
+    key: "tags",
+    header: "Tags",
+    render: (row) => <LeadTagsCell lead={row.lead} />,
+  },
+  {
+    key: "actualAmount",
+    header: "Actual Amount",
+    render: (row) => <Truncated text={formatAED(row.lead.actualAmount)} />,
+  },
+  {
+    key: "forecastedAmount",
+    header: "Forecasted Amount",
+    render: (row) => <Truncated text={formatAED(row.lead.forecastedAmount)} />,
+  },
+  {
+    key: "bookingDate",
+    header: "Booking Date",
+    render: (row) =>
+      row.lead.bookingDate ? (
+        <Truncated text={row.lead.bookingDate} />
+      ) : (
+        orDash(null)
+      ),
+  },
+  {
+    key: "callAttempts",
+    header: "No. of Call Attempts",
+    render: (row) => <Truncated text={String(row.lead.callAttempts)} />,
+  },
+  {
+    key: "whatsappAttempts",
+    header: "No. of WhatsApp Attempts",
+    render: (row) => <Truncated text={String(row.lead.whatsappAttempts)} />,
+  },
+  {
+    key: "createdDate",
+    header: "Created Date",
+    render: (row) => <Truncated text={formatDateTime(row.lead.createdAt)} />,
   },
   {
     // The right-edge quick actions (ACT-08.1). A control column, not data, so

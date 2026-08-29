@@ -11,7 +11,11 @@ import {
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
-import { FilterPanel } from "@/components/filters/filter-panel";
+import {
+  ActivityFilterPanel,
+  EMPTY_ACTIVITY_FILTERS,
+  type ActivityFilterState,
+} from "@/components/activities/activity-filter-panel";
 import { Table } from "@/components/ui/Table";
 import { TabStrip } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,7 +24,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
-import { useFilters } from "@/hooks/use-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import {
@@ -36,6 +39,7 @@ import {
 } from "@/components/leads/lead-manage-columns-drawer";
 import { LeadStatusProvider } from "@/components/leads/lead-status-badge";
 import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
+import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
 import { setLeadStatus } from "@/services/leads-row-actions-service";
 import type { LeadListItem } from "@/services/leads-service";
 import { useActivitiesList } from "@/components/activities/use-activities-list";
@@ -53,17 +57,45 @@ import {
   updateActivity,
   type ActivitiesQuery,
   type ActivityBucket,
+  type ActivityDateWindow,
   type ActivityListItem,
 } from "@/services/activities-service";
 import { ApiError } from "@/lib/api-client";
-import { dayBoundaries } from "@/lib/day-boundaries";
-import type { FilterField, SelectOption } from "@/types";
+import { dayBoundaries, windowEdges } from "@/lib/day-boundaries";
+import { whatsappUrl } from "@/lib/whatsapp";
+import type { SelectOption } from "@/types";
 
 const NO_OPTIONS: {
   agents: SelectOption[];
   statuses: SelectOption[];
   pipelines: SelectOption[];
 } = { agents: [], statuses: [], pipelines: [] };
+
+/** Local midnight of the picked day — the From edge the server compares `>=` against. */
+function startOfDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** The next local midnight, so a picked To date is included by a `<` comparison. */
+function nextDay(date: Date): Date {
+  const next = startOfDay(date);
+  next.setDate(next.getDate() + 1);
+  return next;
+}
+
+/**
+ * The columns Workpex's Activities worklist opens with. Everything else the table
+ * can render — the activity's own dates and note, and the linked lead's fields — is
+ * offered in Manage Columns but starts hidden, so the default view stays exactly as
+ * the reference shows it.
+ */
+const DEFAULT_VISIBLE_COLUMNS = [
+  "assigned",
+  "customerName",
+  "pipeline",
+  "callStatus",
+  "leadStatus",
+];
 
 const BUCKET_LABEL: Record<ActivityBucket, string> = {
   overdue: "Overdue",
@@ -113,65 +145,47 @@ export function ActivitiesListView() {
     return () => controller.abort();
   }, []);
 
-  const filterFields = useMemo<FilterField[]>(
-    () => [
-      {
-        key: "assignedAgent",
-        label: "Assigned",
-        type: "multi",
-        options: options.agents,
-      },
-      {
-        key: "status",
-        label: "Lead Status",
-        type: "multi",
-        options: options.statuses,
-      },
-      {
-        key: "pipeline",
-        label: "Lead Pipeline",
-        type: "multi",
-        options: options.pipelines,
-      },
-    ],
-    [options],
+  const [search, setSearch] = useState("");
+  const [activeFilters, setActiveFilters] = useState<ActivityFilterState>(
+    EMPTY_ACTIVITY_FILTERS,
   );
-
-  const filters = useFilters(filterFields);
   const manageColumns = useDisclosure();
   const addFollowUp = useDisclosure();
 
   // The box tracks the live value; only the value that drives the fetch waits.
-  const debouncedSearch = useDebouncedValue(
-    filters.state.search,
-    SEARCH_DEBOUNCE_MS,
-  );
+  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const query = useMemo<ActivitiesQuery>(() => {
-    const pick = (key: string) => {
-      const condition = filters.state.conditions.find((c) => c.key === key);
-      return Array.isArray(condition?.value) && condition.value.length > 0
-        ? (condition.value as string[])
-        : undefined;
-    };
+    const { windows, from, to, type, assignedAgent } = activeFilters;
+    // The wider window edges only matter when their checkbox is ticked, so they are
+    // computed here and spread in only for the ticked ones — an unticked window
+    // sends nothing and the request URL stays as small as the selection.
+    const edges = windowEdges();
+    const needs = (window: ActivityDateWindow) => windows.includes(window);
     return {
       bucket,
       page,
       size,
       ...boundaries,
       search: debouncedSearch.trim() || undefined,
-      assignedAgent: pick("assignedAgent"),
-      status: pick("status"),
-      pipeline: pick("pipeline"),
+      assignedAgent: assignedAgent ? [assignedAgent] : undefined,
+      type: type ? [type] : undefined,
+      dateWindow: windows.length > 0 ? windows : undefined,
+      ...(needs("yesterday")
+        ? { yesterdayStart: edges.yesterdayStart }
+        : undefined),
+      ...(needs("thisWeek")
+        ? { weekStart: edges.weekStart, weekEnd: edges.weekEnd }
+        : undefined),
+      ...(needs("thisMonth")
+        ? { monthStart: edges.monthStart, monthEnd: edges.monthEnd }
+        : undefined),
+      dueFrom: from ? startOfDay(from).toISOString() : undefined,
+      // `To` is inclusive of the chosen day, and the server compares `< dueTo`, so
+      // send the start of the following day.
+      dueTo: to ? nextDay(to).toISOString() : undefined,
     };
-  }, [
-    bucket,
-    page,
-    size,
-    boundaries,
-    debouncedSearch,
-    filters.state.conditions,
-  ]);
+  }, [bucket, page, size, boundaries, debouncedSearch, activeFilters]);
 
   const { rows, total, counts, isLoading, isError, refetch } =
     useActivitiesList(query);
@@ -201,6 +215,11 @@ export function ActivitiesListView() {
   );
   const [bulkBusy, setBulkBusy] = useState(false);
   const [emailTarget, setEmailTarget] = useState<ActivityListItem | null>(null);
+  // The activity whose lead the WhatsApp composer is open for (the same drawer the
+  // Leads row action opens — see the drawer render below).
+  const [whatsappTarget, setWhatsappTarget] = useState<ActivityListItem | null>(
+    null,
+  );
   // The lead whose activity timeline the ↗ beside its name opened.
   const [timelineLead, setTimelineLead] = useState<LeadListItem | null>(null);
 
@@ -465,10 +484,20 @@ export function ActivitiesListView() {
     [],
   );
 
+  const defaultHidden = useMemo(
+    () =>
+      manageableColumns
+        .map((column) => column.key)
+        .filter((key) => !DEFAULT_VISIBLE_COLUMNS.includes(key)),
+    [manageableColumns],
+  );
+
   const [columnOrder, setColumnOrder] = useState<string[]>(() =>
     manageableColumns.map((column) => column.key),
   );
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(
+    () => defaultHidden,
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -477,6 +506,7 @@ export function ActivitiesListView() {
         const layout = reconcileLayout(
           saved,
           manageableColumns.map((column) => column.key),
+          defaultHidden,
         );
         setColumnOrder(layout.order);
         setHiddenColumns(layout.hidden);
@@ -486,7 +516,7 @@ export function ActivitiesListView() {
           return;
       });
     return () => controller.abort();
-  }, [manageableColumns]);
+  }, [manageableColumns, defaultHidden]);
 
   const visibleColumns = useMemo(() => {
     const byKey = new Map(
@@ -518,6 +548,7 @@ export function ActivitiesListView() {
         onRequestEdit: setEditTarget,
         onRequestDelete: setDeleteTarget,
         onRequestEmail: setEmailTarget,
+        onRequestWhatsapp: setWhatsappTarget,
         onRequestTimeline: (row) => setTimelineLead(row.lead),
         onSaveDueDate: (row, dueAt) => void handleSaveDueDate(row, dueAt),
         overdueBefore: boundaries.todayStart,
@@ -587,24 +618,20 @@ export function ActivitiesListView() {
       toolbarActions={
         <>
           <ToolbarSearch
-            value={filters.state.search}
+            value={search}
             onChange={(value) => {
-              filters.setSearch(value);
+              setSearch(value);
               setPage(1);
             }}
             placeholder="Search name or title"
           />
-          <FilterPanel
-            fields={filterFields}
-            activeCount={filters.activeCount}
-            valueOf={filters.valueOf}
-            onChange={(key, value) => {
-              filters.setCondition(key, value);
+          <ActivityFilterPanel
+            value={activeFilters}
+            agents={options.agents}
+            onApply={(next) => {
+              setActiveFilters(next);
               setPage(1);
-            }}
-            onClear={() => {
-              filters.clearAll();
-              setPage(1);
+              setSelectedIds(new Set());
             }}
           />
           <button
@@ -719,6 +746,31 @@ export function ActivitiesListView() {
           onSent={() => {
             setEmailTarget(null);
             toast({ title: "Email sent", tone: "success" });
+          }}
+        />
+      )}
+
+      {/* The lead's WhatsApp composer, reused from the Leads row action (LEAD-10.2):
+          the same drawer, the same template list and the same `wa.me` hand-off, so the
+          worklist gains the composer rather than a second WhatsApp implementation. The
+          recipient prefills from the linked lead's own primary phone. */}
+      {whatsappTarget && (
+        <LeadWhatsappDrawer
+          open
+          lead={whatsappTarget.lead}
+          onClose={() => setWhatsappTarget(null)}
+          onSend={({ phone, message }) => {
+            // The same hand-off the Leads row uses: the composer's Send opens the
+            // existing wa.me deep-link with the composed template prefilled.
+            const base = whatsappUrl(phone);
+            if (base) {
+              window.open(
+                `${base}?text=${encodeURIComponent(message)}`,
+                "_blank",
+                "noopener,noreferrer",
+              );
+            }
+            setWhatsappTarget(null);
           }}
         />
       )}

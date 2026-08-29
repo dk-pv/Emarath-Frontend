@@ -27,6 +27,7 @@ import { FilterPanel } from "@/components/filters/filter-panel";
 import { ManageColumns } from "@/components/table/manage-columns";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
@@ -420,7 +421,7 @@ export function NoActivityLeadsReport({
         : "empty";
 
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1 empty:hidden">
       <ReportToolbarSelect
         label="Sales Agent"
         icon={IconUser}
@@ -467,6 +468,7 @@ export function NoActivityLeadsReport({
         }
       />
       <FilterPanel
+        portal
         fields={filterFields}
         activeCount={sourceValues.length > 0 ? 1 : 0}
         valueOf={() => sourceValues}
@@ -492,15 +494,21 @@ export function NoActivityLeadsReport({
         setParams({ view: mode === "summary" ? null : mode });
         resetPage();
       }}
-      filterBar={filterBar}
+      // The reference keeps every control in one right-aligned cluster, so the filters
+      // ride in `toolbarActions` (which renders there) rather than the left-hand
+      // `filterBar` slot. Report-local: the shell and the other reports are untouched.
       toolbarActions={
-        view === "detailed" ? (
-          <ManageColumns
-            columns={DETAILED_COLUMNS}
-            prefs={prefs}
-            onChange={setPrefs}
-          />
-        ) : null
+        <>
+          {filterBar}
+          {view === "detailed" && (
+            <ManageColumns
+              columns={DETAILED_COLUMNS}
+              prefs={prefs}
+              onChange={setPrefs}
+              triggerClassName={TOOLBAR_BUTTON_CLASS}
+            />
+          )}
+        </>
       }
       trailingActions={<ReportMoreMenu />}
       onExport={() => downloadNoActivityExport(filters)}

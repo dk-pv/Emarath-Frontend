@@ -72,6 +72,8 @@ export function ReportToolbarSelect({
   return (
     <Popover
       align="end"
+      portal
+      triggerClassName="rounded-control"
       trigger={
         <span className={cn(TOOLBAR_BUTTON_CLASS, "relative")}>
           <Glyph size={18} stroke={1.75} aria-hidden="true" />
@@ -85,7 +87,7 @@ export function ReportToolbarSelect({
         </span>
       }
     >
-      <div className="flex w-64 max-w-[90vw] flex-col">
+      <div className="flex w-max min-w-64 max-w-full flex-col">
         {searchable && (
           <div className="border-b border-hairline p-2">
             <PanelSearch
@@ -96,7 +98,7 @@ export function ReportToolbarSelect({
           </div>
         )}
 
-        <div className="scrollbar-slim max-h-64 overflow-y-auto py-1">
+        <div className="scrollbar-slim overflow-y-auto py-1">
           {clearLabel && !multiple && (
             <button
               type="button"
@@ -132,7 +134,9 @@ export function ReportToolbarSelect({
                     tabIndex={-1}
                   />
                 )}
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                <span className="min-w-0 flex-1 whitespace-nowrap">
+                  {option.label}
+                </span>
               </button>
             ))
           )}

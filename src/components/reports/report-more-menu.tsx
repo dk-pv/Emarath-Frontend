@@ -46,7 +46,7 @@ export function ReportMoreMenu() {
   ];
 
   return (
-    <Tooltip content="More">
+    <Tooltip content="More" portal>
       <Dropdown
         align="end"
         items={items}

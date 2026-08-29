@@ -6,6 +6,7 @@ import { IconArrowLeft, IconArrowRight, IconAt } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
+import { EMAIL_PATTERN } from "@/lib/validation";
 import { requestPasswordReset } from "@/services/auth-service";
 
 /**

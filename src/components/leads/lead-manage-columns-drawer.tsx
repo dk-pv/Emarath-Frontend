@@ -16,6 +16,16 @@ type LeadManageColumnsDrawerProps = {
   hidden: readonly string[];
   onClose: () => void;
   onApply: (order: string[], hidden: string[]) => void;
+  /** Panel title — the Lead Detail panel calls the same drawer "Manage Fields". */
+  title?: string;
+  searchPlaceholder?: string;
+  /**
+   * Keys that must always stay visible: their checkbox renders checked and disabled,
+   * so an identifier field cannot be switched off (Customer Name, Primary Phone).
+   */
+  lockedKeys?: readonly string[];
+  /** The Leads table offers "Reset to default"; the field panel does not. */
+  showReset?: boolean;
 };
 
 /**
@@ -37,7 +47,12 @@ export function LeadManageColumnsDrawer({
   hidden,
   onClose,
   onApply,
+  title = "Manage Columns",
+  searchPlaceholder = "Search columns",
+  lockedKeys,
+  showReset = true,
 }: LeadManageColumnsDrawerProps) {
+  const locked = useMemo(() => new Set(lockedKeys ?? []), [lockedKeys]);
   const labelOf = useMemo(
     () => new Map(columns.map((column) => [column.key, column.label])),
     [columns],
@@ -92,12 +107,16 @@ export function LeadManageColumnsDrawer({
     <Drawer
       open={open}
       onClose={onClose}
-      title="Manage Columns"
+      title={title}
       footer={
         <div className="flex w-full items-center justify-between">
-          <Button variant="ghost" onClick={resetToDefault}>
-            Reset to default
-          </Button>
+          {showReset ? (
+            <Button variant="ghost" onClick={resetToDefault}>
+              Reset to default
+            </Button>
+          ) : (
+            <span />
+          )}
           <div className="flex items-center gap-3">
             <Button variant="ghost" onClick={onClose}>
               Cancel
@@ -119,14 +138,14 @@ export function LeadManageColumnsDrawer({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search columns"
-          aria-label="Search columns"
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
           className="focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface px-field-x text-sm text-ink"
         />
       </div>
       {shown.length === 0 ? (
         <p className="px-1 py-6 text-center text-sm text-ink-subtle">
-          No columns match “{query.trim()}”.
+          Nothing matches “{query.trim()}”.
         </p>
       ) : (
         <ul className="flex flex-col">
@@ -152,8 +171,11 @@ export function LeadManageColumnsDrawer({
                 className="shrink-0 cursor-grab text-ink-subtle"
               />
               <Checkbox
-                checked={!draftHidden.has(key)}
-                onChange={() => toggle(key)}
+                checked={locked.has(key) || !draftHidden.has(key)}
+                disabled={locked.has(key)}
+                onChange={() => {
+                  if (!locked.has(key)) toggle(key);
+                }}
                 aria-label={labelOf.get(key) ?? key}
               />
               <span className="text-sm text-ink">

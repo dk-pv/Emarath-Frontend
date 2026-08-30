@@ -33,6 +33,12 @@ export interface LeadsByStatusFilters {
   /** Creation-window lower bound — an ISO instant, derived from the selected period preset. */
   from?: string;
   team?: string[];
+  /** Assigned-agent user ids (toolbar "Sales Agent"). */
+  agent?: string[];
+  /** Lead status names (toolbar "Lead Status"). */
+  status?: string[];
+  /** One exact board name (toolbar "Pipeline"). */
+  pipeline?: string;
 }
 
 /**
@@ -59,7 +65,11 @@ export const DEFAULT_PERIOD_KEY = "any";
 export function periodFrom(days: number | null): string | undefined {
   if (days == null) return undefined;
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - days,
+  );
   return start.toISOString();
 }
 
@@ -68,7 +78,10 @@ function appendFilters(
   filters: LeadsByStatusFilters,
 ): void {
   if (filters.from) params.set("from", filters.from);
+  if (filters.pipeline) params.set("pipeline", filters.pipeline);
   for (const team of filters.team ?? []) params.append("team", team);
+  for (const agent of filters.agent ?? []) params.append("agent", agent);
+  for (const status of filters.status ?? []) params.append("status", status);
 }
 
 /** One scoped page of leads with their status (detailed view). */

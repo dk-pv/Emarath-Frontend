@@ -4,13 +4,30 @@ import { LeadNameCell } from "@/components/leads/lead-name-cell";
 import { LeadRowActions } from "@/components/leads/lead-row-actions";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
-import { formatAED, formatDateTime, initialsOf } from "@/lib/format";
+import {
+  formatAED,
+  formatDate,
+  formatDateTime,
+  initialsOf,
+} from "@/lib/format";
 import type { LeadListItem } from "@/services/leads-service";
 import type { TableColumn } from "@/types";
 
 /** Muted em dash for any empty cell, so a blank never reads as a layout gap. */
 function orDash(value: string | null) {
   return value ? value : <span className="text-ink-subtle">—</span>;
+}
+
+/** A Decimal quantity as Workpex prints it ("1.00"); an absent one dashes. */
+function formatQty(value: string | null) {
+  if (value === null) return <span className="text-ink-subtle">—</span>;
+  const qty = Number(value);
+  return Number.isNaN(qty) ? value : qty.toFixed(2);
+}
+
+/** dd-mm-yyyy for a date-only or instant field; an absent one dashes. */
+function formatDay(value: string | null) {
+  return value ? formatDate(value) : <span className="text-ink-subtle">—</span>;
 }
 
 function AssignedAgents({
@@ -55,8 +72,11 @@ function AssignedAgents({
 const STICKY_FIRST = "sticky left-0 z-10 bg-surface group-hover:bg-canvas";
 
 /**
- * The Leads list columns in Workpex's default left-to-right order, built from the
- * fields LEAD-02.1 returns.
+ * The Leads list columns in Workpex's full left-to-right order (LEAD-02.2), built
+ * from the fields the list endpoint returns. Every column here is a real field —
+ * the three order fields, payment, national code, the latest complaint and the
+ * assignment date all ride the list projection now, so none of them dashes for want
+ * of data.
  *
  * None are sortable: Workpex's list headers are plain text and sorting is done
  * through a separate toolbar control (LEAD-03.3), so clickable-header sorting is
@@ -97,9 +117,7 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
   },
   { key: "country", header: "Country", render: (row) => orDash(row.country) },
   {
-    // Workpex places Lead Pipeline between Country and First Name
-    // (leads-list-default-scroll-left-…png). Every lead carries a pipeline, so it
-    // never dashes.
+    // Every lead carries a pipeline, so it never dashes.
     key: "pipeline",
     header: "Lead Pipeline",
     render: (row) => row.pipeline,
@@ -120,9 +138,67 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     render: (row) => orDash(row.secondaryPhone),
   },
   {
+    key: "complaints",
+    header: "COMPLAINTS",
+    render: (row) => orDash(row.complaintReason),
+  },
+  {
     key: "language",
     header: "Language",
     render: (row) => orDash(row.language),
+  },
+  {
+    key: "assignedDate",
+    header: "Assigned Date",
+    render: (row) => formatDay(row.assignedDate),
+  },
+  { key: "product", header: "Product", render: (row) => orDash(row.product) },
+  {
+    key: "productQty",
+    header: "QTY",
+    align: "right",
+    render: (row) => formatQty(row.productQty),
+  },
+  {
+    key: "product2",
+    header: "Product 2",
+    render: (row) => orDash(row.product2),
+  },
+  {
+    key: "product2Qty",
+    header: "QTY OF PRODUCT 2",
+    align: "right",
+    render: (row) => formatQty(row.product2Qty),
+  },
+  {
+    key: "callStatus",
+    header: "Call Status",
+    render: (row) => orDash(row.callStatus),
+  },
+  {
+    key: "callAttempts",
+    header: "NO. OF CALL ATTEMPTS",
+    align: "right",
+    render: (row) => row.callAttempts.toLocaleString("en-US"),
+  },
+  {
+    key: "whatsappAttempts",
+    header: "NO. OF MSG ATTEMPTS",
+    align: "right",
+    render: (row) => row.whatsappAttempts.toLocaleString("en-US"),
+  },
+  { key: "state", header: "State", render: (row) => orDash(row.state) },
+  { key: "street", header: "Street", render: (row) => orDash(row.street) },
+  { key: "city", header: "City", render: (row) => orDash(row.city) },
+  {
+    key: "nationalCode",
+    header: "National Code",
+    render: (row) => orDash(row.nationalCode),
+  },
+  {
+    key: "bookingDate",
+    header: "BOOKING DATE",
+    render: (row) => formatDay(row.bookingDate),
   },
   {
     key: "category",
@@ -142,9 +218,9 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     render: (row) => formatAED(row.forecastedAmount),
   },
   {
-    key: "callStatus",
-    header: "Call Status",
-    render: (row) => orDash(row.callStatus),
+    key: "paymentMethod",
+    header: "Payment Method",
+    render: (row) => orDash(row.paymentMethod),
   },
   {
     // The row action icons sit in the last column in Workpex (LEAD-10.2), always

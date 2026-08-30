@@ -24,6 +24,8 @@ export interface StageColorClasses {
   tint: string;
   /** Board card border (KAN-03.1). */
   cardBorder: string;
+  /** Text colour matching `swatch`, for an SVG arc drawn with `stroke="currentColor"`. */
+  arc: string;
 }
 
 /**
@@ -56,78 +58,91 @@ export interface StageColorClasses {
  */
 const PALETTE: Record<string, StageColorClasses> = {
   violet: {
+    arc: "text-violet-500",
     badge: "bg-violet-400 text-violet-950",
     swatch: "bg-violet-500",
     tint: "bg-violet-200 border-violet-300",
     cardBorder: "border-violet-400",
   },
   cyan: {
+    arc: "text-cyan-500",
     badge: "bg-cyan-300 text-cyan-900",
     swatch: "bg-cyan-500",
     tint: "bg-cyan-200 border-cyan-300",
     cardBorder: "border-cyan-400",
   },
   slate: {
+    arc: "text-slate-600",
     badge: "bg-slate-600 text-white",
     swatch: "bg-slate-600",
     tint: "bg-slate-300 border-slate-400",
     cardBorder: "border-slate-700",
   },
   amber: {
+    arc: "text-amber-500",
     badge: "bg-amber-300 text-amber-900",
     swatch: "bg-amber-500",
     tint: "bg-amber-100 border-amber-200",
     cardBorder: "border-amber-300",
   },
   sky: {
+    arc: "text-sky-500",
     badge: "bg-sky-300 text-sky-900",
     swatch: "bg-sky-500",
     tint: "bg-sky-100 border-sky-200",
     cardBorder: "border-sky-300",
   },
   yellow: {
+    arc: "text-yellow-400",
     badge: "bg-yellow-300 text-yellow-900",
     swatch: "bg-yellow-400",
     tint: "bg-yellow-100 border-yellow-200",
     cardBorder: "border-yellow-200",
   },
   purple: {
+    arc: "text-purple-600",
     badge: "bg-purple-600 text-white",
     swatch: "bg-purple-600",
     tint: "bg-purple-100 border-purple-200",
     cardBorder: "border-purple-400",
   },
   teal: {
+    arc: "text-teal-400",
     badge: "bg-teal-300 text-teal-900",
     swatch: "bg-teal-400",
     tint: "bg-teal-100 border-teal-200",
     cardBorder: "border-teal-400",
   },
   rose: {
+    arc: "text-rose-400",
     badge: "bg-rose-300 text-rose-900",
     swatch: "bg-rose-400",
     tint: "bg-rose-100 border-rose-200",
     cardBorder: "border-rose-300",
   },
   blue: {
+    arc: "text-blue-600",
     badge: "bg-blue-600 text-white",
     swatch: "bg-blue-600",
     tint: "bg-blue-200 border-blue-300",
     cardBorder: "border-blue-700",
   },
   red: {
+    arc: "text-red-500",
     badge: "bg-red-300 text-red-900",
     swatch: "bg-red-500",
     tint: "bg-red-200 border-red-300",
     cardBorder: "border-red-400",
   },
   gray: {
+    arc: "text-gray-400",
     badge: "bg-gray-200 text-gray-700",
     swatch: "bg-gray-400",
     tint: "bg-gray-200 border-gray-300",
     cardBorder: "border-gray-400",
   },
   lime: {
+    arc: "text-lime-500",
     badge: "bg-lime-500 text-lime-950",
     swatch: "bg-lime-500",
     tint: "bg-lime-100 border-lime-200",
@@ -137,6 +152,7 @@ const PALETTE: Record<string, StageColorClasses> = {
 
 /** Unknown or unset colour: a neutral treatment, never a guessed hue. */
 const NEUTRAL: StageColorClasses = {
+  arc: "text-slate-300",
   badge: "bg-canvas text-ink-muted",
   swatch: "bg-slate-300",
   tint: "bg-canvas border-hairline",

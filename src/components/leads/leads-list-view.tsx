@@ -121,7 +121,12 @@ const NO_FILTER_FIELDS: FilterField[] = [];
  * Search is debounced so a 15,000+ row query does not run per keystroke, while
  * the box stays controlled by the live value.
  */
-export function LeadsListView() {
+export function LeadsListView({
+  initialStatus = null,
+}: {
+  /** A Lead Status to arrive filtered by (the `?status=` deep link); null for the plain list. */
+  initialStatus?: string | null;
+} = {}) {
   const { user } = useAuth();
   // Reassignment is a managers-and-admins tool (AUTH-02.2); hide its triggers otherwise.
   // The backend @Roles() gate is the real block — this just keeps the UI honest.
@@ -161,7 +166,21 @@ export function LeadsListView() {
   // Applying resets to page 1 through a ref, since `list` is created below from it.
   const resetPageRef = useRef<() => void>(() => {});
   const onFilterApplied = useCallback(() => resetPageRef.current(), []);
-  const advancedFilter = useAdvancedFilter({ onApplied: onFilterApplied });
+  // The deep link's status becomes one applied builder condition, so the Filter badge
+  // reads "1", the builder shows the row, and Clear All removes it like any other.
+  const initialConditions = useMemo(
+    () =>
+      initialStatus
+        ? JSON.stringify([
+            { field: "status", operator: "is", values: [initialStatus] },
+          ])
+        : undefined,
+    [initialStatus],
+  );
+  const advancedFilter = useAdvancedFilter({
+    onApplied: onFilterApplied,
+    initialConditions,
+  });
 
   // The box tracks the live value; only the value that drives the fetch waits.
   const debouncedSearch = useDebouncedValue(

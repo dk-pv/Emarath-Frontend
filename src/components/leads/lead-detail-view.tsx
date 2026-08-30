@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconArrowLeft, IconLoader2, IconUserOff } from "@tabler/icons-react";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -16,21 +16,48 @@ import {
   LeadDetailSection,
   type LeadDetailRow,
 } from "@/components/leads/lead-detail-section";
+import { LeadAddFileDrawer } from "@/components/leads/lead-add-file-drawer";
 import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
+import { LeadFollowUpFormDrawer } from "@/components/leads/lead-followup-form-drawer";
+import { LeadManageColumnsDrawer } from "@/components/leads/lead-manage-columns-drawer";
+import { LeadTimelineDrawer } from "@/components/leads/lead-timeline-drawer";
+import {
+  DEFAULT_HIDDEN_FIELD_KEYS,
+  LEAD_DETAIL_FIELDS,
+  LEAD_DETAIL_FIELDS_VIEW_KEY,
+  LOCKED_FIELD_KEYS,
+  customFieldEntries,
+  type LeadDetailField,
+} from "@/components/leads/lead-detail-fields";
+import { fetchLeadCustomFields } from "@/services/leads-custom-fields-service";
+import {
+  fetchColumnLayout,
+  reconcileLayout,
+  saveColumnLayout,
+  type ColumnLayout,
+} from "@/services/view-preferences-service";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
 import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
+import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
 import { ApiError } from "@/lib/api-client";
 import { whatsappUrl } from "@/lib/whatsapp";
 import {
   fetchLead,
+  fetchLeadActivities,
   fetchLeadForEdit,
   fetchLeadTimeline,
+  type LeadActivity,
   type LeadEditData,
   type LeadListItem,
   type LeadTimelineEvent,
 } from "@/services/leads-service";
-import { deleteLead } from "@/services/leads-row-actions-service";
+import {
+  changeLeadPipeline,
+  deleteLead,
+  setLeadStatus,
+} from "@/services/leads-row-actions-service";
+import { addLeadTag } from "@/services/leads-tags-service";
 import { formatDateTime, initialsOf } from "@/lib/format";
 
 /** Workpex's shared empty copy, identical under every Details section. */
@@ -85,7 +112,14 @@ const CALL_COLUMNS = [
  * (the shared New Lead form in edit mode), Delete, Add Note — with no duplicate
  * implementations. Notes come from the same `GET /leads/:id/timeline` the drawer uses.
  */
-export function LeadDetailView({ id }: { id: string }) {
+export function LeadDetailView({
+  id,
+  from = null,
+}: {
+  id: string;
+  /** Which list opened this lead; Today Leads asks for the Tags section to be omitted. */
+  from?: string | null;
+}) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -101,6 +135,25 @@ export function LeadDetailView({ id }: { id: string }) {
     id: string;
     kind: "not-found" | "error";
   } | null>(null);
+
+  const [followUpsRefresh, setFollowUpsRefresh] = useState(0);
+  const followUpsKey = `${id}:${followUpsRefresh}`;
+  const [followUpsLoaded, setFollowUpsLoaded] = useState<{
+    key: string;
+    activities: LeadActivity[];
+  } | null>(null);
+  const [followUpsFailedKey, setFollowUpsFailedKey] = useState<string | null>(
+    null,
+  );
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [addFileOpen, setAddFileOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [manageFieldsOpen, setManageFieldsOpen] = useState(false);
+  const [addingTag, setAddingTag] = useState(false);
+  const [customFields, setCustomFields] = useState<
+    { key: string; name: string }[]
+  >([]);
+  const [fieldLayout, setFieldLayout] = useState<ColumnLayout | null>(null);
 
   const [notesRefresh, setNotesRefresh] = useState(0);
   const notesKey = `${id}:${notesRefresh}`;
@@ -118,6 +171,8 @@ export function LeadDetailView({ id }: { id: string }) {
   const [editPending, setEditPending] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -161,9 +216,86 @@ export function LeadDetailView({ id }: { id: string }) {
     };
   }, [id, notesKey]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    fetchLeadActivities(id, controller.signal)
+      .then((activities) => {
+        if (active) setFollowUpsLoaded({ key: followUpsKey, activities });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        setFollowUpsFailedKey(followUpsKey);
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [id, followUpsKey]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    Promise.all([
+      fetchLeadCustomFields(controller.signal).catch(() => []),
+      fetchColumnLayout(LEAD_DETAIL_FIELDS_VIEW_KEY, controller.signal).catch(
+        () => null,
+      ),
+    ]).then(([fields, saved]) => {
+      if (!active) return;
+      setCustomFields(fields.map((f) => ({ key: f.key, name: f.name })));
+      const keys = [
+        ...LEAD_DETAIL_FIELDS.map((f) => f.key),
+        ...fields.map((f) => f.key),
+      ];
+      // No saved layout yet → the panel's documented default set, not "everything".
+      setFieldLayout(
+        saved
+          ? reconcileLayout(saved, keys)
+          : {
+              order: keys,
+              hidden: [
+                ...DEFAULT_HIDDEN_FIELD_KEYS,
+                ...fields.map((f) => f.key),
+              ],
+            },
+      );
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  /** Every selectable field: the standard set plus this org's custom columns. */
+  const allFields: LeadDetailField[] = useMemo(
+    () => [...LEAD_DETAIL_FIELDS, ...customFieldEntries(customFields)],
+    [customFields],
+  );
+
+  /** What Basic Info renders: the saved order, minus the hidden ones. */
+  const visibleFields = useMemo(() => {
+    if (!fieldLayout) {
+      const hidden = new Set<string>(DEFAULT_HIDDEN_FIELD_KEYS);
+      return allFields.filter((field) => !hidden.has(field.key));
+    }
+    const hidden = new Set(fieldLayout.hidden);
+    const byKey = new Map(allFields.map((field) => [field.key, field]));
+    return fieldLayout.order
+      .filter((key) => !hidden.has(key))
+      .map((key) => byKey.get(key))
+      .filter((field): field is LeadDetailField => field !== undefined);
+  }, [fieldLayout, allFields]);
+
   const lead = loaded?.id === id ? loaded.lead : null;
   const failure = failed?.id === id ? failed.kind : null;
   const isLoading = !lead && !failure;
+
+  const followUps =
+    followUpsLoaded?.key === followUpsKey ? followUpsLoaded.activities : null;
+  const followUpsErrored = followUpsFailedKey === followUpsKey;
 
   const notesEvents = notesLoaded?.key === notesKey ? notesLoaded.events : null;
   const notesErrored = notesFailedKey === notesKey;
@@ -285,6 +417,71 @@ export function LeadDetailView({ id }: { id: string }) {
     }
   };
 
+  /** Convert = set the lead's status to WON (ADR-0048), the Leads list' own flow. */
+  const confirmConvert = async () => {
+    setConvertOpen(false);
+    setConverting(true);
+    try {
+      const updated = await setLeadStatus(lead.id, CONVERTED_STATUS);
+      setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+      toast({ title: `${lead.name} converted`, tone: "success" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t convert lead",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  /** Moving board lands the lead on the target pipeline's first stage (server rule). */
+  const selectPipeline = async (pipeline: string) => {
+    try {
+      const updated = await changeLeadPipeline(lead.id, pipeline);
+      setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+      toast({ title: `Moved to ${pipeline}`, tone: "success" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t change pipeline",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
+    }
+  };
+
+  /**
+   * Attaching a file to a lead needs a per-lead attachment endpoint, which the backend
+   * does not have yet: `Lead` has no document relation and there is no
+   * `POST /leads/:id/documents`. Rather than upload into the global Documents module —
+   * where the file would not appear in this lead's File Attachments — the drawer reports
+   * the gap and keeps what the user entered.
+   */
+  const attachFile = () => {
+    throw new Error(
+      "Lead file attachments need a backend endpoint that doesn’t exist yet.",
+    );
+  };
+
+  /** Applies one catalogue tag to the lead (LEAD-12.1), refreshing the panel in place. */
+  const addTag = async (tagId: string) => {
+    setAddingTag(true);
+    try {
+      const updated = await addLeadTag(lead.id, tagId);
+      setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+      toast({ title: "Tag added", tone: "success" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t add the tag",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
+    } finally {
+      setAddingTag(false);
+    }
+  };
+
   const sendWhatsapp = ({
     phone,
     message,
@@ -304,8 +501,11 @@ export function LeadDetailView({ id }: { id: string }) {
   };
 
   return (
-    <PageContainer>
-      <div className="flex items-center gap-2">
+    // At lg+ the page is exactly the content area's height, so `main` never scrolls and
+    // Basic Info stays put — only the Details region below scrolls. Below lg the columns
+    // stack and the page scrolls normally, unchanged.
+    <PageContainer className="lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 items-center gap-2">
         {back}
         <h1 className="truncate text-lg font-semibold text-ink">{lead.name}</h1>
         {editPending && (
@@ -317,75 +517,113 @@ export function LeadDetailView({ id }: { id: string }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,20rem)_1fr]">
         <LeadDetailBasicInfo
+          // Stretches to the row as before; scrolls inside itself only when the panel is
+          // taller than the viewport, so its footer is always reachable.
+          className="scrollbar-slim lg:min-h-0 lg:overflow-y-auto"
           lead={lead}
+          converting={converting}
+          timelineOpen={timelineOpen}
+          fields={visibleFields}
+          showTags={from !== "today-leads"}
+          addingTag={addingTag}
           actions={{
             onWhatsapp: () => setWaOpen(true),
             onEmail: () => setEmailOpen(true),
             onEdit: () => void openEdit(),
             onDelete: () => setDeleteOpen(true),
+            onTimeline: () => setTimelineOpen(true),
+            onManageFields: () => setManageFieldsOpen(true),
+            // The reference shows the tag control on the Today Leads page; other
+            // entry points keep the panel exactly as it was.
+            onAddTag:
+              from === "today-leads"
+                ? (tagId: string) => void addTag(tagId)
+                : undefined,
+            onConvert: () => setConvertOpen(true),
+            onSelectPipeline: (pipeline) => void selectPipeline(pipeline),
           }}
         />
 
-        <div className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold text-ink">Details</h2>
+        <div className="flex min-w-0 flex-col lg:min-h-0">
+          {/* The reference frames the right column with a folder-style tab sitting on
+              top of the panel, rather than a plain heading above it. */}
+          <div className="flex shrink-0">
+            <h2 className="rounded-t-surface border border-b-0 border-hairline bg-canvas px-6 py-2.5 text-sm font-semibold text-ink">
+              Details
+            </h2>
+          </div>
+          <div className="scrollbar-slim flex flex-col gap-4 rounded-surface rounded-tl-none border border-hairline bg-surface p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <LeadDetailSection
+              title="File Attachments"
+              columns={ATTACHMENT_COLUMNS}
+              rows={[]}
+              emptyDescription={EMPTY}
+              pageSize={3}
+              action={
+                <LeadDetailAddButton
+                  label="Add File"
+                  onClick={() => setAddFileOpen(true)}
+                />
+              }
+            />
 
-          <LeadDetailSection
-            title="File Attachments"
-            columns={ATTACHMENT_COLUMNS}
-            rows={[]}
-            emptyDescription={EMPTY}
-            action={
-              <LeadDetailAddButton
-                label="Add attachment"
-                disabled
-                tooltip="File uploads aren’t available yet"
-              />
-            }
-          />
+            <LeadDetailSection
+              title="Notes"
+              columns={NOTE_COLUMNS}
+              rows={noteRows}
+              emptyDescription={EMPTY}
+              pageSize={3}
+              loading={notesEvents === null && !notesErrored}
+              errored={notesErrored}
+              onRetry={() => {
+                setNotesFailedKey(null);
+                setNotesRefresh((token) => token + 1);
+              }}
+              action={
+                <LeadDetailAddButton
+                  label="Add Note"
+                  onClick={() => setNoteOpen(true)}
+                />
+              }
+            />
 
-          <LeadDetailSection
-            title="Notes"
-            columns={NOTE_COLUMNS}
-            rows={noteRows}
-            emptyDescription={EMPTY}
-            loading={notesEvents === null && !notesErrored}
-            errored={notesErrored}
-            onRetry={() => {
-              setNotesFailedKey(null);
-              setNotesRefresh((token) => token + 1);
-            }}
-            action={
-              <LeadDetailAddButton
-                label="Add Note"
-                onClick={() => setNoteOpen(true)}
-              />
-            }
-          />
+            <LeadDetailFollowUps
+              activities={followUps ?? []}
+              loading={followUps === null && !followUpsErrored}
+              errored={followUpsErrored}
+              onRetry={() => {
+                setFollowUpsFailedKey(null);
+                setFollowUpsRefresh((token) => token + 1);
+              }}
+              onAdd={() => setFollowUpOpen(true)}
+            />
 
-          <LeadDetailFollowUps />
+            <LeadDetailSection
+              title="Email Log"
+              columns={EMAIL_COLUMNS}
+              rows={[]}
+              emptyDescription={EMPTY}
+              pageSize={3}
+            />
 
-          <LeadDetailSection
-            title="Email Log"
-            columns={EMAIL_COLUMNS}
-            rows={[]}
-            emptyDescription={EMPTY}
-          />
+            <LeadDetailSection
+              title="Whatsapp Log"
+              columns={WHATSAPP_COLUMNS}
+              rows={[]}
+              emptyDescription={EMPTY}
+              pageSize={3}
+            />
 
-          <LeadDetailSection
-            title="Whatsapp Log"
-            columns={WHATSAPP_COLUMNS}
-            rows={[]}
-            emptyDescription={EMPTY}
-          />
-
-          <LeadDetailSection
-            title="Call Log"
-            columns={CALL_COLUMNS}
-            rows={[]}
-            emptyDescription={EMPTY}
-          />
+            <LeadDetailSection
+              title="Call Log"
+              columns={CALL_COLUMNS}
+              rows={[]}
+              emptyDescription={EMPTY}
+              pageSize={3}
+            />
+          </div>
         </div>
       </div>
 
@@ -423,6 +661,66 @@ export function LeadDetailView({ id }: { id: string }) {
         />
       )}
 
+      {manageFieldsOpen && fieldLayout && (
+        <LeadManageColumnsDrawer
+          open
+          title="Manage Fields"
+          searchPlaceholder="Search here..."
+          showReset={false}
+          lockedKeys={LOCKED_FIELD_KEYS}
+          columns={allFields.map((field) => ({
+            key: field.key,
+            label: field.label,
+          }))}
+          order={fieldLayout.order}
+          hidden={fieldLayout.hidden}
+          onClose={() => setManageFieldsOpen(false)}
+          onApply={(order, hidden) => {
+            const next = { order, hidden };
+            setFieldLayout(next);
+            saveColumnLayout(LEAD_DETAIL_FIELDS_VIEW_KEY, next).catch(() => {
+              toast({ title: "Couldn’t save your fields", tone: "danger" });
+            });
+          }}
+        />
+      )}
+
+      {timelineOpen && (
+        <LeadTimelineDrawer
+          open
+          leadName={lead.name}
+          events={notesEvents}
+          errored={notesErrored}
+          onRetry={() => {
+            setNotesFailedKey(null);
+            setNotesRefresh((token) => token + 1);
+          }}
+          onClose={() => setTimelineOpen(false)}
+        />
+      )}
+
+      {addFileOpen && (
+        <LeadAddFileDrawer
+          open
+          onClose={() => setAddFileOpen(false)}
+          onSubmit={attachFile}
+        />
+      )}
+
+      {/* Add New Follow-up (ACT-03.2) — the same drawer the Leads list opens, so the
+          form, its validation and the create call are shared, not duplicated. */}
+      {followUpOpen && (
+        <LeadFollowUpFormDrawer
+          lead={lead}
+          onClose={() => setFollowUpOpen(false)}
+          onCreated={() => {
+            setFollowUpOpen(false);
+            setFollowUpsRefresh((token) => token + 1);
+            toast({ title: "Follow-up added successfully", tone: "success" });
+          }}
+        />
+      )}
+
       {editData && (
         <LeadFormDrawer
           open
@@ -435,6 +733,16 @@ export function LeadDetailView({ id }: { id: string }) {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={convertOpen}
+        onCancel={() => setConvertOpen(false)}
+        onConfirm={() => void confirmConvert()}
+        title="Convert lead"
+        description={`Mark “${lead.name}” as converted? This sets the lead's status to ${CONVERTED_STATUS}.`}
+        confirmLabel="Convert"
+        busy={converting}
+      />
 
       <ConfirmDialog
         open={deleteOpen}

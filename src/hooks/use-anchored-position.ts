@@ -10,6 +10,8 @@ const MARGIN = 8;
 const MIN_SIZE = 140;
 
 export type AnchorAlign = "start" | "end";
+/** Which way the panel grows from its trigger. */
+export type AnchorSide = "top" | "bottom";
 
 /** Just the parts of a DOMRect the placement needs, so the maths can be tested. */
 export type AnchorRect = {
@@ -33,9 +35,21 @@ export function anchoredStyle(
   rect: AnchorRect,
   align: AnchorAlign,
   viewport: Viewport,
+  side: AnchorSide = "bottom",
 ): React.CSSProperties {
-  const top = rect.bottom + TRIGGER_GAP;
-  const maxHeight = Math.max(MIN_SIZE, viewport.height - top - MARGIN);
+  // Opening upward pins the panel's BOTTOM edge above the trigger, so it grows towards
+  // the top of the screen; the room it has is whatever sits above the trigger.
+  const vertical: React.CSSProperties =
+    side === "top"
+      ? { bottom: Math.max(MARGIN, viewport.height - rect.top + TRIGGER_GAP) }
+      : { top: rect.bottom + TRIGGER_GAP };
+  const maxHeight =
+    side === "top"
+      ? Math.max(MIN_SIZE, rect.top - TRIGGER_GAP - MARGIN)
+      : Math.max(
+          MIN_SIZE,
+          viewport.height - (rect.bottom + TRIGGER_GAP) - MARGIN,
+        );
   /** The widest a panel may ever be: the viewport minus a margin either side. */
   const usable = Math.max(MIN_SIZE, viewport.width - MARGIN * 2);
 
@@ -46,26 +60,26 @@ export function anchoredStyle(
     const room = rect.right - MARGIN;
     if (room >= MIN_SIZE) {
       return {
-        top,
+        ...vertical,
         right: Math.max(MARGIN, viewport.width - rect.right),
         maxHeight,
         maxWidth: Math.min(room, usable),
       };
     }
-    return { top, left: MARGIN, maxHeight, maxWidth: usable };
+    return { ...vertical, left: MARGIN, maxHeight, maxWidth: usable };
   }
 
   // Anchored by its left edge, growing rightwards — flipped for a trigger near the right.
   const room = viewport.width - rect.left - MARGIN;
   if (room >= MIN_SIZE) {
     return {
-      top,
+      ...vertical,
       left: Math.max(MARGIN, rect.left),
       maxHeight,
       maxWidth: Math.min(room, usable),
     };
   }
-  return { top, right: MARGIN, maxHeight, maxWidth: usable };
+  return { ...vertical, right: MARGIN, maxHeight, maxWidth: usable };
 }
 
 /** True once the trigger has scrolled out of sight, where a pinned panel floats free. */
@@ -77,6 +91,8 @@ export type AnchoredPositionOptions = {
   enabled: boolean;
   triggerRef: RefObject<HTMLElement | null>;
   align: AnchorAlign;
+  /** Defaults to "bottom" — existing callers are unchanged. */
+  side?: AnchorSide;
   onPosition: (style: React.CSSProperties) => void;
   /** Called when the trigger has left the viewport, so the panel is no longer meaningful. */
   onDetach?: () => void;
@@ -92,6 +108,7 @@ export function useAnchoredPosition({
   enabled,
   triggerRef,
   align,
+  side = "bottom",
   onPosition,
   onDetach,
 }: AnchoredPositionOptions) {
@@ -105,8 +122,8 @@ export function useAnchoredPosition({
       onDetach?.();
       return;
     }
-    onPosition(anchoredStyle(rect, align, viewport));
-  }, [triggerRef, align, onPosition, onDetach]);
+    onPosition(anchoredStyle(rect, align, viewport, side));
+  }, [triggerRef, align, side, onPosition, onDetach]);
 
   useLayoutEffect(() => {
     if (!enabled) return;

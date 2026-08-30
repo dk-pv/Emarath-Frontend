@@ -7,18 +7,32 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
+import {
+  IconCalendar,
+  IconFilter as IconPipeline,
+  IconUser,
+} from "@tabler/icons-react";
 import { findReport } from "./report-registry";
+import { ReportMoreMenu } from "./report-more-menu";
+import { ReportToolbarSelect } from "./report-toolbar-select";
 import {
   ReportShell,
   type ReportState,
   type ReportViewMode,
 } from "./report-shell";
 import { Avatar } from "@/components/ui/Avatar";
-import { MultiSelect } from "@/components/ui/MultiSelect";
 import { Pagination } from "@/components/ui/Pagination";
-import { Select } from "@/components/ui/Select";
 import { Table } from "@/components/ui/Table";
+import { FilterPanel } from "@/components/filters/filter-panel";
+import { ManageColumns } from "@/components/table/manage-columns";
+import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
+import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
+import { useColumnPrefs } from "@/hooks/use-column-prefs";
+import { useLookup } from "@/hooks/use-lookup";
+import { cn } from "@/lib/cn";
+import { formatDate } from "@/lib/format";
+import { stageColorClasses } from "@/lib/stage-palette";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import {
@@ -37,7 +51,7 @@ import {
   type TodayLeadRow,
   type TodayLeadsSummaryRow,
 } from "@/services/today-leads-report-service";
-import type { TableColumn } from "@/types";
+import type { FilterField, TableColumn } from "@/types";
 
 /** Rows differ by view: recently-contacted leads (detailed) or per-agent counts (summary). */
 type Row = TodayLeadRow | TodayLeadsSummaryRow;
@@ -75,23 +89,106 @@ function AssignedCell({ agents }: { agents: TodayLeadsAgentRef[] }) {
   );
 }
 
+/** Remembers this report's column arrangement separately from every other module. */
+const COLUMN_PREFS_MODULE = "reports:today-leads";
+
+/** Muted em dash for an empty cell, so a blank never reads as a layout gap. */
+function orDash(value: string | null) {
+  return value ? value : <span className="text-ink-subtle">—</span>;
+}
+
+/** dd-mm-yyyy, matching the reference's date columns. */
+function DateCell({ iso }: { iso: string | null }) {
+  if (!iso) return <span className="text-ink-subtle">—</span>;
+  return <span>{formatDate(iso)}</span>;
+}
+
+/**
+ * The Lead Status pill, tinted from the Stage catalogue the server resolved — the same
+ * colour source the board and the Leads list read, so a status never looks different here.
+ */
+function StatusBadge({
+  status,
+  color,
+}: {
+  status: string;
+  color: string | null;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        stageColorClasses(color).badge,
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+/**
+ * The detailed view's columns, in the order the report specifies. The engagement counters
+ * and Last Contacted stay available through Manage Columns rather than being dropped —
+ * they are this report's own signal — but start hidden so the visible set is exactly the
+ * twelve specified.
+ */
 const DETAILED_COLUMNS: readonly TableColumn<TodayLeadRow>[] = [
-  { key: "name", header: "Customer Name", render: (row) => row.name },
+  {
+    key: "name",
+    header: "Customer Name",
+    render: (row) => (
+      <CustomerNameLink leadId={row.id} name={row.name} from="today-leads" />
+    ),
+  },
+  {
+    key: "assignedDate",
+    header: "Assigned Date",
+    render: (row) => <DateCell iso={row.assignedDate} />,
+  },
+  {
+    key: "createdAt",
+    header: "Created Date",
+    render: (row) => <DateCell iso={row.createdAt} />,
+  },
   {
     key: "primaryPhone",
     header: "Primary Phone",
     render: (row) => row.primaryPhone,
   },
   {
-    key: "source",
-    header: "Source",
-    render: (row) => row.source ?? <span className="text-ink-subtle">—</span>,
+    key: "firstName",
+    header: "First Name",
+    render: (row) => orDash(row.firstName),
+  },
+  {
+    key: "secondaryPhone",
+    header: "Secondary Phone",
+    render: (row) => orDash(row.secondaryPhone),
   },
   {
     key: "assigned",
     header: "Assigned",
     render: (row) => <AssignedCell agents={row.assignedTo} />,
   },
+  {
+    key: "status",
+    header: "Lead Status",
+    render: (row) => (
+      <StatusBadge status={row.status} color={row.statusColor} />
+    ),
+  },
+  {
+    key: "language",
+    header: "Language",
+    render: (row) => orDash(row.language),
+  },
+  { key: "source", header: "Source", render: (row) => orDash(row.source) },
+  {
+    key: "callStatus",
+    header: "Call Status",
+    render: (row) => orDash(row.callStatus),
+  },
+  { key: "country", header: "Country", render: (row) => orDash(row.country) },
   {
     key: "callAttempts",
     header: "Call Attempts",
@@ -109,6 +206,13 @@ const DETAILED_COLUMNS: readonly TableColumn<TodayLeadRow>[] = [
     header: "Last Contacted",
     render: (row) => <LastContacted iso={row.lastContactedAt} />,
   },
+];
+
+/** Hidden until the user turns them on, so the default table is exactly the twelve. */
+const DEFAULT_HIDDEN_COLUMNS = [
+  "callAttempts",
+  "whatsappAttempts",
+  "lastContactedAt",
 ];
 
 const SUMMARY_COLUMNS: readonly TableColumn<TodayLeadsSummaryRow>[] = [
@@ -161,6 +265,7 @@ export function TodayLeadsReport({
   const periodKey = params.get("period") ?? DEFAULT_PERIOD_KEY;
   const agentKey = params.get("agent") ?? "";
   const sourceKey = params.get("source") ?? "";
+  const pipelineKey = params.get("pipeline") ?? "";
 
   const agentIds = useMemo(
     () => (agentKey ? agentKey.split(",").filter(Boolean) : []),
@@ -171,6 +276,15 @@ export function TodayLeadsReport({
     [sourceKey],
   );
 
+  const pipelineValues = useMemo(
+    () => (pipelineKey ? [pipelineKey] : []),
+    [pipelineKey],
+  );
+  const contactedValues = useMemo(
+    () => (periodKey === DEFAULT_PERIOD_KEY ? [] : [periodKey]),
+    [periodKey],
+  );
+
   const filters: TodayLeadsFilters = useMemo(
     () => ({
       from: periodFrom(
@@ -178,9 +292,13 @@ export function TodayLeadsReport({
       ),
       source: sourceValues,
       agent: agentIds,
+      pipeline: pipelineKey || undefined,
     }),
-    [periodKey, sourceValues, agentIds],
+    [periodKey, sourceValues, agentIds, pipelineKey],
   );
+
+  /** Pipelines come from the shared lookup the New Lead form and the board already use. */
+  const pipelines = useLookup("pipelines");
 
   const dataSource: ListDataSource<Row> = useCallback(
     (listQuery, signal) =>
@@ -221,6 +339,38 @@ export function TodayLeadsReport({
     [params, pathname, router],
   );
 
+  const { prefs, setPrefs, visibleColumns } = useColumnPrefs(
+    COLUMN_PREFS_MODULE,
+    DETAILED_COLUMNS,
+  );
+  // Seed the default arrangement once, so the extra signal columns start hidden without
+  // preventing the user from turning them on and keeping them on.
+  const detailedColumns = useMemo(
+    () =>
+      prefs.order.length === 0 && prefs.hidden.length === 0
+        ? visibleColumns.filter(
+            (column) => !DEFAULT_HIDDEN_COLUMNS.includes(column.key),
+          )
+        : visibleColumns,
+    [prefs, visibleColumns],
+  );
+
+  /** The "Filter" popover carries the filters that have no dedicated toolbar pill. */
+  const filterFields: readonly FilterField[] = useMemo(
+    () => [
+      {
+        key: "source",
+        label: "Source",
+        type: "multi",
+        options: (options?.sources ?? []).map((source) => ({
+          value: source,
+          label: source,
+        })),
+      },
+    ],
+    [options],
+  );
+
   if (!resolved) notFound();
 
   const state: ReportState = isLoading
@@ -232,29 +382,11 @@ export function TodayLeadsReport({
         : "empty";
 
   const filterBar = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="w-56">
-        <Select
-          aria-label="Period"
-          value={periodKey}
-          onChange={(event) => {
-            setParams({
-              period:
-                event.target.value === DEFAULT_PERIOD_KEY
-                  ? null
-                  : event.target.value,
-            });
-            resetPage();
-          }}
-          options={PERIOD_PRESETS.map((preset) => ({
-            label: preset.label,
-            value: preset.key,
-          }))}
-        />
-      </div>
-      <MultiSelect
-        className="w-56"
-        placeholder="Sales Agent"
+    <div className="flex flex-wrap items-center gap-1 empty:hidden">
+      <ReportToolbarSelect
+        label="Sales Agent"
+        icon={IconUser}
+        multiple
         searchable
         value={agentIds}
         onChange={(value) => {
@@ -266,19 +398,51 @@ export function TodayLeadsReport({
           label: agent.name,
         }))}
       />
-      <MultiSelect
-        className="w-56"
-        placeholder="Source"
-        searchable
-        value={sourceValues}
+      <ReportToolbarSelect
+        label="Pipeline"
+        icon={IconPipeline}
+        value={pipelineValues}
         onChange={(value) => {
-          setParams({ source: value.length ? value.join(",") : null });
+          setParams({ pipeline: value[0] ?? null });
           resetPage();
         }}
-        options={(options?.sources ?? []).map((source) => ({
-          value: source,
-          label: source,
+        options={pipelines.options.map((option) => ({
+          value: option.value,
+          label: option.label,
         }))}
+        clearLabel="All pipelines"
+      />
+      {/* The contact window: this report's period, named as the reference names it. */}
+      <ReportToolbarSelect
+        label="Contacted"
+        icon={IconCalendar}
+        value={contactedValues}
+        onChange={(value) => {
+          setParams({ period: value[0] ?? null });
+          resetPage();
+        }}
+        options={PERIOD_PRESETS.filter(
+          (preset) => preset.key !== DEFAULT_PERIOD_KEY,
+        ).map((preset) => ({ value: preset.key, label: preset.label }))}
+        clearLabel={
+          PERIOD_PRESETS.find((preset) => preset.key === DEFAULT_PERIOD_KEY)
+            ?.label ?? "Today"
+        }
+      />
+      <FilterPanel
+        portal
+        fields={filterFields}
+        activeCount={sourceValues.length > 0 ? 1 : 0}
+        valueOf={() => sourceValues}
+        onChange={(_key, value) => {
+          const next = Array.isArray(value) ? value : [];
+          setParams({ source: next.length ? next.join(",") : null });
+          resetPage();
+        }}
+        onClear={() => {
+          setParams({ source: null });
+          resetPage();
+        }}
       />
     </div>
   );
@@ -292,7 +456,22 @@ export function TodayLeadsReport({
         setParams({ view: mode === "summary" ? null : mode });
         resetPage();
       }}
-      filterBar={filterBar}
+      // The reference keeps every control in one right-aligned cluster, so the filters
+      // ride in `toolbarActions` rather than the left-hand `filterBar` slot.
+      toolbarActions={
+        <>
+          {filterBar}
+          {view === "detailed" && (
+            <ManageColumns
+              columns={DETAILED_COLUMNS}
+              prefs={prefs}
+              onChange={setPrefs}
+              triggerClassName={TOOLBAR_BUTTON_CLASS}
+            />
+          )}
+        </>
+      }
+      trailingActions={<ReportMoreMenu reportSlug={slug} />}
       onExport={() => downloadTodayLeadsExport(filters)}
       state={state}
       emptyTitle="No matching leads"
@@ -310,7 +489,7 @@ export function TodayLeadsReport({
             />
           ) : (
             <Table<TodayLeadRow>
-              columns={DETAILED_COLUMNS}
+              columns={detailedColumns}
               rows={rows as TodayLeadRow[]}
               getRowId={(row) => row.id}
             />

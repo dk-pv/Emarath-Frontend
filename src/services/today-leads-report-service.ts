@@ -14,8 +14,18 @@ export interface TodayLeadRow {
   name: string;
   firstName: string | null;
   primaryPhone: string;
+  secondaryPhone: string | null;
+  /** Lead.createdAt — the detailed view's "Created Date". */
+  createdAt: string;
+  /** The latest assignment's instant — "Assigned Date"; null when unassigned. */
+  assignedDate: string | null;
   source: string | null;
   status: string;
+  /** Stage colour key (KAN-05.1) for the status badge; null renders neutral. */
+  statusColor: string | null;
+  language: string | null;
+  callStatus: string | null;
+  country: string | null;
   assignedTo: TodayLeadsAgentRef[];
   /** The lead's existing engagement counters (LEAD-01.3) — "high engagement", shown not scored. */
   callAttempts: number;
@@ -31,12 +41,14 @@ export interface TodayLeadsSummaryRow {
   count: number;
 }
 
-/** The report's period/agent/source filters (RPT-02.2 AC2). */
+/** The report's toolbar filters (RPT-02.2 AC2): Contacted, Sales Agent, Pipeline, Filter. */
 export interface TodayLeadsFilters {
   /** Contact-window lower bound — an ISO instant, derived from the selected period preset. */
   from?: string;
   source?: string[];
   agent?: string[];
+  /** One exact board name; a lead belongs to exactly one pipeline. */
+  pipeline?: string;
 }
 
 /**
@@ -62,7 +74,11 @@ export const DEFAULT_PERIOD_KEY = "today";
 /** Local midnight `days` ago as an ISO instant (timezone-correct, matching day-boundaries.ts). */
 export function periodFrom(days: number): string {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - days,
+  );
   return start.toISOString();
 }
 
@@ -71,6 +87,7 @@ function appendFilters(
   filters: TodayLeadsFilters,
 ): void {
   if (filters.from) params.set("from", filters.from);
+  if (filters.pipeline) params.set("pipeline", filters.pipeline);
   for (const source of filters.source ?? []) params.append("source", source);
   for (const agent of filters.agent ?? []) params.append("agent", agent);
 }

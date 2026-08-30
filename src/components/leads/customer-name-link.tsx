@@ -19,12 +19,22 @@ import Link from "next/link";
 interface CustomerNameLinkProps {
   leadId: string;
   name: string;
+  /**
+   * The screen the link was clicked from, carried as `?from=…`. The Lead Detail page
+   * uses it to vary what it shows per origin — Today Leads hides the Tags section —
+   * without every caller needing a different destination.
+   */
+  from?: string;
 }
 
-export function CustomerNameLink({ leadId, name }: CustomerNameLinkProps) {
+export function CustomerNameLink({
+  leadId,
+  name,
+  from,
+}: CustomerNameLinkProps) {
   return (
     <Link
-      href={`/leads/${leadId}`}
+      href={from ? `/leads/${leadId}?from=${from}` : `/leads/${leadId}`}
       className="font-medium text-ink underline decoration-1 underline-offset-2 hover:text-ink-muted focus-ring rounded-sm transition-colors duration-(--duration-shell) ease-shell"
     >
       {name}

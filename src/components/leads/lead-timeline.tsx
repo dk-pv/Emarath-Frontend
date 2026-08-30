@@ -77,6 +77,16 @@ function groupByDay(events: LeadTimelineEvent[]): DayGroup[] {
 }
 
 function EventLabel({ event }: { event: LeadTimelineEvent }) {
+  if (event.type === "call") {
+    return (
+      <>
+        <span className="font-semibold text-ink">
+          {event.direction === "OUTBOUND" ? "Outbound" : "Inbound"} Call
+        </span>{" "}
+        by <span className="font-semibold text-ink">{event.agentName}</span>
+      </>
+    );
+  }
   if (event.type === "note") {
     return (
       <>
@@ -130,9 +140,12 @@ export function LeadTimeline({ events }: { events: LeadTimelineEvent[] }) {
           <h4 className="text-sm font-semibold text-ink">{group.label}</h4>
           <ol className="relative flex flex-col gap-5 border-l border-brand/60 pl-6">
             {group.events.map((event) => (
-              <li key={event.id} className="relative">
+              <li
+                key={event.id}
+                className="relative border-b border-hairline pb-5 last:border-0 last:pb-0"
+              >
                 <span
-                  className="absolute top-1 -left-[1.8125rem] size-2.5 rounded-full border-2 border-surface bg-brand"
+                  className="absolute top-1 -left-[1.9375rem] size-3.5 rounded-full border-2 border-brand bg-surface"
                   aria-hidden="true"
                 />
                 <p className="text-xs text-ink-muted">

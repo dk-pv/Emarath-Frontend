@@ -1,7 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import { IconLoader2, IconPlus } from "@tabler/icons-react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import {
+  ROWS_PER_PAGE_OPTIONS,
+  RowsPerPage,
+} from "@/components/ui/RowsPerPage";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 
@@ -23,6 +30,12 @@ type LeadDetailSectionProps = {
   loading?: boolean;
   errored?: boolean;
   onRetry?: () => void;
+  /**
+   * Shows the reference's "Rows per page" footer and pages the rows here. The rows are
+   * already in hand (a section holds one lead's records, not a server page), so this is
+   * display paging — it never fetches.
+   */
+  pageSize?: number;
 };
 
 /**
@@ -44,7 +57,18 @@ export function LeadDetailSection({
   loading = false,
   errored = false,
   onRetry,
+  pageSize,
 }: LeadDetailSectionProps) {
+  const [size, setSize] = useState(pageSize ?? ROWS_PER_PAGE_OPTIONS[0]);
+  const [page, setPage] = useState(1);
+
+  const paged = pageSize !== undefined;
+  const pageCount = Math.max(1, Math.ceil(rows.length / size));
+  const current = Math.min(page, pageCount);
+  const visibleRows = paged
+    ? rows.slice((current - 1) * size, current * size)
+    : rows;
+
   return (
     <Card as="section">
       <div className="flex items-center justify-between gap-3 px-5 py-4">
@@ -91,7 +115,7 @@ export function LeadDetailSection({
                   />
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-5 py-10">
                   <EmptyState
@@ -101,7 +125,7 @@ export function LeadDetailSection({
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
+              visibleRows.map((row) => (
                 <tr
                   key={row.id}
                   className="border-b border-hairline last:border-0"
@@ -123,6 +147,43 @@ export function LeadDetailSection({
           </tbody>
         </table>
       </div>
+
+      {paged && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline px-5 py-3">
+          <RowsPerPage
+            value={size}
+            onChange={(next) => {
+              setSize(next);
+              setPage(1);
+            }}
+            aria-label={`Rows per page, ${title}`}
+          />
+
+          {pageCount > 1 && (
+            <div className="flex items-center gap-2 text-sm text-ink-muted">
+              <button
+                type="button"
+                onClick={() => setPage(current - 1)}
+                disabled={current <= 1}
+                className="focus-ring rounded-control px-2 py-1 transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Previous
+              </button>
+              <span className="whitespace-nowrap">
+                {current} of {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(current + 1)}
+                disabled={current >= pageCount}
+                className="focus-ring rounded-control px-2 py-1 transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

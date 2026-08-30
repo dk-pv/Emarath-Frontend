@@ -54,7 +54,20 @@ export interface LeadListItem {
   callAttempts: number;
   whatsappAttempts: number;
   createdAt: string;
+  /** Last write to the lead — the Lead Detail panel's "Last Updated" line. */
+  updatedAt: string;
   /** Address parts the board card joins into its one location line (KAN-03.1). */
+  /** The remaining Workpex list columns (LEAD-02.2): order, payment and identity fields. */
+  product: string | null;
+  productQty: string | null;
+  product2: string | null;
+  product2Qty: string | null;
+  paymentMethod: string | null;
+  nationalCode: string | null;
+  /** The latest open complaint's reason — the "COMPLAINTS" column; null when none. */
+  complaintReason: string | null;
+  /** The latest assignment's instant — "Assigned Date"; null when unassigned. */
+  assignedDate: string | null;
   state: string | null;
   street: string | null;
   city: string | null;
@@ -118,6 +131,13 @@ export type LeadTimelineEvent =
   | { id: string; type: "created"; at: string }
   | { id: string; type: "assigned"; at: string; assigneeName: string }
   | { id: string; type: "note"; at: string; authorName: string; body: string }
+  | {
+      id: string;
+      type: "call";
+      at: string;
+      direction: "INBOUND" | "OUTBOUND";
+      agentName: string;
+    }
   | {
       id: string;
       type: "followup-created";

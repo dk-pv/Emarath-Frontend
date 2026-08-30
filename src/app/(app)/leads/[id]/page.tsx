@@ -10,9 +10,14 @@ export const metadata = { title: "Lead Detail" };
  */
 export default async function LeadDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  /** `?from=<screen>` — which list opened this lead (see `CustomerNameLink`). */
+  searchParams: Promise<{ from?: string }>;
 }) {
-  const { id } = await params;
-  return <LeadDetailView id={id} />;
+  const [{ id }, { from }] = await Promise.all([params, searchParams]);
+  // Read on the server and handed down, so no Suspense boundary is needed for
+  // `useSearchParams` — the same approach the reset-password page uses.
+  return <LeadDetailView id={id} from={from ?? null} />;
 }

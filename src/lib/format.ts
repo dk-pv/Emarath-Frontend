@@ -86,3 +86,34 @@ export function initialsOf(name: string): string {
   const last = parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "";
   return (first + last).toUpperCase();
 }
+
+/**
+ * A coarse "18 hours ago" for the Lead Detail panel's Last Updated line. Deliberately
+ * coarse: the exact instant is already shown beside it as the created timestamp, and a
+ * ticking precise value would only churn. Client-only, so no SSR/locale skew.
+ */
+export function formatRelativeTime(
+  value: string,
+  now: number = Date.now(),
+): string {
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return "—";
+  const seconds = Math.round((now - then) / 1000);
+  if (seconds < 0) return "just now";
+  const units: [limit: number, size: number, name: string][] = [
+    [60, 1, "second"],
+    [3600, 60, "minute"],
+    [86400, 3600, "hour"],
+    [2592000, 86400, "day"],
+    [31536000, 2592000, "month"],
+    [Infinity, 31536000, "year"],
+  ];
+  for (const [limit, size, name] of units) {
+    if (seconds < limit) {
+      const amount = Math.floor(seconds / size);
+      if (amount <= 0) return "just now";
+      return `${amount} ${name}${amount === 1 ? "" : "s"} ago`;
+    }
+  }
+  return "—";
+}

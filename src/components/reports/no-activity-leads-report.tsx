@@ -510,7 +510,7 @@ export function NoActivityLeadsReport({
           )}
         </>
       }
-      trailingActions={<ReportMoreMenu />}
+      trailingActions={<ReportMoreMenu reportSlug={slug} />}
       onExport={() => downloadNoActivityExport(filters)}
       state={state}
       emptyTitle="No matching leads"

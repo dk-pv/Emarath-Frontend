@@ -57,6 +57,11 @@ export interface ReportShellProps {
   trailingActions?: React.ReactNode;
   /** Optional chart region; the area is hidden entirely when a report has no chart. */
   chart?: React.ReactNode;
+  /**
+   * A side panel to the left of the toolbar + results (Leads By Status' donut and legend).
+   * Opt-in: without it the shell is the single column every other report renders.
+   */
+  aside?: React.ReactNode;
   /** Runs the export for the current view. Omit to disable the Export control. */
   onExport?: () => void;
   exporting?: boolean;
@@ -156,6 +161,7 @@ export function ReportShell({
   toolbarActions,
   trailingActions,
   chart,
+  aside,
   onExport,
   exporting = false,
   state,
@@ -165,63 +171,78 @@ export function ReportShell({
   onRetry,
   children,
 }: ReportShellProps) {
+  const results = (
+    <Card className="flex min-w-0 flex-col overflow-hidden">
+      <Toolbar
+        className="p-4"
+        left={filterBar}
+        right={
+          <>
+            {toolbarActions}
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={!onExport || exporting}
+              className={cn(
+                TOOLBAR_BUTTON_CLASS,
+                "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+              )}
+            >
+              <IconDownload size={18} stroke={1.75} aria-hidden="true" />
+              Export
+            </button>
+            <ReportViewToggle
+              viewMode={viewMode}
+              onViewModeChange={onViewModeChange}
+            />
+            {trailingActions}
+          </>
+        }
+      />
+
+      {chart ? (
+        <div className="border-t border-hairline p-4">{chart}</div>
+      ) : null}
+
+      <div className="flex min-h-96 flex-col border-t border-hairline">
+        {state === "loading" && <Loading label="Loading report" />}
+        {state === "empty" && (
+          <EmptyState
+            icon={IconReportAnalytics}
+            title={emptyTitle}
+            description={emptyDescription}
+          />
+        )}
+        {state === "error" && (
+          <ErrorState
+            title="Couldn’t load the report"
+            description={
+              errorMessage ?? "Something went wrong. Please try again."
+            }
+            onRetry={onRetry ?? (() => {})}
+          />
+        )}
+        {state === "ready" && children}
+      </div>
+    </Card>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <ReportHeader report={report} category={category} />
 
-      <Card className="flex flex-col overflow-hidden">
-        <Toolbar
-          className="p-4"
-          left={filterBar}
-          right={
-            <>
-              {toolbarActions}
-              <button
-                type="button"
-                onClick={onExport}
-                disabled={!onExport || exporting}
-                className={cn(
-                  TOOLBAR_BUTTON_CLASS,
-                  "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
-                )}
-              >
-                <IconDownload size={18} stroke={1.75} aria-hidden="true" />
-                Export
-              </button>
-              <ReportViewToggle
-                viewMode={viewMode}
-                onViewModeChange={onViewModeChange}
-              />
-              {trailingActions}
-            </>
-          }
-        />
-
-        {chart ? (
-          <div className="border-t border-hairline p-4">{chart}</div>
-        ) : null}
-
-        <div className="flex min-h-96 flex-col border-t border-hairline">
-          {state === "loading" && <Loading label="Loading report" />}
-          {state === "empty" && (
-            <EmptyState
-              icon={IconReportAnalytics}
-              title={emptyTitle}
-              description={emptyDescription}
-            />
-          )}
-          {state === "error" && (
-            <ErrorState
-              title="Couldn’t load the report"
-              description={
-                errorMessage ?? "Something went wrong. Please try again."
-              }
-              onRetry={onRetry ?? (() => {})}
-            />
-          )}
-          {state === "ready" && children}
+      {aside ? (
+        // The reference sits the chart panel beside the results, not above them; below
+        // lg the two stack so the table keeps its full width on narrow screens.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+          <Card as="section" className="min-w-0 self-start">
+            {aside}
+          </Card>
+          {results}
         </div>
-      </Card>
+      ) : (
+        results
+      )}
     </div>
   );
 }

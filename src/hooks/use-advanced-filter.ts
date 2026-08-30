@@ -29,11 +29,22 @@ import {
  */
 export function useAdvancedFilter({
   onApplied,
-}: { onApplied?: () => void } = {}) {
-  const [rows, setRows] = useState<LeadFilterRow[]>(() => [emptyRow()]);
+  initialConditions,
+}: {
+  onApplied?: () => void;
+  /**
+   * A `conditions` payload to start applied — how a deep link such as
+   * `/leads?status=HOT` arrives with its filter already on and counted in the badge.
+   * Read once on mount; later edits go through the builder like any other.
+   */
+  initialConditions?: string;
+} = {}) {
+  const [rows, setRows] = useState<LeadFilterRow[]>(() =>
+    initialConditions ? rowsFromPayload(initialConditions) : [emptyRow()],
+  );
   const [appliedConditions, setAppliedConditions] = useState<
     string | undefined
-  >(undefined);
+  >(initialConditions);
   const [saved, setSaved] = useState<SavedFilter[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 

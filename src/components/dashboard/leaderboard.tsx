@@ -1,8 +1,6 @@
 import { IconTrophy } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { SectionHeader } from "@/components/ui/SectionHeader";
-import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import type { LeaderboardRow, TableColumn } from "@/types";
@@ -55,32 +53,29 @@ const columns: TableColumn<LeaderboardRow>[] = [
 
 /**
  * The Sales Team Activity Board leaderboard (demo data). Interactive search, sort and
- * pagination are the Dashboard module's job (DASH-*, Sprint 5); this restored placeholder
- * renders the fixture rows as a static table so the layout still matches the Workpex
- * reference without depending on the list plumbing the real module will wire.
+ * pagination are the Dashboard module's job (DASH-*, Sprint 5); this placeholder renders
+ * the fixture rows as a static table so the layout still matches the Workpex reference
+ * without depending on the list plumbing the real module will wire.
+ *
+ * The card shell, the title and this widget's own period filter belong to the hosting
+ * `DashboardWidget`, so nothing here owns a card, a header or a date — which is what
+ * keeps one widget's period from reaching another's.
  */
 export function Leaderboard({ rows }: { rows: readonly LeaderboardRow[] }) {
   return (
-    <Card as="section">
-      <SectionHeader
-        title="Leaderboard"
-        description="Agent performance across leads, calls and conversion."
+    <ResponsiveTableContainer label="Leaderboard">
+      <Table
+        columns={columns}
+        rows={rows}
+        getRowId={(row) => row.id}
+        emptyState={
+          <EmptyState
+            icon={IconTrophy}
+            title="No agent activity yet"
+            description="Leaderboard standings appear once agents log leads and calls."
+          />
+        }
       />
-
-      <ResponsiveTableContainer>
-        <Table
-          columns={columns}
-          rows={rows}
-          getRowId={(row) => row.id}
-          emptyState={
-            <EmptyState
-              icon={IconTrophy}
-              title="No agent activity yet"
-              description="Leaderboard standings appear once agents log leads and calls."
-            />
-          }
-        />
-      </ResponsiveTableContainer>
-    </Card>
+    </ResponsiveTableContainer>
   );
 }

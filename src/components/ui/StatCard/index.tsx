@@ -22,15 +22,44 @@ const ICON_CLASS: Record<Tone, string> = {
   info: "bg-info",
 };
 
+/**
+ * `kpi` is the Workpex Call Dashboard carousel treatment: a wider, roomier card
+ * with a bigger value and a smaller icon badge, and no caption row. Measured
+ * against the reference — its cards are ~370×144 where the default is ~260×136,
+ * and it is that extra width, not the badge, that makes the badge read as small.
+ * `default` is every other stat card in the product and is unchanged.
+ */
+export type StatCardVariant = "default" | "kpi";
+
+const SHELL_CLASS: Record<StatCardVariant, string> = {
+  default: "gap-2 p-4",
+  kpi: "gap-4 px-5 py-5",
+};
+
+const VALUE_CLASS: Record<StatCardVariant, string> = {
+  default: "text-3xl leading-none",
+  kpi: "text-[34px] leading-none",
+};
+
+const BADGE_CLASS: Record<StatCardVariant, string> = {
+  default: "size-control-sm",
+  kpi: "size-7",
+};
+
 type StatCardProps = {
-  label: string;
+  /** A node, not just text, so a card can carry its own ⓘ tooltip beside the label. */
+  label: React.ReactNode;
   value: string;
-  /** A node so a card can render a coloured delta (CALL-03.2), not only text. */
-  caption: React.ReactNode;
+  /**
+   * Optional: the Workpex KPI cards carry no sub-line at all, so a card given no
+   * caption renders none rather than an empty row holding the height open.
+   */
+  caption?: React.ReactNode;
   /** Small suffix after the value, e.g. "Min" / "%" — the Workpex KPI unit. */
   unit?: string;
   tone: Tone;
   icon: Icon;
+  variant?: StatCardVariant;
 } & Omit<React.ComponentPropsWithoutRef<"div">, "children">;
 
 export function StatCard({
@@ -40,23 +69,26 @@ export function StatCard({
   unit,
   tone,
   icon: IconComponent,
+  variant = "default",
   className,
   ...props
 }: StatCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-surface border p-4",
+        "flex flex-col rounded-surface border",
+        SHELL_CLASS[variant],
         SURFACE_CLASS[tone],
         className,
       )}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-ink">{label}</p>
+        <div className="text-sm text-ink">{label}</div>
         <span
           className={cn(
-            "flex size-control-sm shrink-0 items-center justify-center rounded-full text-white",
+            "flex shrink-0 items-center justify-center rounded-full text-white",
+            BADGE_CLASS[variant],
             ICON_CLASS[tone],
           )}
         >
@@ -67,7 +99,7 @@ export function StatCard({
           />
         </span>
       </div>
-      <p className="text-3xl leading-none font-semibold text-ink">
+      <p className={cn("font-semibold text-ink", VALUE_CLASS[variant])}>
         {value}
         {unit && (
           <span className="ml-1 text-base font-medium text-ink-muted">
@@ -76,7 +108,9 @@ export function StatCard({
         )}
       </p>
       {/* mt-auto keeps the caption on the baseline when a row of cards stretches. */}
-      <p className="mt-auto text-xs text-ink-muted">{caption}</p>
+      {caption !== undefined && (
+        <p className="mt-auto text-xs text-ink-muted">{caption}</p>
+      )}
     </div>
   );
 }

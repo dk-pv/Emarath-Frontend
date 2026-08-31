@@ -10,7 +10,12 @@ import { useAnchoredPosition } from "@/hooks/use-anchored-position";
 
 export type PopoverProps = {
   trigger: React.ReactNode;
-  children: React.ReactNode;
+  /**
+   * A render function receives the panel's own `close`, so a panel with Apply /
+   * Clear actions (the Activities filter popup) can dismiss itself. Plain nodes
+   * still work unchanged.
+   */
+  children: React.ReactNode | ((close: () => void) => React.ReactNode);
   align?: "start" | "end";
   className?: string;
   /**
@@ -63,7 +68,7 @@ export function Popover({
       )}
       style={portal ? (anchor ?? { visibility: "hidden" }) : undefined}
     >
-      {children}
+      {typeof children === "function" ? children(close) : children}
     </div>
   );
 

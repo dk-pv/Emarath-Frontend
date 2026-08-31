@@ -27,3 +27,49 @@ export function dayBoundaries(): DayBoundaries {
     tomorrowEnd: tomorrowEnd.toISOString(),
   };
 }
+
+/**
+ * The wider window edges the Activities filter popup's quick-date checkboxes need
+ * (Yesterday / This Week / This Month), in the same local-midnight, half-open form
+ * as `dayBoundaries` — `weekEnd` and `monthEnd` are the first instant *after* the
+ * window, so a range comparison stays `gte`/`lt` throughout.
+ *
+ * The week starts on Monday: Workpex's Activities capture is a Monday-first
+ * calendar, and the shared `Calendar` grid already renders Mon-first.
+ */
+export interface WindowEdges {
+  yesterdayStart: string;
+  weekStart: string;
+  weekEnd: string;
+  monthStart: string;
+  monthEnd: string;
+}
+
+export function windowEdges(): WindowEdges {
+  const now = new Date();
+  const midnight = (year: number, month: number, day: number): Date =>
+    new Date(year, month, day);
+
+  const todayStart = midnight(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+  // getDay() is Sunday-based (0..6); shift so Monday is 0.
+  const mondayOffset = (todayStart.getDay() + 6) % 7;
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - mondayOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
+  const monthStart = midnight(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = midnight(now.getFullYear(), now.getMonth() + 1, 1);
+
+  return {
+    yesterdayStart: yesterdayStart.toISOString(),
+    weekStart: weekStart.toISOString(),
+    weekEnd: weekEnd.toISOString(),
+    monthStart: monthStart.toISOString(),
+    monthEnd: monthEnd.toISOString(),
+  };
+}

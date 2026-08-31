@@ -8,8 +8,20 @@ import { useDismissable } from "@/hooks/use-dismissable";
 
 export type TooltipPlacement = "top" | "bottom" | "left" | "right";
 
+/**
+ * `dark` is the product default. `light` is the Workpex KPI-card treatment: a white
+ * panel with a hairline border and dark text, used where the tooltip sits over
+ * tinted cards and a dark bubble would read as a different component.
+ */
+export type TooltipTone = "dark" | "light";
+
+const TONE_PANEL: Record<TooltipTone, string> = {
+  dark: "bg-sidebar text-white shadow-lg",
+  light: "border border-hairline bg-surface text-ink shadow-lg",
+};
+
 const PANEL_CLASS =
-  "pointer-events-none absolute z-50 w-max max-w-56 rounded-control bg-sidebar px-2.5 py-1.5 text-xs text-white shadow-lg";
+  "pointer-events-none absolute z-50 w-max max-w-56 rounded-control px-2.5 py-1.5 text-xs";
 
 const PLACEMENT_CLASS: Record<TooltipPlacement, string> = {
   top: "bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2",
@@ -20,10 +32,30 @@ const PLACEMENT_CLASS: Record<TooltipPlacement, string> = {
 
 /**
  * The pointer — a rotated square centred on the panel edge nearest the target, so
- * its outer corner reads as Workpex's little triangle. Same `bg-sidebar` as the body,
- * so the two merge into one shape.
+ * its outer corner reads as Workpex's little triangle. It carries the panel's own
+ * background, so the two merge into one shape.
  */
-const POINTER_BASE = "absolute size-2 rotate-45 bg-sidebar";
+const POINTER_BASE = "absolute size-2 rotate-45";
+
+const TONE_POINTER: Record<TooltipTone, string> = {
+  dark: "bg-sidebar",
+  light: "border-hairline bg-surface",
+};
+
+/**
+ * A bordered arrow must outline only the two edges that form its exposed point —
+ * the other two sit under the panel, and drawing them would put a hairline across
+ * the middle of the bubble. After the 45° rotation the visible corner for a
+ * downward arrow is where the square's bottom and right edges meet, and so on
+ * round the placements. Dark tooltips have no border, so this is light-only.
+ */
+const POINTER_BORDER: Record<TooltipPlacement, string> = {
+  top: "border-r border-b",
+  bottom: "border-t border-l",
+  left: "border-t border-r",
+  right: "border-b border-l",
+};
+
 const POINTER_CLASS: Record<TooltipPlacement, string> = {
   top: "top-full left-1/2 -translate-x-1/2 -translate-y-1/2",
   bottom: "bottom-full left-1/2 -translate-x-1/2 translate-y-1/2",
@@ -38,7 +70,7 @@ const POINTER_CLASS: Record<TooltipPlacement, string> = {
  * on open; the tooltip is transient, so it is not re-anchored on scroll.
  */
 const PORTAL_PANEL_CLASS =
-  "pointer-events-none fixed z-[200] w-max max-w-56 rounded-control bg-sidebar px-2.5 py-1.5 text-xs text-white shadow-lg";
+  "pointer-events-none fixed z-[200] w-max max-w-56 rounded-control px-2.5 py-1.5 text-xs";
 
 const PORTAL_TRANSFORM: Record<TooltipPlacement, string> = {
   top: "-translate-x-1/2 -translate-y-full",
@@ -72,6 +104,8 @@ export type TooltipProps = {
   disabled?: boolean;
   /** Renders the panel fixed in <body>, escaping ancestor overflow clipping. */
   portal?: boolean;
+  /** Panel treatment; `light` is the Workpex KPI-card white bubble. */
+  tone?: TooltipTone;
   /**
    * Extra classes for the wrapper the trigger sits in. Needed where the wrapper is
    * itself a flex item that has to shrink — `min-w-0 flex-1` — because its default
@@ -87,6 +121,7 @@ export function Tooltip({
   placement = "top",
   disabled = false,
   portal = false,
+  tone = "dark",
   className,
 }: TooltipProps) {
   const root = useRef<HTMLSpanElement>(null);
@@ -116,13 +151,19 @@ export function Tooltip({
         portal
           ? cn(PORTAL_PANEL_CLASS, PORTAL_TRANSFORM[placement])
           : cn(PANEL_CLASS, PLACEMENT_CLASS[placement]),
+        TONE_PANEL[tone],
       )}
       style={portal && anchor ? anchor : undefined}
     >
       {content}
       <span
         aria-hidden="true"
-        className={cn(POINTER_BASE, POINTER_CLASS[placement])}
+        className={cn(
+          POINTER_BASE,
+          POINTER_CLASS[placement],
+          TONE_POINTER[tone],
+          tone === "light" && POINTER_BORDER[placement],
+        )}
       />
     </span>
   );

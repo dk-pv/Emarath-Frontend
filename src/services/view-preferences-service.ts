@@ -6,6 +6,9 @@ export const LEADS_VIEW_KEY = "leads";
 /** The Manage Columns view key for the Activities table (ACT-07.1). */
 export const ACTIVITIES_VIEW_KEY = "activities";
 
+/** The Manage Columns view key for the Recent Call Log (CALL-05.2). */
+export const CALLS_VIEW_KEY = "calls";
+
 /**
  * A saved table layout: the manageable column ids in the user's chosen order, and
  * the subset currently hidden. Mirrors the backend contract; a shared/generated
@@ -85,15 +88,29 @@ export function saveKanbanPin(
 export function reconcileLayout(
   saved: ColumnLayout | null,
   knownKeys: readonly string[],
+  /**
+   * Keys that start hidden when the user has no saved layout, and that stay hidden
+   * when they are added to a module after one was saved. Activities offers its
+   * linked lead's fields as optional columns, so its default worklist shows only
+   * the five Workpex opens with; a module that wants everything visible — Leads —
+   * simply omits this.
+   */
+  defaultHidden: readonly string[] = [],
 ): ColumnLayout {
-  if (!saved) return { order: [...knownKeys], hidden: [] };
+  if (!saved) {
+    return { order: [...knownKeys], hidden: [...defaultHidden] };
+  }
 
   const known = new Set(knownKeys);
   const savedOrder = saved.order.filter((key) => known.has(key));
   const appended = knownKeys.filter((key) => !savedOrder.includes(key));
 
+  // A key the saved layout never knew about is new to the module: honour its
+  // default rather than silently revealing it in every existing user's table.
+  const unseenHidden = appended.filter((key) => defaultHidden.includes(key));
+
   return {
     order: [...savedOrder, ...appended],
-    hidden: saved.hidden.filter((key) => known.has(key)),
+    hidden: [...saved.hidden.filter((key) => known.has(key)), ...unseenHidden],
   };
 }

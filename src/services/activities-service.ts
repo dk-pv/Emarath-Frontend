@@ -14,6 +14,18 @@ export type ActivityBucket = (typeof ACTIVITY_BUCKETS)[number];
 
 export type ActivityType = "CALL" | "MEETING" | "TASK";
 
+/** The filter popup's quick-date checkboxes (mirrors the backend's window list). */
+export const ACTIVITY_DATE_WINDOWS = [
+  "overdue",
+  "today",
+  "tomorrow",
+  "yesterday",
+  "thisWeek",
+  "thisMonth",
+] as const;
+
+export type ActivityDateWindow = (typeof ACTIVITY_DATE_WINDOWS)[number];
+
 /**
  * One activity as the list endpoint returns it (ACT-02.1). Declared next to the
  * fetch, mirroring the backend DTO — the same convention `LeadListItem` follows;
@@ -60,6 +72,22 @@ export interface ActivitiesQuery {
   assignedAgent?: readonly string[];
   status?: readonly string[];
   pipeline?: readonly string[];
+  /** The filter popup's ticked quick-date checkboxes; their windows OR together. */
+  dateWindow?: readonly ActivityDateWindow[];
+  /**
+   * Edges for the windows the three tab boundaries don't already cover. Computed in
+   * the client's timezone like those, and sent only when their checkbox is ticked.
+   */
+  yesterdayStart?: string;
+  weekStart?: string;
+  weekEnd?: string;
+  monthStart?: string;
+  monthEnd?: string;
+  /** The popup's explicit From/To due-date range. */
+  dueFrom?: string;
+  dueTo?: string;
+  /** Follow-up type — the popup's "All Activities" dropdown. */
+  type?: readonly ActivityType[];
 }
 
 /** Fetches one scoped worklist page for the active tab (ACT-02.1 + ACT-07.1). */
@@ -81,6 +109,23 @@ export async function fetchActivities(
     params.append("assignedAgent", id);
   for (const value of query.status ?? []) params.append("status", value);
   for (const value of query.pipeline ?? []) params.append("pipeline", value);
+  for (const value of query.dateWindow ?? [])
+    params.append("dateWindow", value);
+  for (const value of query.type ?? []) params.append("type", value);
+  // Only the edges the ticked windows actually need, so an unticked window sends
+  // nothing and the URL stays as short as the filter selection is.
+  for (const key of [
+    "yesterdayStart",
+    "weekStart",
+    "weekEnd",
+    "monthStart",
+    "monthEnd",
+    "dueFrom",
+    "dueTo",
+  ] as const) {
+    const value = query[key];
+    if (value) params.set(key, value);
+  }
   return apiGet<ActivityListResult>("/activities", params, signal);
 }
 

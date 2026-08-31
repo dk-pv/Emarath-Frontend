@@ -70,7 +70,12 @@ function DrawerPanel({
     // Workpex tucks the drawer under the navbar and dims nothing behind it: the list stays
     // legible while columns are rearranged against it. With no backdrop to absorb them, the
     // frame must let pointer events fall through to the page it is sitting on.
-    <div className="pointer-events-none fixed top-navbar right-0 bottom-0 left-0 z-50 flex justify-end">
+    //
+    // The left inset is the close button's own width: it rides outside the panel, so a panel
+    // allowed to fill the viewport pushes the only visible way out off-screen — and at that
+    // width there is no page left beside it to press either. Wider than a phone the panel is
+    // capped well inside this, so nothing else moves.
+    <div className="pointer-events-none fixed top-navbar right-0 bottom-0 left-0 z-50 flex justify-end pl-control-lg">
       <div
         ref={panel}
         role="dialog"

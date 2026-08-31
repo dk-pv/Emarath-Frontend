@@ -1,17 +1,23 @@
 import { Card, CardContent } from "@/components/ui/Card";
 import { Separator } from "@/components/ui/Separator";
-import { TEAM_TOTALS } from "@/constants/dashboard";
+import type { TEAM_TOTALS } from "@/constants/dashboard";
 
 /**
- * Left column of the Workpex "Sales Team Activity Board": a Team Revenue panel with
+ * Left rail of the Workpex "Sales Team Activity Board": a Team Revenue panel with
  * Total Leads / Total Calls, and a Total Conversion panel beneath it.
  *
- * Currency is AED throughout the product.
+ * The two tinted panels use the `info` and `warning` theme tokens rather than the
+ * literal Workpex hex values, per the design-token rule — the reference's pale
+ * periwinkle and pale yellow are what those tokens already express. Currency is
+ * AED throughout the product.
+ *
+ * The period this reflects belongs to the hosting `DashboardWidget`, not to this
+ * component, so it stays a pure renderer of whatever totals it is handed.
  */
-export function TeamRevenue() {
+export function TeamRevenue({ totals }: { totals: typeof TEAM_TOTALS }) {
   return (
-    <div className="flex flex-col gap-4">
-      <Card className="bg-[#eef0fb]">
+    <div className="flex flex-col gap-4 p-4">
+      <Card className="border-info/40 bg-info/10">
         <CardContent className="p-5">
           <p className="text-[17px] font-medium text-ink">Team Revenue</p>
           <Separator className="my-3" />
@@ -19,24 +25,24 @@ export function TeamRevenue() {
             <div>
               <dt className="text-[15px] text-ink-muted">Total Leads</dt>
               <dd className="mt-1 text-[28px] font-semibold text-ink">
-                {TEAM_TOTALS.totalLeads}
+                {totals.totalLeads}
               </dd>
             </div>
             <div>
               <dt className="text-[15px] text-ink-muted">Total Calls</dt>
               <dd className="mt-1 text-[28px] font-semibold text-ink">
-                {TEAM_TOTALS.totalCalls}
+                {totals.totalCalls}
               </dd>
             </div>
           </dl>
         </CardContent>
       </Card>
 
-      <Card className="bg-[#fdf6e3]">
+      <Card className="border-warning/40 bg-warning/10">
         <CardContent className="p-5">
           <p className="text-[17px] font-medium text-ink">Total Conversion</p>
           <p className="mt-3 text-[28px] font-semibold text-ink">
-            {TEAM_TOTALS.totalConversion}
+            {totals.totalConversion}
             <span className="ml-1 text-[17px] font-normal text-ink-muted">
               AED
             </span>

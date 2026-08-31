@@ -9,12 +9,12 @@ import {
   useSearchParams,
 } from "next/navigation";
 import {
-  IconCalendar,
   IconFilter as IconPipeline,
   IconStatusChange,
   IconUser,
 } from "@tabler/icons-react";
 import { findReport } from "./report-registry";
+import { ReportDateFilter } from "./report-date-filter";
 import { ReportMoreMenu } from "./report-more-menu";
 import { ReportToolbarSelect } from "./report-toolbar-select";
 import {
@@ -26,41 +26,47 @@ import { StatusDonutChart } from "./status-donut-chart";
 import { Avatar } from "@/components/ui/Avatar";
 import { Pagination } from "@/components/ui/Pagination";
 import { Table } from "@/components/ui/Table";
-import { FilterPanel } from "@/components/filters/filter-panel";
+import { LeadFilterBuilder } from "@/components/leads/lead-filter-builder";
 import { ManageColumns } from "@/components/table/manage-columns";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
+import { leadColumns } from "@/components/leads/lead-columns";
 import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
+import { useAdvancedFilter } from "@/hooks/use-advanced-filter";
 import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import { useLookup } from "@/hooks/use-lookup";
 import { cn } from "@/lib/cn";
+import { formatDate } from "@/lib/format";
 import { stageColorClasses } from "@/lib/stage-palette";
 import {
   fetchLeadFilterOptions,
   type LeadFilterOptions,
+  type LeadListItem,
 } from "@/services/leads-service";
 import {
-  DEFAULT_PERIOD_KEY,
-  PERIOD_PRESETS,
   downloadLeadsByStatusExport,
   fetchLeadsByStatusDetailed,
-  fetchLeadsByStatusFilterOptions,
   fetchLeadsByStatusSummary,
-  periodFrom,
-  type LeadsByStatusAgentRef,
+  isDatePeriodKey,
+  periodRange,
+  type LeadsByStatusDateField,
   type LeadsByStatusFilters,
   type LeadsByStatusLeadRow,
   type StatusCountRow,
 } from "@/services/leads-by-status-report-service";
-import type { FilterField, TableColumn } from "@/types";
+import type { TableColumn } from "@/types";
 
 /** Rows differ by view: per-status counts (summary) or the underlying leads (detailed). */
 type Row = StatusCountRow | LeadsByStatusLeadRow;
 
-/** Remembers this report's column arrangement separately from every other module. */
-const COLUMN_PREFS_MODULE = "reports:leads-by-status";
+/**
+ * Remembers this report's column arrangement separately from every other module. Bumped
+ * when the detailed view grew from 5 to 29 columns, so a saved v1 arrangement can't
+ * reorder or hide the new set.
+ */
+const COLUMN_PREFS_MODULE = "reports:leads-by-status:v2";
 
 /** A colour-coded status pill, using the status's real Stage colour (never an invented hue). */
 function StatusPill({
@@ -82,7 +88,7 @@ function StatusPill({
   );
 }
 
-function AssignedCell({ agents }: { agents: LeadsByStatusAgentRef[] }) {
+function AssignedCell({ agents }: { agents: LeadListItem["assignedAgents"] }) {
   if (agents.length === 0) {
     return <span className="text-ink-subtle">Unassigned</span>;
   }
@@ -103,10 +109,12 @@ function AssignedCell({ agents }: { agents: LeadsByStatusAgentRef[] }) {
 
 /**
  * The summary's columns. The status is its coloured pill and the count an underlined link,
- * as the reference shows: it drills into the Detailed view narrowed to that status, so the
- * rows it opens are exactly the rows it counted.
+ * as the reference shows: it opens the Leads list narrowed by `leadsHref`, so the rows it
+ * opens are exactly the rows it counted.
  */
-function summaryColumns(): readonly TableColumn<StatusCountRow>[] {
+function summaryColumns(
+  leadsHref: (status: string) => string,
+): readonly TableColumn<StatusCountRow>[] {
   return [
     {
       key: "status",
@@ -121,7 +129,7 @@ function summaryColumns(): readonly TableColumn<StatusCountRow>[] {
       // tab — the reference's behaviour. The legend beside it still drills in-report.
       render: (row) => (
         <Link
-          href={`/leads?status=${encodeURIComponent(row.status)}`}
+          href={leadsHref(row.status)}
           target="_blank"
           rel="noopener"
           aria-label={`Open the ${row.count} leads in ${row.status} in a new tab`}
@@ -134,32 +142,74 @@ function summaryColumns(): readonly TableColumn<StatusCountRow>[] {
   ];
 }
 
+/** The Leads list's column for a key — the same cell the list renders, fed by the same field. */
+function leadColumn(key: string): TableColumn<LeadsByStatusLeadRow> {
+  const column = leadColumns.find((candidate) => candidate.key === key);
+  if (!column) throw new Error(`The Leads list has no "${key}" column`);
+  return column;
+}
+
+/** dd-mm-yyyy, as the reference prints its date columns; an absent date dashes. */
+function DateCell({ iso }: { iso: string | null }) {
+  if (!iso) return <span className="text-ink-subtle">—</span>;
+  return <span>{formatDate(iso)}</span>;
+}
+
+/**
+ * The detailed view's 29 columns in the reference's left-to-right order. All but four are
+ * the Leads list's own columns (`leadColumns`) — same cell, same formatting, same field —
+ * so a value can never print differently here than on the list. The four the report owns:
+ * Customer Name keeps its plain link (not frozen — the reference scrolls it away), Created
+ * Date is date-only here, Lead Status is tinted from the server-resolved stage colour, and
+ * Assigned is the report's avatar row.
+ */
 const DETAILED_COLUMNS: readonly TableColumn<LeadsByStatusLeadRow>[] = [
+  leadColumn("assignedDate"),
+  {
+    key: "createdAt",
+    header: "Created Date",
+    render: (row) => <DateCell iso={row.createdAt} />,
+  },
+  leadColumn("country"),
   {
     key: "name",
     header: "Customer Name",
     render: (row) => <CustomerNameLink leadId={row.id} name={row.name} />,
   },
-  {
-    key: "primaryPhone",
-    header: "Primary Phone",
-    render: (row) => row.primaryPhone,
-  },
-  {
-    key: "source",
-    header: "Source",
-    render: (row) => row.source ?? <span className="text-ink-subtle">—</span>,
-  },
-  {
-    key: "status",
-    header: "Status",
-    render: (row) => <StatusPill status={row.status} color={row.statusColor} />,
-  },
+  leadColumn("primaryPhone"),
+  leadColumn("firstName"),
   {
     key: "assigned",
     header: "Assigned",
-    render: (row) => <AssignedCell agents={row.assignedTo} />,
+    render: (row) => <AssignedCell agents={row.assignedAgents} />,
   },
+  {
+    key: "status",
+    header: "Lead Status",
+    render: (row) => <StatusPill status={row.status} color={row.statusColor} />,
+  },
+  leadColumn("pipeline"),
+  leadColumn("secondaryPhone"),
+  leadColumn("complaints"),
+  leadColumn("language"),
+  leadColumn("source"),
+  leadColumn("product"),
+  leadColumn("productQty"),
+  leadColumn("product2"),
+  leadColumn("product2Qty"),
+  leadColumn("callStatus"),
+  leadColumn("callAttempts"),
+  leadColumn("whatsappAttempts"),
+  leadColumn("state"),
+  leadColumn("street"),
+  // The reference capitalises this one header.
+  { ...leadColumn("city"), header: "CITY" },
+  leadColumn("nationalCode"),
+  leadColumn("bookingDate"),
+  leadColumn("category"),
+  leadColumn("actualAmount"),
+  leadColumn("forecastedAmount"),
+  leadColumn("paymentMethod"),
 ];
 
 /**
@@ -167,8 +217,8 @@ const DETAILED_COLUMNS: readonly TableColumn<LeadsByStatusLeadRow>[] = [
  * the toolbar filters and the data, the shell owns the chrome and the loading/empty/error
  * states. Summary view sits the donut + legend beside per-status counts (grouped in the DB);
  * detailed view lists the underlying leads, paginated. Every filter — Sales Agent, Pipeline,
- * Lead Status, By Date and the Filter popover's Source — is a real server query param, so
- * the ring, the counts and the export always describe the same scoped set.
+ * Lead Status, By Date and the Filter condition builder's payload — is a real server query
+ * param, so the ring, the counts and the export always describe the same scoped set.
  */
 export function LeadsByStatusReport({
   category,
@@ -185,22 +235,20 @@ export function LeadsByStatusReport({
     size: 100,
   });
 
-  const [teams, setTeams] = useState<string[]>([]);
   const [options, setOptions] = useState<LeadFilterOptions | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetchLeadsByStatusFilterOptions(controller.signal)
-      .then((result) => setTeams(result.teams))
-      .catch(() => {
-        // The team list is non-critical: the report still runs without it.
-      });
     fetchLeadFilterOptions(controller.signal)
       .then(setOptions)
       .catch(() => {
-        // Agent / source options are non-critical for the same reason.
+        // Agent options are non-critical: the report still runs without them.
       });
     return () => controller.abort();
   }, []);
+
+  // The "Filter" popover is the shared Leads condition builder (ADR-0039/0052); its
+  // applied `conditions` payload rides every report query beside the toolbar pills.
+  const advancedFilter = useAdvancedFilter({ onApplied: resetPage });
 
   // Pipelines and the status catalogue come from the shared lookups the New Lead form and
   // the board already read.
@@ -209,39 +257,46 @@ export function LeadsByStatusReport({
 
   const view: ReportViewMode =
     params.get("view") === "detailed" ? "detailed" : "summary";
-  const periodKey = params.get("period") ?? DEFAULT_PERIOD_KEY;
-  const teamKey = params.get("team") ?? "";
+  // The By Date panel: which preset, which lead date it applies to, and the Custom range.
+  const periodParam = params.get("period");
+  const periodKey = isDatePeriodKey(periodParam) ? periodParam : null;
+  const dateField: LeadsByStatusDateField =
+    params.get("dateField") === "statusChanged" ? "statusChanged" : "created";
+  const customFrom = params.get("from") ?? undefined;
+  const customTo = params.get("to") ?? undefined;
   const agentKey = params.get("agent") ?? "";
   const statusKey = params.get("status") ?? "";
   const pipelineKey = params.get("pipeline") ?? "";
-  const sourceKey = params.get("source") ?? "";
 
   const split = (value: string) =>
     value ? value.split(",").filter(Boolean) : [];
-  const teamValues = useMemo(() => split(teamKey), [teamKey]);
   const agentIds = useMemo(() => split(agentKey), [agentKey]);
   const statusValues = useMemo(() => split(statusKey), [statusKey]);
-  const sourceValues = useMemo(() => split(sourceKey), [sourceKey]);
   const pipelineValues = useMemo(
     () => (pipelineKey ? [pipelineKey] : []),
     [pipelineKey],
   );
-  const periodValues = useMemo(
-    () => (periodKey === DEFAULT_PERIOD_KEY ? [] : [periodKey]),
-    [periodKey],
-  );
-
   const filters: LeadsByStatusFilters = useMemo(
     () => ({
-      from: periodFrom(
-        PERIOD_PRESETS.find((preset) => preset.key === periodKey)?.days ?? null,
-      ),
-      team: teamValues,
+      ...(periodKey
+        ? periodRange(periodKey, { from: customFrom, to: customTo })
+        : {}),
+      dateField,
       agent: agentIds,
       status: statusValues,
       pipeline: pipelineKey || undefined,
+      conditions: advancedFilter.appliedConditions,
     }),
-    [periodKey, teamValues, agentIds, statusValues, pipelineKey],
+    [
+      periodKey,
+      customFrom,
+      customTo,
+      dateField,
+      agentIds,
+      statusValues,
+      pipelineKey,
+      advancedFilter.appliedConditions,
+    ],
   );
 
   const dataSource: ListDataSource<Row> = useCallback(
@@ -291,41 +346,54 @@ export function LeadsByStatusReport({
     },
     [setParams, resetPage],
   );
-  const summaryTableColumns = useMemo(() => summaryColumns(), []);
+  /**
+   * The Leads list URL for one status count: the status plus every filter the count was
+   * computed under, as the list's own advanced-filter payload (ADR-0039) so the list shows
+   * exactly the counted rows and its Filter badge says why. A window on the status-change
+   * date has no Leads-filter field, so that one filter can't be carried across.
+   */
+  const leadsHref = useCallback(
+    (status: string) => {
+      const conditions: {
+        field: string;
+        operator: string;
+        values: string[];
+      }[] = [{ field: "status", operator: "is", values: [status] }];
+      if (filters.pipeline)
+        conditions.push({
+          field: "pipeline",
+          operator: "is",
+          values: [filters.pipeline],
+        });
+      if (filters.agent?.length)
+        conditions.push({
+          field: "assignedAgent",
+          operator: "is",
+          values: filters.agent,
+        });
+      if (filters.from && filters.to && filters.dateField === "created")
+        conditions.push({
+          field: "createdAt",
+          operator: "between",
+          values: [filters.from, filters.to],
+        });
+      if (filters.conditions) {
+        const extra: unknown = JSON.parse(filters.conditions);
+        if (Array.isArray(extra)) conditions.push(...extra);
+      }
+      return `/leads?conditions=${encodeURIComponent(JSON.stringify(conditions))}`;
+    },
+    [filters],
+  );
+  const summaryTableColumns = useMemo(
+    () => summaryColumns(leadsHref),
+    [leadsHref],
+  );
 
   const { prefs, setPrefs, visibleColumns } = useColumnPrefs(
     COLUMN_PREFS_MODULE,
     DETAILED_COLUMNS,
   );
-
-  /** The "Filter" popover carries the filters that have no dedicated toolbar pill. */
-  const filterFields: readonly FilterField[] = useMemo(
-    () => [
-      {
-        key: "source",
-        label: "Source",
-        type: "multi",
-        options: (options?.sources ?? []).map((source) => ({
-          value: source,
-          label: source,
-        })),
-      },
-      {
-        key: "team",
-        label: "Team",
-        type: "multi",
-        options: teams.map((team) => ({ value: team, label: team })),
-      },
-    ],
-    [options, teams],
-  );
-  const filterValues: Record<string, string[]> = {
-    source: sourceValues,
-    team: teamValues,
-  };
-  const activeFilterCount = Object.values(filterValues).filter(
-    (value) => value.length > 0,
-  ).length;
 
   if (!resolved) notFound();
 
@@ -393,37 +461,28 @@ export function LeadsByStatusReport({
           label: option.label,
         }))}
       />
-      <ReportToolbarSelect
-        label="By Date"
-        icon={IconCalendar}
-        value={periodValues}
-        onChange={(value) => {
-          setParams({ period: value[0] ?? null });
-          resetPage();
+      <ReportDateFilter
+        value={{
+          field: dateField,
+          period: periodKey,
+          from: customFrom,
+          to: customTo,
         }}
-        options={PERIOD_PRESETS.filter(
-          (preset) => preset.key !== DEFAULT_PERIOD_KEY,
-        ).map((preset) => ({ value: preset.key, label: preset.label }))}
-        clearLabel={
-          PERIOD_PRESETS.find((preset) => preset.key === DEFAULT_PERIOD_KEY)
-            ?.label ?? "Any time"
-        }
-      />
-      <FilterPanel
-        portal
-        fields={filterFields}
-        activeCount={activeFilterCount}
-        valueOf={(key) => filterValues[key] ?? []}
-        onChange={(key, value) => {
-          const next = Array.isArray(value) ? value : [];
-          setParams({ [key]: next.length ? next.join(",") : null });
+        onApply={(next) => {
+          setParams({
+            period: next.period,
+            dateField: next.field === "created" ? null : next.field,
+            from: next.period === "custom" ? (next.from ?? null) : null,
+            to: next.period === "custom" ? (next.to ?? null) : null,
+          });
           resetPage();
         }}
         onClear={() => {
-          setParams({ source: null, team: null });
+          setParams({ period: null, dateField: null, from: null, to: null });
           resetPage();
         }}
       />
+      <LeadFilterBuilder filter={advancedFilter} label="Leads By Status" />
     </div>
   );
 

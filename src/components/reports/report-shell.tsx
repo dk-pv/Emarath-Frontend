@@ -58,8 +58,8 @@ export interface ReportShellProps {
   /** Optional chart region; the area is hidden entirely when a report has no chart. */
   chart?: React.ReactNode;
   /**
-   * A side panel to the left of the toolbar + results (Leads By Status' donut and legend).
-   * Opt-in: without it the shell is the single column every other report renders.
+   * A side panel beside the results, under the full-width toolbar (Leads By Status' donut
+   * and legend). Opt-in: without it the shell is the single column every other report renders.
    */
   aside?: React.ReactNode;
   /** Runs the export for the current view. Omit to disable the Export control. */
@@ -191,11 +191,16 @@ export function ReportShell({
               <IconDownload size={18} stroke={1.75} aria-hidden="true" />
               Export
             </button>
-            <ReportViewToggle
-              viewMode={viewMode}
-              onViewModeChange={onViewModeChange}
-            />
-            {trailingActions}
+            {/* One flex item, so the kebab stays glued to the toggle's right (the reference)
+                when the cluster wraps — e.g. Detailed view's extra Manage Columns pill would
+                otherwise push it onto a row of its own. */}
+            <div className="flex items-center gap-2">
+              <ReportViewToggle
+                viewMode={viewMode}
+                onViewModeChange={onViewModeChange}
+              />
+              {trailingActions}
+            </div>
           </>
         }
       />
@@ -204,25 +209,41 @@ export function ReportShell({
         <div className="border-t border-hairline p-4">{chart}</div>
       ) : null}
 
-      <div className="flex min-h-96 flex-col border-t border-hairline">
-        {state === "loading" && <Loading label="Loading report" />}
-        {state === "empty" && (
-          <EmptyState
-            icon={IconReportAnalytics}
-            title={emptyTitle}
-            description={emptyDescription}
-          />
+      {/* The reference sits the chart panel beside the results, under a toolbar that spans
+          the whole card — the only way its eight controls stay on one row beside an 18rem
+          panel. Below lg the panel stacks above the table so the table keeps its width. */}
+      <div
+        className={cn(
+          "border-t border-hairline",
+          aside &&
+            "grid grid-cols-1 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]",
         )}
-        {state === "error" && (
-          <ErrorState
-            title="Couldn’t load the report"
-            description={
-              errorMessage ?? "Something went wrong. Please try again."
-            }
-            onRetry={onRetry ?? (() => {})}
-          />
+      >
+        {aside && (
+          <section className="min-w-0 border-b border-hairline lg:border-r lg:border-b-0">
+            {aside}
+          </section>
         )}
-        {state === "ready" && children}
+        <div className="flex min-h-96 min-w-0 flex-col">
+          {state === "loading" && <Loading label="Loading report" />}
+          {state === "empty" && (
+            <EmptyState
+              icon={IconReportAnalytics}
+              title={emptyTitle}
+              description={emptyDescription}
+            />
+          )}
+          {state === "error" && (
+            <ErrorState
+              title="Couldn’t load the report"
+              description={
+                errorMessage ?? "Something went wrong. Please try again."
+              }
+              onRetry={onRetry ?? (() => {})}
+            />
+          )}
+          {state === "ready" && children}
+        </div>
       </div>
     </Card>
   );
@@ -230,19 +251,7 @@ export function ReportShell({
   return (
     <div className="flex flex-col gap-4">
       <ReportHeader report={report} category={category} />
-
-      {aside ? (
-        // The reference sits the chart panel beside the results, not above them; below
-        // lg the two stack so the table keeps its full width on narrow screens.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-          <Card as="section" className="min-w-0 self-start">
-            {aside}
-          </Card>
-          {results}
-        </div>
-      ) : (
-        results
-      )}
+      {results}
     </div>
   );
 }

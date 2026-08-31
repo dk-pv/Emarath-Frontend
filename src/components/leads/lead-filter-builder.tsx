@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   IconChevronDown,
@@ -24,6 +18,7 @@ import { MultiSelect } from "@/components/ui/MultiSelect";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useToast } from "@/components/ui/Toast";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
+import { useAnchoredPanel } from "@/hooks/use-anchored-panel";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { fetchAssignableAgents, fetchLookup } from "@/services/lookups-service";
@@ -48,7 +43,6 @@ type LeadFilterBuilderProps = {
   label?: string;
 };
 
-const GAP = 8;
 /**
  * Workpex's filter panel measures 774×243 with 27px padding, so its three condition
  * controls are exactly 234px each with 9px gaps (`kanban-filters-popover-open-columns-1-6.png`,
@@ -56,8 +50,6 @@ const GAP = 8;
  * clamp inside the content column instead.
  */
 const MAX_PANEL = 774;
-/** Trigger bottom (y246) to panel top (y257) in both references. */
-const TRIGGER_GAP = 11;
 
 /**
  * The advanced lead filter (Workpex "Filter", ADR-0039/0040/0052) — a condition builder
@@ -92,20 +84,14 @@ export function LeadFilterBuilder({
     updatePreset,
   } = filter;
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, pos, triggerRef, panelRef } =
+    useAnchoredPanel(MAX_PANEL);
   // The "Save & Filter" name prompt; `null` = closed.
   const [saveName, setSaveName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [pos, setPos] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
   const [optionsByField, setOptionsByField] = useState<
     Record<string, SelectOption[]>
   >({});
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   // Value options: the enum lookups + the assignable agents + the tag catalogue, once.
   useEffect(() => {
@@ -146,61 +132,6 @@ export function LeadFilterBuilder({
     ]).then((entries) => setOptionsByField(Object.fromEntries(entries)));
     return () => controller.abort();
   }, []);
-
-  const reposition = useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    const t = trigger.getBoundingClientRect();
-    const main = document
-      .querySelector("[data-app-main]")
-      ?.getBoundingClientRect();
-    const mainLeft = main ? main.left : 0;
-    const vw = window.innerWidth;
-    const available = vw - mainLeft - GAP * 2;
-    const width = Math.max(280, Math.min(MAX_PANEL, available));
-    // Centred on the trigger, which is what Workpex does: in both references the panel's
-    // centre sits within half a pixel of the Filter chip's centre (Kanban 1416.5 vs 1416,
-    // Leads 1194.5 vs 1194.5). The clamps then keep it inside the content column and the
-    // viewport, so a trigger near either edge slides the panel instead of overflowing.
-    let left = t.left + t.width / 2 - width / 2;
-    left = Math.min(left, vw - GAP - width);
-    left = Math.max(left, mainLeft + GAP);
-    setPos({ top: t.bottom + TRIGGER_GAP, left, width });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    reposition();
-    window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
-    return () => {
-      window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
-    };
-  }, [open, reposition]);
-
-  // Dismiss on outside click / Escape (the panel is portaled, so check both nodes).
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        !triggerRef.current?.contains(target) &&
-        !panelRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   const patch = (id: string, next: Partial<LeadFilterRow>) =>
     onRowsChange(
@@ -490,7 +421,12 @@ export function LeadFilterBuilder({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
-        className={cn(TOOLBAR_BUTTON_CLASS, "relative")}
+        className={cn(
+          TOOLBAR_BUTTON_CLASS,
+          "relative",
+          // Workpex tints the chip while its panel is open.
+          open && "bg-brand-subtle",
+        )}
       >
         <IconFilter size={18} stroke={1.75} />
         Filter

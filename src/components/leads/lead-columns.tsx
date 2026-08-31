@@ -1,3 +1,4 @@
+import { IconAlertTriangle } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { LeadNameCell } from "@/components/leads/lead-name-cell";
@@ -91,8 +92,20 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     // In the Leads list the name opens the Lead Detail drawer in place (the list
     // wraps the table in a LeadDetailProvider); the Activities list has no such
     // provider, so LeadNameCell there falls back to navigating to /leads/{id}
-    // (ACT-09.1). One cell, both behaviours.
-    render: (row) => <LeadNameCell lead={row} />,
+    // (ACT-09.1). One cell, both behaviours. Workpex leads every name with a red
+    // warning triangle — the same marker on every row, so it is decorative here.
+    render: (row) => (
+      <span className="flex items-center gap-2">
+        <IconAlertTriangle
+          size={18}
+          stroke={1.75}
+          aria-hidden="true"
+          // Workpex's triangle is a soft salmon, not the full danger red.
+          className="shrink-0 text-danger/70"
+        />
+        <LeadNameCell lead={row} />
+      </span>
+    ),
   },
   {
     key: "primaryPhone",
@@ -189,7 +202,7 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
   },
   { key: "state", header: "State", render: (row) => orDash(row.state) },
   { key: "street", header: "Street", render: (row) => orDash(row.street) },
-  { key: "city", header: "City", render: (row) => orDash(row.city) },
+  { key: "city", header: "CITY", render: (row) => orDash(row.city) },
   {
     key: "nationalCode",
     header: "National Code",

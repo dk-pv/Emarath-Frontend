@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Drawer } from "@/components/ui/Drawer";
@@ -146,7 +146,13 @@ export function ReportSchedulerDrawer({
       open={open}
       onClose={onClose}
       title="Scheduler"
-      width="max-w-xl"
+      // The reference panel is ~512px wide with a hairline under its title.
+      width="max-w-lg"
+      header={
+        <header className="border-b border-hairline p-5">
+          <h2 className="text-lg font-medium text-ink">Scheduler</h2>
+        </header>
+      }
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={submitting}>
@@ -158,7 +164,8 @@ export function ReportSchedulerDrawer({
         </>
       }
     >
-      <div className="flex flex-col gap-4">
+      {/* 12px + each field's own 8px label overhang = the reference's 20px rhythm. */}
+      <div className="flex flex-col gap-3 pt-2">
         {apiError && <FormError>{apiError}</FormError>}
 
         <FloatingField
@@ -168,9 +175,8 @@ export function ReportSchedulerDrawer({
           error={errors.reportSlug}
         >
           <Select
-            size="lg"
             aria-label="Report Type"
-            placeholder="Report Type *"
+            placeholder=""
             value={reportSlug}
             onChange={(event) => setReportSlug(event.target.value)}
             options={reportOptions}
@@ -182,47 +188,47 @@ export function ReportSchedulerDrawer({
           required
           filled={Boolean(startDate)}
           error={errors.startDate}
+          labelInset="left-9"
         >
-          <DatePicker
-            value={startDate}
-            onChange={setStartDate}
-            placeholder="Start Date *"
-            numeric
-          />
+          <DatePicker value={startDate} onChange={setStartDate} numeric />
         </FloatingField>
 
-        <div>
+        <div className="pt-2">
           <p className="text-sm text-ink-muted">
             Start Time
             <span className="text-danger" aria-hidden="true">
-              *
+              {" *"}
             </span>
           </p>
-          <div className="mt-1.5 grid grid-cols-3 gap-3">
-            <Select
-              size="lg"
-              aria-label="Start hour"
-              placeholder="HH *"
-              value={hour}
-              onChange={(event) => setHour(event.target.value)}
-              options={HOUR_OPTIONS}
-            />
-            <Select
-              size="lg"
-              aria-label="Start minute"
-              placeholder="MM *"
-              value={minute}
-              onChange={(event) => setMinute(event.target.value)}
-              options={MINUTE_OPTIONS}
-            />
-            <Select
-              size="lg"
-              aria-label="Start meridiem"
-              placeholder="AM/PM *"
-              value={ampm}
-              onChange={(event) => setAmpm(event.target.value)}
-              options={AMPM_OPTIONS}
-            />
+          {/* The parts are outlined fields like the rest, so their labels float the same way. */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <FloatingField label="HH" required filled={Boolean(hour)}>
+              <Select
+                aria-label="Start hour"
+                placeholder=""
+                value={hour}
+                onChange={(event) => setHour(event.target.value)}
+                options={HOUR_OPTIONS}
+              />
+            </FloatingField>
+            <FloatingField label="MM" required filled={Boolean(minute)}>
+              <Select
+                aria-label="Start minute"
+                placeholder=""
+                value={minute}
+                onChange={(event) => setMinute(event.target.value)}
+                options={MINUTE_OPTIONS}
+              />
+            </FloatingField>
+            <FloatingField label="AM/PM" required filled={Boolean(ampm)}>
+              <Select
+                aria-label="Start meridiem"
+                placeholder=""
+                value={ampm}
+                onChange={(event) => setAmpm(event.target.value)}
+                options={AMPM_OPTIONS}
+              />
+            </FloatingField>
           </div>
           {errors.startTime && (
             <p role="alert" className="mt-1 text-sm text-danger">
@@ -238,9 +244,8 @@ export function ReportSchedulerDrawer({
           error={errors.repeat}
         >
           <Select
-            size="lg"
             aria-label="Repeat Duration"
-            placeholder="Repeat Duration *"
+            placeholder=""
             value={repeat}
             onChange={(event) => setRepeat(event.target.value)}
             options={REPEAT_OPTIONS}
@@ -252,13 +257,9 @@ export function ReportSchedulerDrawer({
           required
           filled={Boolean(endDate)}
           error={errors.endDate}
+          labelInset="left-9"
         >
-          <DatePicker
-            value={endDate}
-            onChange={setEndDate}
-            placeholder="End Date *"
-            numeric
-          />
+          <DatePicker value={endDate} onChange={setEndDate} numeric />
         </FloatingField>
 
         <FloatingField
@@ -268,7 +269,6 @@ export function ReportSchedulerDrawer({
           error={errors.sendVia}
         >
           <Select
-            size="lg"
             aria-label="Send via"
             value={sendVia}
             onChange={(event) => setSendVia(event.target.value)}
@@ -283,9 +283,7 @@ export function ReportSchedulerDrawer({
           error={errors.recipients}
         >
           <Input
-            size="lg"
             aria-label="Recipients"
-            placeholder="Recipients *"
             value={recipients}
             onChange={(event) => setRecipients(event.target.value)}
           />
@@ -296,41 +294,50 @@ export function ReportSchedulerDrawer({
 }
 
 /**
- * The reference's outlined field: its label lives inside the control while it is empty
- * (the control's own placeholder) and notches into the top border once it has a value —
- * the treatment the "Send via" field shows.
+ * The reference's outlined field: one label that sits inside the control while it is
+ * empty (where a placeholder would, but with the red asterisk a native placeholder can't
+ * show) and notches into the top border once there is a value — the treatment "Send via"
+ * shows. The 8px the notched label rises above the control is reserved by the field's
+ * own top padding, so no scrolling ancestor can clip it — which is what cut off the
+ * pre-filled "Report Type", the first field in the drawer's padless scroll body.
  */
 function FloatingField({
   label,
   required,
   filled,
   error,
+  labelInset = "left-field-x",
   children,
 }: {
   label: string;
   required?: boolean;
   filled: boolean;
   error?: string;
+  /** Where the resting label starts — after the DatePicker's calendar icon, for one. */
+  labelInset?: string;
   children: React.ReactNode;
 }) {
+  const labelId = useId();
   return (
-    <div>
-      <div className="relative">
-        {filled && (
-          <span
-            className={cn(
-              "pointer-events-none absolute -top-2 left-2.5 z-10 bg-surface px-1 text-xs",
-              error ? "text-danger" : "text-ink-muted",
-            )}
-          >
-            {label}
-            {required && (
-              <span className="text-danger" aria-hidden="true">
-                {" *"}
-              </span>
-            )}
-          </span>
-        )}
+    <div className="pt-2">
+      <div role="group" aria-labelledby={labelId} className="relative">
+        <span
+          id={labelId}
+          className={cn(
+            "pointer-events-none absolute z-10 whitespace-nowrap",
+            filled
+              ? "-top-2 left-2.5 bg-surface px-1 text-xs"
+              : cn("top-1/2 -translate-y-1/2 text-sm", labelInset),
+            error ? "text-danger" : "text-ink-muted",
+          )}
+        >
+          {label}
+          {required && (
+            <span className="text-danger" aria-hidden="true">
+              {" *"}
+            </span>
+          )}
+        </span>
         {children}
       </div>
       {error && (

@@ -166,3 +166,29 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Tailwind v4's preflight resets buttons to `cursor: default`; Workpex shows a pointer on
+ * everything clickable. One rule here covers every control instead of a class on each —
+ * buttons and button-roled elements, menu/list/tab items, native selects, checkboxes and
+ * radios and the labels that wrap them, and disclosure summaries. Disabled controls are
+ * excluded so their own `cursor-not-allowed` stands, and an explicit cursor utility
+ * (`cursor-default`, `cursor-grab`) still wins, being a utility-layer rule.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="option"],
+  [role="tab"],
+  [role="link"],
+  select:not(:disabled),
+  summary,
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  label:has(input[type="checkbox"]:not(:disabled)),
+  label:has(input[type="radio"]:not(:disabled)) {
+    cursor: pointer;
+  }
+}

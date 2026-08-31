@@ -9,6 +9,8 @@ const MULTI_PARAM_KEYS = new Set(["source", "status", "assignedAgent", "tag"]);
  * one-shot flag) and the Kanban pipeline scope (KAN-02.2), each an exact match.
  */
 const SINGLE_PARAM_KEYS = new Set([
+  // The search bar's "Lead / Duplicate Lead" selector.
+  "searchScope",
   "createdFrom",
   "createdTo",
   "unassigned",

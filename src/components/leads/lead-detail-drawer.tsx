@@ -176,16 +176,17 @@ export function LeadDetailDrawer({
   const pinned = lead.isPinned;
 
   const header = (
-    <header className="flex items-center gap-3 border-b border-hairline p-4">
+    // Workpex: avatar and an 18px underlined name beside the outlined actions, 24px in.
+    <header className="flex items-center gap-3 border-b border-hairline px-6 py-6">
       <Avatar name={lead.name} initials={initialsOf(lead.name)} size="md" />
-      <span className="flex min-w-0 items-center gap-1">
-        <span className="truncate font-semibold text-ink underline decoration-1 underline-offset-2">
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-lg font-semibold text-ink underline decoration-1 underline-offset-2">
           {lead.name}
         </span>
         <IconChevronRight
-          size={16}
-          stroke={1.75}
-          className="shrink-0 text-ink-muted"
+          size={18}
+          stroke={2}
+          className="shrink-0 text-ink"
           aria-hidden="true"
         />
       </span>
@@ -277,14 +278,17 @@ export function LeadDetailDrawer({
       title={lead.name}
       header={header}
       scrollBody={false}
-      width="max-w-2xl"
+      width="max-w-xl"
     >
       <div className="flex h-full min-h-0 flex-col">
-        <div className="flex-none border-b border-hairline px-5 py-5">
-          <dl className="grid grid-cols-[minmax(96px,120px)_1fr] gap-x-6 gap-y-5">
+        {/* Workpex: 136px label column, 32px between rows, a thick rule before the feed. */}
+        <div className="flex-none border-b-4 border-hairline/60 px-6 py-6">
+          <dl className="grid grid-cols-[136px_1fr] gap-x-6 gap-y-8">
             {nextFollowUp ? (
               <>
-                <dt className="text-sm font-medium text-ink">Next Follow-up</dt>
+                <dt className="text-base font-medium text-ink-muted">
+                  Next Follow-up
+                </dt>
                 <dd>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-ink">
@@ -332,7 +336,9 @@ export function LeadDetailDrawer({
               </>
             ) : (
               <>
-                <dt className="text-sm font-medium text-ink">Add Follow-up</dt>
+                <dt className="text-base font-medium text-ink-muted">
+                  Add Follow-up
+                </dt>
                 <dd>
                   <p className="text-sm text-ink-muted">
                     No follow-ups created yet. Add one to schedule the next
@@ -340,7 +346,7 @@ export function LeadDetailDrawer({
                   </p>
                   <Button
                     size="sm"
-                    className="mt-3"
+                    className="mt-4"
                     onClick={() => actions.onNewFollowUp(lead)}
                   >
                     <IconPlus size={16} stroke={2} aria-hidden="true" />
@@ -350,7 +356,7 @@ export function LeadDetailDrawer({
               </>
             )}
 
-            <dt className="text-sm font-medium text-ink">Recent Notes</dt>
+            <dt className="text-base font-medium text-ink-muted">Notes</dt>
             <dd>
               {latestNote ? (
                 <p className="text-sm break-words whitespace-pre-wrap text-ink">
@@ -364,7 +370,7 @@ export function LeadDetailDrawer({
               )}
               <Button
                 size="sm"
-                className="mt-3"
+                className="mt-4"
                 onClick={() => actions.onAddNote(lead)}
               >
                 <IconPlus size={16} stroke={2} aria-hidden="true" />
@@ -374,8 +380,8 @@ export function LeadDetailDrawer({
           </dl>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 scrollbar-slim">
-          <h3 className="mb-4 text-sm font-semibold text-ink">Timeline</h3>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 scrollbar-slim">
+          <h3 className="mb-6 text-xl font-medium text-ink">Timeline</h3>
           {failure ? (
             <ErrorState
               title="Couldn’t load activity"

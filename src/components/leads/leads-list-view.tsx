@@ -111,6 +111,12 @@ import type {
  */
 const NO_FILTER_FIELDS: FilterField[] = [];
 
+/** The search bar's scope options, in the reference's order. */
+const SEARCH_SCOPES = [
+  { value: "lead", label: "Lead" },
+  { value: "duplicate", label: "Duplicate Lead" },
+] as const;
+
 /**
  * The real Leads list (LEAD-02.2) with search, filter and sort wired in
  * (LEAD-03.3). Everything is a composition of the Foundation: search is the
@@ -123,9 +129,12 @@ const NO_FILTER_FIELDS: FilterField[] = [];
  */
 export function LeadsListView({
   initialStatus = null,
+  initialConditions = null,
 }: {
   /** A Lead Status to arrive filtered by (the `?status=` deep link); null for the plain list. */
   initialStatus?: string | null;
+  /** A full `conditions` payload to start applied; takes precedence over `initialStatus`. */
+  initialConditions?: string | null;
 } = {}) {
   const { user } = useAuth();
   // Reassignment is a managers-and-admins tool (AUTH-02.2); hide its triggers otherwise.
@@ -168,18 +177,19 @@ export function LeadsListView({
   const onFilterApplied = useCallback(() => resetPageRef.current(), []);
   // The deep link's status becomes one applied builder condition, so the Filter badge
   // reads "1", the builder shows the row, and Clear All removes it like any other.
-  const initialConditions = useMemo(
+  const seededConditions = useMemo(
     () =>
-      initialStatus
+      initialConditions ??
+      (initialStatus
         ? JSON.stringify([
             { field: "status", operator: "is", values: [initialStatus] },
           ])
-        : undefined,
-    [initialStatus],
+        : undefined),
+    [initialConditions, initialStatus],
   );
   const advancedFilter = useAdvancedFilter({
     onApplied: onFilterApplied,
-    initialConditions,
+    initialConditions: seededConditions,
   });
 
   // The box tracks the live value; only the value that drives the fetch waits.
@@ -187,12 +197,21 @@ export function LeadsListView({
     filters.state.search,
     SEARCH_DEBOUNCE_MS,
   );
+  // The search bar's "Lead / Duplicate Lead" selector rides the same condition
+  // pipeline as the quick-filter presets, reaching the API as `?searchScope=duplicate`.
+  const [searchScope, setSearchScope] = useState<string>("lead");
   const queryState = useMemo<FilterState>(
     () => ({
       search: debouncedSearch,
-      conditions: [...filters.state.conditions, ...presetFilters],
+      conditions: [
+        ...filters.state.conditions,
+        ...presetFilters,
+        ...(searchScope === "duplicate"
+          ? [{ key: "searchScope", value: "duplicate" }]
+          : []),
+      ],
     }),
-    [debouncedSearch, filters.state.conditions, presetFilters],
+    [debouncedSearch, filters.state.conditions, presetFilters, searchScope],
   );
 
   const list = useListQuery({
@@ -813,8 +832,16 @@ export function LeadsListView({
                 filters.setSearch(value);
                 list.resetPage();
               }}
-              placeholder="Search name or phone"
+              placeholder="Search"
               clearable
+              scope={{
+                value: searchScope,
+                options: SEARCH_SCOPES,
+                onChange: (value) => {
+                  setSearchScope(value);
+                  list.resetPage();
+                },
+              }}
             />
             <LeadFilterBuilder filter={advancedFilter} label="Leads" />
             <LeadSortControl

@@ -6,9 +6,9 @@ import type { LeadTimelineEvent } from "@/services/leads-service";
 
 /**
  * The Lead Detail drawer's activity timeline (traced from the supplied Workpex
- * screenshots): events grouped by day ("Today", "19 Aug 2026") down a vertical
- * line of dots, each showing the time, a bold label, and — for notes — the note
- * body under a note icon. Rendered from the partial-but-honest feed
+ * screenshots): newest first down a green rail of filled dots, each entry showing its
+ * day ("Today", "06 Jul 2026") in bold, the time, a label with its subjects in bold,
+ * and — for notes — the note body under a note icon. Rendered from the partial-but-honest feed
  * (`GET /leads/:id/timeline`): Lead Created, Lead Assigned, Note Added. Client-only
  * (the drawer is a client component), so the local "today" comparison is safe.
  */
@@ -55,25 +55,6 @@ function scheduleLabel(iso: string): string {
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const yyyy = date.getFullYear();
   return `${dd}-${mm}-${yyyy} ${timeLabel(date)}`;
-}
-
-type DayGroup = { key: string; label: string; events: LeadTimelineEvent[] };
-
-/** Events arrive newest-first; walk them into contiguous day buckets in that order. */
-function groupByDay(events: LeadTimelineEvent[]): DayGroup[] {
-  const today = new Date();
-  const groups: DayGroup[] = [];
-  for (const event of events) {
-    const date = new Date(event.at);
-    const key = dayKey(date);
-    const current = groups[groups.length - 1];
-    if (current && current.key === key) {
-      current.events.push(event);
-    } else {
-      groups.push({ key, label: dayLabel(date, today), events: [event] });
-    }
-  }
-  return groups;
 }
 
 function EventLabel({ event }: { event: LeadTimelineEvent }) {
@@ -131,30 +112,55 @@ function EventLabel({ event }: { event: LeadTimelineEvent }) {
 }
 
 export function LeadTimeline({ events }: { events: LeadTimelineEvent[] }) {
-  const groups = groupByDay(events);
+  const today = new Date();
 
   return (
-    <div className="flex flex-col gap-6">
-      {groups.map((group) => (
-        <div key={group.key} className="flex flex-col gap-4">
-          <h4 className="text-sm font-semibold text-ink">{group.label}</h4>
-          <ol className="relative flex flex-col gap-5 border-l border-brand/60 pl-6">
-            {group.events.map((event) => (
-              <li
-                key={event.id}
-                className="relative border-b border-hairline pb-5 last:border-0 last:pb-0"
-              >
-                <span
-                  className="absolute top-1 -left-[1.9375rem] size-3.5 rounded-full border-2 border-brand bg-surface"
+    <ol className="relative flex flex-col gap-5 border-l-2 border-brand/70 pl-6">
+      {events.map((event) => {
+        const at = new Date(event.at);
+        return (
+          <li
+            key={event.id}
+            className="relative border-b border-hairline pb-5 last:border-0 last:pb-0"
+          >
+            {/* Centred on the 2px rail, level with the date line. */}
+            <span
+              className="absolute top-[5px] -left-8 size-3.5 rounded-full bg-brand ring-4 ring-brand/30"
+              aria-hidden="true"
+            />
+            <p className="text-base font-semibold text-ink">
+              {dayLabel(at, today)}
+            </p>
+            <p className="mt-1.5 text-sm text-ink-muted">{timeLabel(at)}</p>
+            <p className="mt-1 text-base text-ink-muted">
+              <EventLabel event={event} />
+            </p>
+            {event.type === "note" && (
+              <p className="mt-1 flex items-start gap-1.5 text-sm text-ink">
+                <IconNote
+                  size={16}
+                  stroke={1.75}
+                  className="mt-0.5 shrink-0 text-ink-subtle"
                   aria-hidden="true"
                 />
-                <p className="text-xs text-ink-muted">
-                  {timeLabel(new Date(event.at))}
+                <span className="break-words whitespace-pre-wrap">
+                  {event.body}
+                </span>
+              </p>
+            )}
+            {(event.type === "followup-created" ||
+              event.type === "followup-completed") && (
+              <>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
+                  <IconClock
+                    size={14}
+                    stroke={1.75}
+                    className="shrink-0"
+                    aria-hidden="true"
+                  />
+                  {scheduleLabel(event.dueAt)}
                 </p>
-                <p className="mt-0.5 text-sm text-ink-muted">
-                  <EventLabel event={event} />
-                </p>
-                {event.type === "note" && (
+                {event.description && (
                   <p className="mt-1 flex items-start gap-1.5 text-sm text-ink">
                     <IconNote
                       size={16}
@@ -163,42 +169,15 @@ export function LeadTimeline({ events }: { events: LeadTimelineEvent[] }) {
                       aria-hidden="true"
                     />
                     <span className="break-words whitespace-pre-wrap">
-                      {event.body}
+                      {event.description}
                     </span>
                   </p>
                 )}
-                {(event.type === "followup-created" ||
-                  event.type === "followup-completed") && (
-                  <>
-                    <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
-                      <IconClock
-                        size={14}
-                        stroke={1.75}
-                        className="shrink-0"
-                        aria-hidden="true"
-                      />
-                      {scheduleLabel(event.dueAt)}
-                    </p>
-                    {event.description && (
-                      <p className="mt-1 flex items-start gap-1.5 text-sm text-ink">
-                        <IconNote
-                          size={16}
-                          stroke={1.75}
-                          className="mt-0.5 shrink-0 text-ink-subtle"
-                          aria-hidden="true"
-                        />
-                        <span className="break-words whitespace-pre-wrap">
-                          {event.description}
-                        </span>
-                      </p>
-                    )}
-                  </>
-                )}
-              </li>
-            ))}
-          </ol>
-        </div>
-      ))}
-    </div>
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }

@@ -1,25 +1,17 @@
 import { apiGet } from "@/lib/api-client";
 import { env } from "@/lib/env";
+import type { LeadListItem } from "@/services/leads-service";
 import type { ListResult } from "@/types";
 
-/** An assignee reference, mirroring the backend `LeadsByStatusAgentRef`. */
-export interface LeadsByStatusAgentRef {
-  id: string;
-  name: string;
-}
-
-/** One lead in the detailed view (RPT-02.3), mirroring `LeadsByStatusLeadRow`. */
-export interface LeadsByStatusLeadRow {
-  id: string;
-  name: string;
-  firstName: string | null;
-  primaryPhone: string;
-  source: string | null;
-  status: string;
-  /** Stage colour KEY (`violet`, `amber`, …) or null; mapped to tokens via stage-palette. */
+/**
+ * One lead in the detailed view (RPT-02.3), mirroring the backend `LeadsByStatusLeadRow`:
+ * the Leads list's own row — so the report's columns are the list's, fed by the same
+ * mapping — plus the status's stage colour KEY (`violet`, `amber`, …) or null, mapped to
+ * tokens via stage-palette.
+ */
+export type LeadsByStatusLeadRow = LeadListItem & {
   statusColor: string | null;
-  assignedTo: LeadsByStatusAgentRef[];
-}
+};
 
 /** One breakdown row: lead count at a status + its stage colour key, mirroring `StatusCountRow`. */
 export interface StatusCountRow {
@@ -28,10 +20,13 @@ export interface StatusCountRow {
   color: string | null;
 }
 
-/** The report's period/team filters (RPT-02.3 AC3). */
+/** The report's filters (RPT-02.3 AC3). */
 export interface LeadsByStatusFilters {
-  /** Creation-window lower bound — an ISO instant, derived from the selected period preset. */
+  /** The date window's bounds — ISO instants from `periodRange`, half-open [from, to). */
   from?: string;
+  to?: string;
+  /** Which lead date the window applies to; the server defaults to creation. */
+  dateField?: LeadsByStatusDateField;
   team?: string[];
   /** Assigned-agent user ids (toolbar "Sales Agent"). */
   agent?: string[];
@@ -39,38 +34,114 @@ export interface LeadsByStatusFilters {
   status?: string[];
   /** One exact board name (toolbar "Pipeline"). */
   pipeline?: string;
+  /** The Filter builder's applied conditions (ADR-0039) — the same JSON param the Leads list sends. */
+  conditions?: string;
+}
+
+/** Which lead date the "By Date" window applies to (RPT-02.3). */
+export type LeadsByStatusDateField = "created" | "statusChanged";
+
+export const DATE_FIELD_OPTIONS: readonly {
+  value: LeadsByStatusDateField;
+  label: string;
+}[] = [
+  { value: "created", label: "Created Date" },
+  { value: "statusChanged", label: "Status Changed Date" },
+];
+
+export type DatePeriodKey =
+  | "today"
+  | "yesterday"
+  | "thisWeek"
+  | "lastWeek"
+  | "thisMonth"
+  | "lastMonth"
+  | "thisYear"
+  | "lastYear"
+  | "custom";
+
+/** The "By Date" presets in the reference's order; "custom" opens the From/To pickers. */
+export const DATE_PERIODS: readonly { key: DatePeriodKey; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "yesterday", label: "Yesterday" },
+  { key: "thisWeek", label: "This Week" },
+  { key: "lastWeek", label: "Last Week" },
+  { key: "thisMonth", label: "This Month" },
+  { key: "lastMonth", label: "Last Month" },
+  { key: "thisYear", label: "This Year" },
+  { key: "lastYear", label: "Last Year" },
+  { key: "custom", label: "Custom" },
+];
+
+export function isDatePeriodKey(value: string | null): value is DatePeriodKey {
+  return DATE_PERIODS.some((preset) => preset.key === value);
+}
+
+/** Monday — the UAE working week. */
+const WEEK_STARTS_ON = 1;
+
+/** A local calendar date as the `YYYY-MM-DD` the Custom range carries in the URL. */
+export function dateKey(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** The inverse of `dateKey`: local midnight of that date, or undefined for anything else. */
+export function parseDateKey(key: string | undefined): Date | undefined {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return undefined;
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  // Round-trip, not isNaN: `new Date(2026, 12, 99)` silently rolls over to a valid date.
+  return dateKey(date) === key ? date : undefined;
 }
 
 /**
- * The period presets the control offers, applied to lead creation date. "Any time" (no lower
- * bound) is the default — the whole scoped set. `days` is turned into a client-timezone
- * instant at fetch time so it always tracks the user's today.
+ * The half-open [from, to) window of instants a preset means, computed in the client's
+ * timezone (matching day-boundaries.ts) so "today" is the user's today. Custom takes the
+ * picker's calendar dates, end inclusive.
  */
-export interface PeriodPreset {
-  key: string;
-  label: string;
-  days: number | null;
-}
-
-export const PERIOD_PRESETS: readonly PeriodPreset[] = [
-  { key: "any", label: "Any time", days: null },
-  { key: "7", label: "Last 7 days", days: 7 },
-  { key: "30", label: "Last 30 days", days: 30 },
-  { key: "90", label: "Last 90 days", days: 90 },
-];
-
-export const DEFAULT_PERIOD_KEY = "any";
-
-/** Local midnight `days` ago as an ISO instant (timezone-correct, matching day-boundaries.ts). */
-export function periodFrom(days: number | null): string | undefined {
-  if (days == null) return undefined;
-  const now = new Date();
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() - days,
-  );
-  return start.toISOString();
+export function periodRange(
+  key: DatePeriodKey,
+  custom: { from?: string; to?: string } = {},
+  now = new Date(),
+): { from?: string; to?: string } {
+  const day = (d: Date, offset = 0) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
+  const month = (offset = 0) =>
+    new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const year = (offset = 0) => new Date(now.getFullYear() + offset, 0, 1);
+  const today = day(now);
+  const week = day(today, -((today.getDay() - WEEK_STARTS_ON + 7) % 7));
+  const window = (from: Date, to: Date) => ({
+    from: from.toISOString(),
+    to: to.toISOString(),
+  });
+  switch (key) {
+    case "today":
+      return window(today, day(today, 1));
+    case "yesterday":
+      return window(day(today, -1), today);
+    case "thisWeek":
+      return window(week, day(week, 7));
+    case "lastWeek":
+      return window(day(week, -7), week);
+    case "thisMonth":
+      return window(month(), month(1));
+    case "lastMonth":
+      return window(month(-1), month());
+    case "thisYear":
+      return window(year(), year(1));
+    case "lastYear":
+      return window(year(-1), year());
+    case "custom": {
+      const from = parseDateKey(custom.from);
+      const to = parseDateKey(custom.to);
+      return {
+        from: from?.toISOString(),
+        to: to ? day(to, 1).toISOString() : undefined,
+      };
+    }
+  }
 }
 
 function appendFilters(
@@ -78,7 +149,10 @@ function appendFilters(
   filters: LeadsByStatusFilters,
 ): void {
   if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.dateField) params.set("dateField", filters.dateField);
   if (filters.pipeline) params.set("pipeline", filters.pipeline);
+  if (filters.conditions) params.set("conditions", filters.conditions);
   for (const team of filters.team ?? []) params.append("team", team);
   for (const agent of filters.agent ?? []) params.append("agent", agent);
   for (const status of filters.status ?? []) params.append("status", status);

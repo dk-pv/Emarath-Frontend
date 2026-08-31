@@ -6,6 +6,9 @@ export const LEADS_VIEW_KEY = "leads";
 /** The Manage Columns view key for the Activities table (ACT-07.1). */
 export const ACTIVITIES_VIEW_KEY = "activities";
 
+/** The Manage Columns view key for the Recent Call Log (CALL-05.2). */
+export const CALLS_VIEW_KEY = "calls";
+
 /**
  * A saved table layout: the manageable column ids in the user's chosen order, and
  * the subset currently hidden. Mirrors the backend contract; a shared/generated

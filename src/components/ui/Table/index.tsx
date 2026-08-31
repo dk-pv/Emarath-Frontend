@@ -7,6 +7,7 @@ import {
 } from "@tabler/icons-react";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 import type { SortDirection, SortState, TableColumn } from "@/types";
 
@@ -35,6 +36,15 @@ type TableProps<TRow> = {
   isFetching?: boolean;
   emptyState?: React.ReactNode;
   errorState?: React.ReactNode;
+  /**
+   * Hover tooltips on the sort glyphs, per the Workpex Call Dashboard leaderboard
+   * (`ui-reference/calldashboard/call-dashboard-overview.mp4`, 00:50–01:12).
+   *
+   * Opt-in: no other Workpex table in the reference set has been shown to carry
+   * them, and the Recent Call Log's headers are not even sortable there — so this
+   * must not appear on Leads, Activities or anywhere else without its own evidence.
+   */
+  sortTooltips?: boolean;
 };
 
 type Align = NonNullable<TableColumn<unknown>["align"]>;
@@ -88,17 +98,60 @@ function nextSortFor<TRow>(
   };
 }
 
-function SortGlyph({ direction }: { direction?: SortDirection }) {
+/**
+ * The sort tooltip's wording, taken verbatim from the reference video: an unsorted
+ * column offers the action ("Sort by Missed Calls"), a sorted one names the direction
+ * it is currently in ("Users • A→Z", "Total Calls • Low → High").
+ */
+const SORT_WORDS = {
+  text: { asc: "A→Z", desc: "Z→A" },
+  measure: { asc: "Low → High", desc: "High → Low" },
+} as const;
+
+function sortTooltipFor<TRow>(
+  column: TableColumn<TRow>,
+  sort: SortState | undefined,
+): string {
+  if (sort?.key !== column.key) return `Sort by ${column.header}`;
+  // A left-aligned column holds names and a right/centred one holds a measure —
+  // the same split the video makes between "Users" and the five call metrics.
+  const words =
+    (column.align ?? "left") === "left" ? SORT_WORDS.text : SORT_WORDS.measure;
+  return `${column.header} • ${words[sort.direction]}`;
+}
+
+/** Spreads the rest so a Tooltip can put `aria-describedby` on the glyph itself. */
+function SortGlyph({
+  direction,
+  ...props
+}: { direction?: SortDirection } & React.ComponentPropsWithoutRef<"svg">) {
   if (direction === "asc") {
-    return <IconChevronUp size={14} stroke={2} className="shrink-0 text-ink" />;
+    return (
+      <IconChevronUp
+        size={14}
+        stroke={2}
+        className="shrink-0 text-ink"
+        {...props}
+      />
+    );
   }
   if (direction === "desc") {
     return (
-      <IconChevronDown size={14} stroke={2} className="shrink-0 text-ink" />
+      <IconChevronDown
+        size={14}
+        stroke={2}
+        className="shrink-0 text-ink"
+        {...props}
+      />
     );
   }
   return (
-    <IconSelector size={14} stroke={2} className="shrink-0 text-ink-subtle" />
+    <IconSelector
+      size={14}
+      stroke={2}
+      className="shrink-0 text-ink-subtle"
+      {...props}
+    />
   );
 }
 
@@ -129,6 +182,7 @@ export function Table<TRow>({
   isFetching,
   emptyState,
   errorState,
+  sortTooltips,
 }: TableProps<TRow>) {
   const pageIds = rows.map(getRowId);
   const selectedOnPage = selection
@@ -256,9 +310,20 @@ export function Table<TRow>({
                     )}
                   >
                     <span>{column.header}</span>
-                    <SortGlyph
-                      direction={active ? sort?.direction : undefined}
-                    />
+                    {sortTooltips ? (
+                      // Anchored to the glyph, not the header: the reference's little
+                      // caret always points at the sort icon. Portalled so the table's
+                      // own horizontal scroll container cannot clip it.
+                      <Tooltip content={sortTooltipFor(column, sort)} portal>
+                        <SortGlyph
+                          direction={active ? sort?.direction : undefined}
+                        />
+                      </Tooltip>
+                    ) : (
+                      <SortGlyph
+                        direction={active ? sort?.direction : undefined}
+                      />
+                    )}
                   </button>
                 ) : (
                   column.header

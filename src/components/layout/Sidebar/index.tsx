@@ -14,6 +14,7 @@ import {
   SIDEBAR_ROW_IDLE,
   SidebarRowIcon,
   SidebarRowLabel,
+  SidebarRowTooltip,
 } from "./sidebar-row";
 
 type SidebarProps = {
@@ -94,17 +95,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         {/* Sign-out is the last row of the same nav flow — an equal flex-grow row directly
             after Settings, sharing the height like every other item, never bottom-pinned. */}
-        <button
-          type="button"
-          aria-label="Logout"
-          onClick={handleLogout}
-          disabled={loggingOut}
-          aria-busy={loggingOut}
-          className={`${SIDEBAR_ROW_CLASS} ${SIDEBAR_ROW_IDLE} disabled:cursor-not-allowed`}
-        >
-          <SidebarRowIcon icon={IconLogout} />
-          <SidebarRowLabel collapsed={collapsed}>Logout</SidebarRowLabel>
-        </button>
+        <SidebarRowTooltip label="Logout" collapsed={collapsed}>
+          <button
+            type="button"
+            aria-label="Logout"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            aria-busy={loggingOut}
+            className={`${SIDEBAR_ROW_CLASS} w-full ${SIDEBAR_ROW_IDLE} disabled:cursor-not-allowed`}
+          >
+            <SidebarRowIcon icon={IconLogout} />
+            <SidebarRowLabel collapsed={collapsed}>Logout</SidebarRowLabel>
+          </button>
+        </SidebarRowTooltip>
       </nav>
 
       <SidebarToggle collapsed={collapsed} onToggle={onToggle} />

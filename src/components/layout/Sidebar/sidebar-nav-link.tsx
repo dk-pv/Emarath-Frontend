@@ -5,6 +5,7 @@ import {
   SIDEBAR_ROW_IDLE,
   SidebarRowIcon,
   SidebarRowLabel,
+  SidebarRowTooltip,
 } from "./sidebar-row";
 
 type SidebarNavLinkProps = {
@@ -24,16 +25,18 @@ export function SidebarNavLink({
   collapsed,
 }: SidebarNavLinkProps) {
   return (
-    <Link
-      href={href}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      className={`${SIDEBAR_ROW_CLASS} ${
-        active ? "bg-sidebar-active text-brand" : SIDEBAR_ROW_IDLE
-      }`}
-    >
-      <SidebarRowIcon icon={icon} />
-      <SidebarRowLabel collapsed={collapsed}>{label}</SidebarRowLabel>
-    </Link>
+    <SidebarRowTooltip label={label} collapsed={collapsed}>
+      <Link
+        href={href}
+        aria-label={label}
+        aria-current={active ? "page" : undefined}
+        className={`${SIDEBAR_ROW_CLASS} w-full ${
+          active ? "bg-sidebar-active text-brand" : SIDEBAR_ROW_IDLE
+        }`}
+      >
+        <SidebarRowIcon icon={icon} />
+        <SidebarRowLabel collapsed={collapsed}>{label}</SidebarRowLabel>
+      </Link>
+    </SidebarRowTooltip>
   );
 }

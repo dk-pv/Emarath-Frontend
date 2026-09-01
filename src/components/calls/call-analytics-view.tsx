@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { cn } from "@/lib/cn";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   fetchCallAnalytics,
@@ -37,19 +37,29 @@ const SLICE_STROKE = [
   "stroke-pink-400",
 ];
 
-const SLICE_FILL = [
-  "bg-violet-500",
-  "bg-cyan-500",
-  "bg-amber-500",
-  "bg-emerald-500",
-  "bg-rose-400",
-  "bg-blue-600",
-  "bg-lime-500",
-  "bg-teal-400",
-  "bg-orange-500",
-  "bg-slate-500",
-  "bg-pink-400",
-];
+/**
+ * The header all three panels share: the title, an optional right-hand column
+ * label, and the divider under both. The donut card carries no column label in
+ * the reference, which is the only difference between the three.
+ */
+function PanelHeader({
+  title,
+  countHeader,
+}: {
+  title: string;
+  countHeader?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-3">
+      <h3 className="truncate text-sm font-medium text-ink">{title}</h3>
+      {countHeader && (
+        <span className="shrink-0 text-sm font-medium text-ink">
+          {countHeader}
+        </span>
+      )}
+    </div>
+  );
+}
 
 /** A label/count list panel — Call By Status and Calls By Lead Stage share it. */
 function CountPanel({
@@ -57,20 +67,21 @@ function CountPanel({
   rows,
   countHeader = "Count",
   emptyLabel,
+  hideScrollbar = false,
 }: {
   title: string;
   rows: CallCountRow[];
   countHeader?: string;
   emptyLabel: string;
+  /**
+   * Hides the scrollbar while keeping the list scrollable. Opt-in: only the stage
+   * list is long enough to overflow, and Call By Status must keep the default.
+   */
+  hideScrollbar?: boolean;
 }) {
   return (
     <Card as="section" className="flex min-w-0 flex-col">
-      <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-        <h3 className="truncate text-sm font-semibold text-ink">{title}</h3>
-        <span className="shrink-0 text-sm font-semibold text-ink">
-          {countHeader}
-        </span>
-      </div>
+      <PanelHeader title={title} countHeader={countHeader} />
       {rows.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-ink-muted">
           {emptyLabel}
@@ -78,7 +89,12 @@ function CountPanel({
       ) : (
         // A definition list: assistive tech reads each label with its own count
         // instead of two disconnected columns.
-        <dl className="max-h-72 divide-y divide-hairline overflow-y-auto">
+        <dl
+          className={cn(
+            "max-h-72 divide-y divide-hairline overflow-y-auto",
+            hideScrollbar && "scrollbar-none",
+          )}
+        >
           {rows.map((row) => (
             <div
               key={row.label}
@@ -108,8 +124,8 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * the slices before it — the project has no charting library and this does not
  * justify adding one.
  *
- * The ring is `aria-hidden` and the figures are read from the legend beside it,
- * which is the accessible representation of the same numbers.
+ * The ring is `aria-hidden`; the same figures are carried by the visually hidden
+ * list beneath it, which is the accessible representation of the chart.
  */
 function SourceDonut({ rows, total }: { rows: CallCountRow[]; total: number }) {
   // Geometry is derived up front, without a running accumulator: each slice is
@@ -128,7 +144,9 @@ function SourceDonut({ rows, total }: { rows: CallCountRow[]; total: number }) {
   }, [rows, total]);
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-6 px-4 py-6">
+    // The reference centres the ring alone in the card — no legend beside it, so
+    // the donut sits on the card's own axis rather than being pushed off it.
+    <div className="flex flex-1 items-center justify-center px-4 py-6">
       <div className="relative shrink-0">
         <svg
           viewBox="0 0 160 160"
@@ -168,22 +186,17 @@ function SourceDonut({ rows, total }: { rows: CallCountRow[]; total: number }) {
         </span>
       </div>
 
-      <ul className="flex max-h-40 min-w-0 flex-col gap-2 overflow-y-auto">
-        {rows.map((row, index) => (
-          <li key={row.label} className="flex items-center gap-2 text-sm">
-            <span
-              aria-hidden="true"
-              className={`size-2.5 shrink-0 rounded-full ${SLICE_FILL[index % SLICE_FILL.length]}`}
-            />
-            <span className="truncate text-ink" title={row.label}>
-              {row.label}
-            </span>
-            <span className="ml-auto shrink-0 tabular-nums text-ink-muted">
-              {NUMBER.format(row.count)}
-            </span>
-          </li>
+      {/* The ring is `aria-hidden`, and the reference shows no legend to read the
+          figures from — so the same numbers stay available to assistive tech here
+          instead of being lost with it. */}
+      <dl className="sr-only">
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt>{row.label}</dt>
+            <dd>{NUMBER.format(row.count)}</dd>
+          </div>
         ))}
-      </ul>
+      </dl>
     </div>
   );
 }
@@ -262,17 +275,15 @@ export function CallAnalyticsPanels({ filters }: { filters: CallFilterState }) {
       />
 
       <Card as="section" className="flex min-w-0 flex-col">
-        <SectionHeader title="Call Summary By Lead Source" />
-        {data.bySource.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-ink-muted">
-            No calls in this period.
-          </p>
-        ) : (
-          <SourceDonut rows={data.bySource} total={data.total} />
-        )}
+        <PanelHeader title="Call Summary By Lead Source" />
+        {/* No special empty branch: with no sources the ring draws its bare track
+            around "Total 0", which is the empty state the reference shows — a
+            generic "no data" message would replace the chart instead of being it. */}
+        <SourceDonut rows={data.bySource} total={data.total} />
       </Card>
 
       <CountPanel
+        hideScrollbar
         title="Calls By Lead Stage"
         rows={data.byStage}
         emptyLabel="No calls in this period."

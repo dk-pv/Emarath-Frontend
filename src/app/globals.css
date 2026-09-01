@@ -30,6 +30,14 @@
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-info: #3b82f6;
+  /*
+   * Two accents the semantic set has no member for. Sampled from the GPS Map KPI
+   * badges in ui-reference/gps-map/GPS-MAP-overview.mp4 (Total Check-outs and
+   * Automatic Tracking), which are neither danger-red nor brand-green. They carry no
+   * meaning beyond "this card's accent" — a status must still use success/danger.
+   */
+  --color-accent-pink: #d53484;
+  --color-accent-violet: #a459c0;
   --color-scrollbar: #d1d5db;
 
   /*

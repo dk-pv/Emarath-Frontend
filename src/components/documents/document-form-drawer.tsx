@@ -203,7 +203,7 @@ export function DocumentFormDrawer({
             />
             <p className="mt-3 text-sm text-ink-muted">
               Drop files to attach, or{" "}
-              <span className="font-medium text-brand-strong">browse</span>.
+              <span className="font-medium text-info">browse</span>.
             </p>
 
             {file && (

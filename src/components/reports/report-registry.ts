@@ -243,9 +243,9 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
 ];
 
 /**
- * The Analytics hub catalogue. In Workpex the Sales reports live under the separate **Analytics**
- * module (`/analytics`, "3 Sales Reports"), NOT under Reports — so they are defined here and the
- * Analytics page renders them with the same hub/section/card components. Titles and descriptions
+ * The Sales catalogue. Workpex shows these under its separate **Analytics** module (`/analytics`,
+ * "3 Sales Reports"); Emarath's Reports hub lists every business area, so the same cards appear
+ * on both hubs and the reports' one home is `/reports/sales/<slug>`. Titles and descriptions
  * are transcribed verbatim from `ui-reference/analytics/analytics-hub-sales-reports-default.png`.
  * These are hub cards (navigation only); the report screens themselves are future/unticketed, so
  * the `taskId`s are the roadmap-proposed Analytics ids (Revenue maps to the backlog's RPT-04.1).
@@ -254,7 +254,7 @@ export const ANALYTICS_CATEGORIES: readonly ReportCategory[] = [
   {
     key: "sales",
     title: "Sales",
-    reports: withHrefs("/analytics/sales", [
+    reports: withHrefs("/reports/sales", [
       {
         taskId: "ANLY-01.1",
         slug: "sales-funnel",
@@ -300,7 +300,7 @@ export function findReport(
   slug: string,
 ): ResolvedReport | undefined {
   const href = `/reports/${category}/${slug}`;
-  for (const cat of REPORT_CATEGORIES) {
+  for (const cat of [...REPORT_CATEGORIES, ...ANALYTICS_CATEGORIES]) {
     const report = cat.reports.find((entry) => entry.href === href);
     if (report) return { report, category: cat };
   }
@@ -309,34 +309,7 @@ export function findReport(
 
 /** The `[category]`/`[slug]` pairs for every report, for static route generation. */
 export function reportRouteParams(): { category: string; slug: string }[] {
-  return REPORT_CATEGORIES.flatMap((cat) =>
-    cat.reports.map((report) => {
-      const [, , category, slug] = report.href.split("/");
-      return { category, slug };
-    }),
-  );
-}
-
-/**
- * Resolve an Analytics report route (`/analytics/<category>/<slug>`) back to its registry entry.
- * Kept separate from `findReport` so the Reports route never resolves an Analytics report (and
- * vice-versa) — each hub only sees its own categories.
- */
-export function findAnalyticsReport(
-  category: string,
-  slug: string,
-): ResolvedReport | undefined {
-  const href = `/analytics/${category}/${slug}`;
-  for (const cat of ANALYTICS_CATEGORIES) {
-    const report = cat.reports.find((entry) => entry.href === href);
-    if (report) return { report, category: cat };
-  }
-  return undefined;
-}
-
-/** The `[category]`/`[slug]` pairs for every Analytics report, for static route generation. */
-export function analyticsRouteParams(): { category: string; slug: string }[] {
-  return ANALYTICS_CATEGORIES.flatMap((cat) =>
+  return [...REPORT_CATEGORIES, ...ANALYTICS_CATEGORIES].flatMap((cat) =>
     cat.reports.map((report) => {
       const [, , category, slug] = report.href.split("/");
       return { category, slug };

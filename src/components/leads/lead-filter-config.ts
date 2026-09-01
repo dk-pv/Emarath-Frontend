@@ -42,12 +42,13 @@ export type LeadFilterFieldDef = {
 };
 
 /**
- * The 32 filterable fields in the Workpex order and labels. `Created By` is shown but
+ * The 35 filterable fields in the Workpex order and labels (Team added for the reports' drill-down). `Created By` is shown but
  * `queryable: false` — `Lead` records no creator, so it cannot be filtered yet (audit).
  */
 export const LEAD_FILTER_FIELDS: readonly LeadFilterFieldDef[] = [
   { key: "actualAmount", label: "Actual Amount", kind: "numeric" },
   { key: "assignedDate", label: "Assigned Date", kind: "date" },
+  { key: "activity", label: "Activity", kind: "enum", lookup: "leadActivity" },
   { key: "assignedAgent", label: "Assigned User", kind: "user" },
   { key: "bookingDate", label: "BOOKING DATE", kind: "date" },
   {
@@ -62,6 +63,7 @@ export const LEAD_FILTER_FIELDS: readonly LeadFilterFieldDef[] = [
   { key: "country", label: "Country", kind: "text" },
   { key: "createdBy", label: "Created By", kind: "user", queryable: false },
   { key: "createdAt", label: "Created Date", kind: "date" },
+  { key: "statusChangedAt", label: "Status Changed Date", kind: "date" },
   { key: "firstName", label: "First name", kind: "text" },
   { key: "followUpDate", label: "Follow Up Date", kind: "date" },
   { key: "forecastedAmount", label: "Forecasted Amount", kind: "numeric" },
@@ -93,6 +95,7 @@ export const LEAD_FILTER_FIELDS: readonly LeadFilterFieldDef[] = [
   { key: "state", label: "State", kind: "text" },
   { key: "street", label: "Street", kind: "text" },
   { key: "tags", label: "Tags", kind: "tags" },
+  { key: "team", label: "Team", kind: "enum", lookup: "teams" },
 ];
 
 export const FIELD_OPTIONS: SelectOption[] = LEAD_FILTER_FIELDS.map((f) => ({

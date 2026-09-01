@@ -26,7 +26,7 @@ export interface NoActivityLeadRow {
   category: string | null;
   country: string | null;
   street: string | null;
-  /** ISO instant of the lead's most recent completed activity, or null if never engaged. */
+  /** ISO instant of the lead's latest completed activity or logged call; null if never engaged. */
   lastActivityAt: string | null;
 }
 
@@ -51,7 +51,7 @@ export interface NoActivityFilters {
 
 /**
  * The period presets the "By Date" control offers. A lead qualifies when it has had no
- * completed activity within the window; "Any time" (no lower bound) means it has never been
+ * completed activity and no logged call within the window; "Any time" (no lower bound) means it has never been
  * engaged. `days` is turned into a client-timezone instant at fetch time so it always tracks
  * today.
  */

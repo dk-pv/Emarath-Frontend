@@ -70,6 +70,8 @@ export interface LeadListItem {
   complaintReason: string | null;
   /** The latest assignment's instant — "Assigned Date"; null when unassigned. */
   assignedDate: string | null;
+  /** False until the lead has a completed activity or a logged call — the list's warning triangle. */
+  hasActivity: boolean;
   state: string | null;
   street: string | null;
   city: string | null;

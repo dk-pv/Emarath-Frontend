@@ -1,5 +1,8 @@
 import { apiGet, apiPatch } from "@/lib/api-client";
-import { appendLeadFilterParams, type LeadListItem } from "@/services/leads-service";
+import {
+  appendLeadFilterParams,
+  type LeadListItem,
+} from "@/services/leads-service";
 import type { FilterCondition } from "@/types";
 
 /**
@@ -89,11 +92,13 @@ export interface MoveLeadStageResponse {
 export async function patchLeadStage(
   leadId: string,
   stage: string,
+  /** Why the lead was lost — sent only for a move into LOST; the server clears it otherwise. */
+  lostReason?: string,
   signal?: AbortSignal,
 ): Promise<MoveLeadStageResponse> {
   return apiPatch<MoveLeadStageResponse>(
     `/leads/${leadId}/stage`,
-    { stage },
+    lostReason ? { stage, lostReason } : { stage },
     signal,
   );
 }

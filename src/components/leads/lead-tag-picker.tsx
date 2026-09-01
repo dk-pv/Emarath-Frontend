@@ -2,8 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { Input } from "@/components/ui/Input";
+import { cn } from "@/lib/cn";
+import { tagPillClass } from "@/lib/tag-palette";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useMounted } from "@/components/ui/Modal";
 import { useAnchoredPosition } from "@/hooks/use-anchored-position";
 import { useDisclosure } from "@/hooks/use-disclosure";
@@ -15,7 +18,9 @@ export type LeadTagPickerProps = {
   lead: LeadListItem;
   /** Applies one tag to the lead; the parent owns the write and the feedback. */
   onSelect: (tagId: string) => void;
-  /** True while a tag is being applied — freezes the list so a double-click can't stack. */
+  /** Removes one applied tag; when given, the panel lists the lead's tags as × pills. */
+  onRemove?: (tagId: string) => void;
+  /** True while a tag change is in flight — freezes the panel so clicks can't stack. */
   pending?: boolean;
 };
 
@@ -35,17 +40,20 @@ export type LeadTagPickerProps = {
 export function LeadTagPicker({
   lead,
   onSelect,
+  onRemove,
   pending = false,
 }: LeadTagPickerProps) {
   const [query, setQuery] = useState("");
   const [anchor, setAnchor] = useState<React.CSSProperties | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
   const mounted = useMounted();
   const tags = useLookup("tags");
 
-  useDismissable(root, isOpen, close);
+  // The panel is portalled, so it must count as "inside" or a press in it dismisses.
+  useDismissable([root, panelRef], isOpen, close);
   useAnchoredPosition({
     enabled: isOpen,
     triggerRef: trigger,
@@ -68,11 +76,35 @@ export function LeadTagPicker({
 
   const panel = (
     <div
+      ref={panelRef}
       role="listbox"
-      aria-label="Add a tag"
+      aria-label="Manage tags"
       style={anchor ?? { visibility: "hidden" }}
       className="fixed z-50 flex w-72 flex-col rounded-surface border border-hairline bg-surface shadow-lg"
     >
+      {/* The lead's current tags, removable in place — the reference's "BDE RISK ×" pill. */}
+      {onRemove && lead.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+          {lead.tags.map((tag) => (
+            <span
+              key={tag.id}
+              className={cn(tagPillClass(tag.name), "px-2.5 py-1")}
+            >
+              <span className="truncate">{tag.name}</span>
+              <button
+                type="button"
+                disabled={pending}
+                aria-label={`Remove ${tag.name}`}
+                onClick={() => onRemove(tag.id)}
+                className="focus-ring -mr-0.5 ml-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity duration-(--duration-shell) ease-shell hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <IconX size={12} stroke={2.5} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="p-3">
         <Input
           autoFocus
@@ -107,7 +139,7 @@ export function LeadTagPicker({
                 onSelect(option.value);
                 close();
               }}
-              className="focus-ring-inset flex w-full items-center px-4 py-2.5 text-left text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50"
+              className="focus-ring-inset flex w-full items-center px-4 py-2.5 text-left text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-subtle disabled:cursor-not-allowed disabled:opacity-50"
             >
               {option.label}
             </button>
@@ -125,20 +157,22 @@ export function LeadTagPicker({
 
   return (
     <div ref={root} className="relative">
-      <button
-        ref={trigger}
-        type="button"
-        aria-label="Add a tag"
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        onClick={() => {
-          setQuery("");
-          toggle();
-        }}
-        className="focus-ring flex size-control items-center justify-center rounded-full bg-brand text-white transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong"
-      >
-        <IconPlus size={20} stroke={2.5} aria-hidden="true" />
-      </button>
+      <Tooltip portal content="Click to manage tags" disabled={isOpen}>
+        <button
+          ref={trigger}
+          type="button"
+          aria-label="Manage tags"
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          onClick={() => {
+            setQuery("");
+            toggle();
+          }}
+          className="focus-ring flex size-control items-center justify-center rounded-full bg-brand text-white transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong"
+        >
+          <IconPlus size={20} stroke={2.5} aria-hidden="true" />
+        </button>
+      </Tooltip>
 
       {isOpen && mounted && createPortal(panel, document.body)}
     </div>

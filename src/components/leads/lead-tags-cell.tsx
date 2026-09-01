@@ -13,6 +13,7 @@ import { AnchoredLayer } from "@/components/ui/AnchoredLayer";
 import { PanelSearch } from "@/components/ui/PanelSearch";
 import { cn } from "@/lib/cn";
 import { Chip } from "@/components/ui/Chip";
+import { tagPillClass, tagToneClass } from "@/lib/tag-palette";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { LeadListItem } from "@/services/leads-service";
 
@@ -22,9 +23,9 @@ import type { LeadListItem } from "@/services/leads-service";
  * Resting states are pixel-traceable to Workpex
  * (`leads-list-default-scroll-left-…png`): an untagged row shows a muted tags
  * icon + a brand "+" button; a tagged row shows its tags as light-violet pills
- * ("QC VERIFIED"). Tags carry no per-tag colour in the reference — the picker
- * options are plain text, unlike the status swatches — so every chip uses that
- * one captured violet style.
+ * ("QC VERIFIED" violet, "BDE RISK" rose, "DISPATCHED" green…). A tag carries no
+ * colour column, so each pill's hue is hashed from its name (`tag-palette.ts`) —
+ * stable everywhere the tag appears.
  *
  * The editor itself is a documented fallback (ADR-0016): the "+" open state and
  * the remove interaction are NOT captured (the only captured tag picker is the
@@ -58,10 +59,6 @@ export function LeadTagsProvider({
   return <TagsContext value={value}>{children}</TagsContext>;
 }
 
-/** Workpex's light-violet tag pill — the one captured tag style. */
-const TAG_PILL =
-  "inline-flex max-w-full items-center rounded-full border border-violet-200 bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-900";
-
 export function LeadTagsCell({ lead }: { lead: LeadListItem }) {
   const ctx = useContext(TagsContext);
 
@@ -72,7 +69,7 @@ export function LeadTagsCell({ lead }: { lead: LeadListItem }) {
     return (
       <span className="flex flex-wrap gap-1">
         {lead.tags.map((tag) => (
-          <span key={tag.id} className={TAG_PILL}>
+          <span key={tag.id} className={tagPillClass(tag.name)}>
             <span className="truncate">{tag.name}</span>
           </span>
         ))}
@@ -133,7 +130,7 @@ function InteractiveTagsCell({
         >
           {hasTags ? (
             lead.tags.map((tag) => (
-              <span key={tag.id} className={TAG_PILL}>
+              <span key={tag.id} className={tagPillClass(tag.name)}>
                 <span className="truncate">{tag.name}</span>
               </span>
             ))
@@ -181,7 +178,10 @@ function InteractiveTagsCell({
               {lead.tags.map((tag) => (
                 <Chip
                   key={tag.id}
-                  className="h-auto border-violet-200 bg-violet-100 py-0.5 text-xs text-violet-900"
+                  className={cn(
+                    "h-auto py-0.5 text-xs",
+                    tagToneClass(tag.name),
+                  )}
                   onRemove={() => ctx.onRemove(lead, tag.id)}
                   removeLabel={`Remove ${tag.name}`}
                 >

@@ -185,7 +185,8 @@ const DETAILED_COLUMNS: readonly TableColumn<NoActivityLeadRow>[] = [
 ];
 
 /** Hidden until the user turns it on, so the default table is exactly the twelve columns. */
-const DEFAULT_HIDDEN_COLUMNS = ["lastActivityAt"];
+/** Every column shows by default — the report's point is each lead's last activity. */
+const DEFAULT_HIDDEN_COLUMNS: string[] = [];
 
 /**
  * The summary's columns. The count is an underlined link, as the reference shows: it drills

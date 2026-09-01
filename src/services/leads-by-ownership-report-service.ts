@@ -1,63 +1,53 @@
 import { apiGet } from "@/lib/api-client";
 import { env } from "@/lib/env";
 import type { ListResult } from "@/types";
+import type { LeadListItem } from "@/services/leads-service";
+import type { LeadsByStatusDateField } from "@/services/leads-by-status-report-service";
 
-/** An assignee reference, mirroring the backend `LeadsByOwnershipAgentRef`. */
-export interface LeadsByOwnershipAgentRef {
-  id: string;
-  name: string;
-}
+/**
+ * One lead in the detailed view: the Leads list's own row shape (so `leadColumns` cells render
+ * it unchanged) plus the resolved Stage colour for the status pill — mirrors `LeadsByOwnershipLeadRow`.
+ */
+export type LeadsByOwnershipLeadRow = LeadListItem & {
+  statusColor: string | null;
+};
 
-/** One lead in the detailed view (RPT-02.5) with its owner(s), mirroring the backend row. */
-export interface LeadsByOwnershipLeadRow {
-  id: string;
-  name: string;
-  firstName: string | null;
-  primaryPhone: string;
-  source: string | null;
-  assignedTo: LeadsByOwnershipAgentRef[];
-}
+/** The server's label for leads with no assignee. */
+export const UNASSIGNED_LABEL = "Unassigned";
 
-/** One breakdown row: lead count per owner, mirroring `OwnerCountRow`. `ownerId` null = Unassigned. */
+/** One owner's metrics, mirroring `OwnerCountRow`. Null `ownerId` is the Unassigned bucket. */
 export interface OwnerCountRow {
   ownerId: string | null;
   ownerName: string;
+  /** Total leads (a co-assigned lead counts for each owner). */
   count: number;
+  newCount: number;
+  contactedCount: number;
+  noActivityCount: number;
+  convertedCount: number;
+  lostCount: number;
+  /** Percentage 0–100. */
+  conversionRatio: number;
+  /** Null: Emarath has no qualification stage or flag. */
+  qualifiedRatio: number | null;
+  /** Null: Emarath has no sales-target model. */
+  targetAchievement: number | null;
+  /** Σ actualAmount, AED, as a Decimal string — pass to `formatAED`. */
+  leadValue: string;
 }
 
-/** The report's period/team filters (RPT-02.5 AC3). */
+/** The report's filters — the same surface as Leads By Status / By Source. */
 export interface LeadsByOwnershipFilters {
-  /** Creation-window lower bound — an ISO instant, derived from the selected period preset. */
   from?: string;
+  to?: string;
+  dateField?: LeadsByStatusDateField;
   team?: string[];
-}
-
-/**
- * The period presets the control offers, applied to lead creation date. "Any time" (no lower
- * bound) is the default — the whole scoped set. `days` is turned into a client-timezone instant
- * at fetch time so it always tracks the user's today.
- */
-export interface PeriodPreset {
-  key: string;
-  label: string;
-  days: number | null;
-}
-
-export const PERIOD_PRESETS: readonly PeriodPreset[] = [
-  { key: "any", label: "Any time", days: null },
-  { key: "7", label: "Last 7 days", days: 7 },
-  { key: "30", label: "Last 30 days", days: 30 },
-  { key: "90", label: "Last 90 days", days: 90 },
-];
-
-export const DEFAULT_PERIOD_KEY = "any";
-
-/** Local midnight `days` ago as an ISO instant (timezone-correct, matching day-boundaries.ts). */
-export function periodFrom(days: number | null): string | undefined {
-  if (days == null) return undefined;
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
-  return start.toISOString();
+  agent?: string[];
+  source?: string[];
+  pipeline?: string;
+  conditions?: string;
+  /** Only leads with no assignee — what the legend's "Unassigned" slice drills into. */
+  unassigned?: boolean;
 }
 
 function appendFilters(
@@ -65,10 +55,17 @@ function appendFilters(
   filters: LeadsByOwnershipFilters,
 ): void {
   if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.dateField) params.set("dateField", filters.dateField);
+  if (filters.pipeline) params.set("pipeline", filters.pipeline);
+  if (filters.conditions) params.set("conditions", filters.conditions);
+  if (filters.unassigned) params.set("unassigned", "true");
   for (const team of filters.team ?? []) params.append("team", team);
+  for (const agent of filters.agent ?? []) params.append("agent", agent);
+  for (const source of filters.source ?? []) params.append("source", source);
 }
 
-/** One scoped page of leads with their owner(s) (detailed view). */
+/** One scoped page of leads with their assignees (detailed view). */
 export function fetchLeadsByOwnershipDetailed(
   page: number,
   size: number,
@@ -87,7 +84,7 @@ export function fetchLeadsByOwnershipDetailed(
   );
 }
 
-/** Lead counts per owner (summary view). */
+/** Per-owner metrics (summary view — drives the table and the chart). */
 export function fetchLeadsByOwnershipSummary(
   filters: LeadsByOwnershipFilters,
   signal?: AbortSignal,

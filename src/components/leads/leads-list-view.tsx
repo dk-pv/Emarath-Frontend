@@ -103,6 +103,11 @@ import type {
   FilterState,
   TableColumn,
 } from "@/types";
+import {
+  CANCELLED,
+  LOST_STATUS,
+  useLostReasonPrompt,
+} from "@/components/leads/lost-reason-prompt";
 
 /**
  * useFilters supplies the search state; Leads renders no shared FilterPanel, so it
@@ -127,6 +132,13 @@ const SEARCH_SCOPES = [
  * Search is debounced so a 15,000+ row query does not run per keystroke, while
  * the box stays controlled by the live value.
  */
+/**
+ * Columns that start hidden until a user turns them on in Manage Columns — the requested
+ * default table is the 30 Workpex columns without "NO. OF MSG ATTEMPTS". The data still rides
+ * every row, so enabling the column costs no request.
+ */
+const DEFAULT_HIDDEN_LEAD_COLUMNS: readonly string[] = ["whatsappAttempts"];
+
 export function LeadsListView({
   initialStatus = null,
   initialConditions = null,
@@ -607,11 +619,20 @@ export function LeadsListView({
   // toast — reverting the row if the server rejects it.
   const [statusPendingId, setStatusPendingId] = useState<string | null>(null);
 
+  const { ask: askLostReason, modal: lostReasonModal } = useLostReasonPrompt();
   const handleStatusChange = async (lead: LeadListItem, status: string) => {
+    // A move to LOST asks why first; skipping still sets LOST (no reason recorded),
+    // cancelling abandons the change.
+    let lostReason: string | undefined;
+    if (status === LOST_STATUS) {
+      const answer = await askLostReason(lead);
+      if (answer === CANCELLED) return;
+      lostReason = answer;
+    }
     setStatusPendingId(lead.id);
     patchRow(lead.id, { ...lead, status });
     try {
-      const updated = await setLeadStatus(lead.id, status);
+      const updated = await setLeadStatus(lead.id, status, lostReason);
       // Preserve the caller's pin — the status response doesn't carry it (ADR-0031).
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: `${lead.name} set to ${status}`, tone: "success" });
@@ -720,7 +741,9 @@ export function LeadsListView({
   const [columnOrder, setColumnOrder] = useState<string[]>(() =>
     manageableColumns.map((column) => column.key),
   );
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([
+    ...DEFAULT_HIDDEN_LEAD_COLUMNS,
+  ]);
   const manageColumns = useDisclosure();
 
   useEffect(() => {
@@ -730,6 +753,7 @@ export function LeadsListView({
         const layout = reconcileLayout(
           saved,
           manageableColumns.map((column) => column.key),
+          DEFAULT_HIDDEN_LEAD_COLUMNS,
         );
         setColumnOrder(layout.order);
         setHiddenColumns(layout.hidden);
@@ -904,6 +928,10 @@ export function LeadsListView({
                   selection={{
                     selectedIds,
                     onToggleRow: toggleRow,
+                    // Pinned beside the sticky Customer Name (its `left-10` is this
+                    // cell's 40px), so the two never scroll apart.
+                    cellClassName:
+                      "sticky left-0 z-10 w-10 min-w-10 bg-surface group-hover:bg-canvas",
                     onToggleAll: toggleAll,
                     rowLabel: (row) => `Select ${row.name}`,
                     allLabel: "Select all leads on this page",
@@ -925,6 +953,7 @@ export function LeadsListView({
                 />
               </LeadTagsProvider>
             </LeadStatusProvider>
+            {lostReasonModal}
           </LeadRowActionsProvider>
         </LeadDetailProvider>
       </TablePageLayout>

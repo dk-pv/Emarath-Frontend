@@ -31,7 +31,7 @@ import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button
 import { useColumnPrefs } from "@/hooks/use-column-prefs";
 import { useLookup } from "@/hooks/use-lookup";
 import { cn } from "@/lib/cn";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { stageColorClasses } from "@/lib/stage-palette";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
@@ -206,14 +206,22 @@ const DETAILED_COLUMNS: readonly TableColumn<TodayLeadRow>[] = [
     header: "Last Contacted",
     render: (row) => <LastContacted iso={row.lastContactedAt} />,
   },
+  {
+    // What "same-day follow-up" means for the agent reading the row: the soonest
+    // outstanding activity, overdue or upcoming — the Call Log's own derivation.
+    key: "nextFollowUpAt",
+    header: "Next Follow-up",
+    render: (row) =>
+      row.nextFollowUpAt ? (
+        formatDateTime(row.nextFollowUpAt)
+      ) : (
+        <span className="text-ink-subtle">None scheduled</span>
+      ),
+  },
 ];
 
-/** Hidden until the user turns them on, so the default table is exactly the twelve. */
-const DEFAULT_HIDDEN_COLUMNS = [
-  "callAttempts",
-  "whatsappAttempts",
-  "lastContactedAt",
-];
+/** Every column shows by default — the attempt counters and last contact are what an agent acts on. */
+const DEFAULT_HIDDEN_COLUMNS: string[] = [];
 
 const SUMMARY_COLUMNS: readonly TableColumn<TodayLeadsSummaryRow>[] = [
   { key: "agentName", header: "Assigned User", render: (row) => row.agentName },
@@ -228,7 +236,7 @@ const SUMMARY_COLUMNS: readonly TableColumn<TodayLeadsSummaryRow>[] = [
 /**
  * Today Leads report (RPT-02.2). Renders inside the shared ReportShell (RPT-01.2): it owns the
  * period/agent/source filters and the data, the shell owns the chrome and the loading/empty/
- * error states. "Recently contacted" is definition A — a lead with a call within the selected
+ * error states. "Recently contacted" is definition A — a lead with an answered call within the selected
  * period (default: today); "high engagement" is the lead's existing call/WhatsApp attempt
  * counters, shown as columns and used to order most-engaged first (no invented score). All data
  * (list, summary and export) is role-scoped on the server; nothing here filters rows client-side.

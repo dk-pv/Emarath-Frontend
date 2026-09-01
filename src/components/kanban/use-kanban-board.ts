@@ -67,7 +67,13 @@ type Action =
   | { type: "column-retry"; stage: string }
   | { type: "move"; lead: LeadListItem; from: string; to: string }
   | { type: "move-confirm"; stages: BoardStageSummary[] }
-  | { type: "move-rollback"; lead: LeadListItem; from: string; to: string; index: number };
+  | {
+      type: "move-rollback";
+      lead: LeadListItem;
+      from: string;
+      to: string;
+      index: number;
+    };
 
 const INITIAL: BoardState = { phase: "loading", columns: {} };
 
@@ -149,7 +155,10 @@ function reducer(state: BoardState, action: Action): BoardState {
       if (!col) return state;
       return {
         ...state,
-        columns: { ...state.columns, [action.stage]: { ...col, loadingMore: true } },
+        columns: {
+          ...state.columns,
+          [action.stage]: { ...col, loadingMore: true },
+        },
       };
     }
 
@@ -172,7 +181,8 @@ function reducer(state: BoardState, action: Action): BoardState {
             loadingMore: false,
             error: false,
             nextPage: col.nextPage + 1,
-            loadedAll: action.rows.length < PAGE_SIZE || rows.length >= col.count,
+            loadedAll:
+              action.rows.length < PAGE_SIZE || rows.length >= col.count,
           },
         },
       };
@@ -185,7 +195,12 @@ function reducer(state: BoardState, action: Action): BoardState {
         ...state,
         columns: {
           ...state.columns,
-          [action.stage]: { ...col, loading: false, loadingMore: false, error: true },
+          [action.stage]: {
+            ...col,
+            loading: false,
+            loadingMore: false,
+            error: true,
+          },
         },
       };
     }
@@ -366,7 +381,11 @@ export function useKanbanBoard(
       controller.signal,
     )
       .then((summary) => {
-        dispatch({ type: "board-loaded", stages: summary.stages, order: stageNames });
+        dispatch({
+          type: "board-loaded",
+          stages: summary.stages,
+          order: stageNames,
+        });
         for (const s of summary.stages) {
           if (s.count > 0) fetchFirstPage(s.stage, controller.signal);
         }
@@ -396,7 +415,13 @@ export function useKanbanBoard(
   const loadMore = useCallback(
     (stage: string) => {
       const col = stateRef.current.columns[stage];
-      if (!col || col.loading || col.loadingMore || col.error || col.loadedAll) {
+      if (
+        !col ||
+        col.loading ||
+        col.loadingMore ||
+        col.error ||
+        col.loadedAll
+      ) {
         return;
       }
       dispatch({ type: "page-loading-more", stage });
@@ -410,7 +435,7 @@ export function useKanbanBoard(
   );
 
   const moveCard = useCallback(
-    (leadId: string, from: string, to: string) => {
+    (leadId: string, from: string, to: string, lostReason?: string) => {
       if (from === to) return;
       const col = stateRef.current.columns[from];
       if (!col) return;
@@ -421,7 +446,7 @@ export function useKanbanBoard(
       inFlight.current.add(leadId);
       dispatch({ type: "move", lead, from, to });
 
-      patchLeadStage(leadId, to)
+      patchLeadStage(leadId, to, lostReason)
         .then((response) => {
           // The KAN-04.1 recount is unfiltered. With no toolbar filter that is the
           // authoritative count for the two columns; with a filter applied it would

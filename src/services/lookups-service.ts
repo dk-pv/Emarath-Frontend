@@ -22,7 +22,10 @@ export type LookupType =
   | "paymentMethods"
   | "complaintReasons"
   | "products"
-  | "tags";
+  | "tags"
+  | "teams"
+  | "leadActivity"
+  | "lostReasons";
 
 export function fetchLookup(
   type: LookupType,

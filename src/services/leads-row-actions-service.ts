@@ -15,9 +15,15 @@ import type { LeadListItem } from "@/services/leads-service";
 export function setLeadStatus(
   id: string,
   status: string,
+  /** Why the lead was lost — sent only for a move to LOST; the server clears it otherwise. */
+  lostReason?: string,
   signal?: AbortSignal,
 ): Promise<LeadListItem> {
-  return apiPost<LeadListItem>(`/leads/${id}/status`, { status }, signal);
+  return apiPost<LeadListItem>(
+    `/leads/${id}/status`,
+    lostReason ? { status, lostReason } : { status },
+    signal,
+  );
 }
 
 /** Reassign one lead to a single agent — returns the updated lead. */

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { GoogleMap, MarkerF, useJsApiLoader } from "@react-google-maps/api";
 import {
   IconArrowsMaximize,
@@ -27,6 +33,39 @@ const MAP_OPTIONS: google.maps.MapOptions = {
   gestureHandling: "greedy",
   clickableIcons: false,
 };
+
+/** Google calls this global when it rejects the API key; it is not in the SDK types. */
+declare global {
+  interface Window {
+    gm_authFailure?: () => void;
+  }
+}
+
+/**
+ * A rejected API key is a property of the loaded Maps SDK, not of this component, and
+ * Google raises it once per page load. Holding it in module scope means switching to the
+ * list view and back does not forget it — component state reset on every remount, so the
+ * map silently re-rendered as an empty grey box after the first toggle.
+ */
+let mapsAuthFailed = false;
+const authListeners = new Set<() => void>();
+
+if (typeof window !== "undefined") {
+  const previous = window.gm_authFailure;
+  window.gm_authFailure = () => {
+    mapsAuthFailed = true;
+    for (const listener of authListeners) listener();
+    previous?.();
+  };
+}
+
+function subscribeAuth(listener: () => void): () => void {
+  authListeners.add(listener);
+  return () => authListeners.delete(listener);
+}
+const getAuthFailed = () => mapsAuthFailed;
+/** The server never sees a Maps failure, so it always renders the map optimistically. */
+const getAuthFailedServer = () => false;
 
 type MapType = "roadmap" | "satellite";
 
@@ -85,6 +124,14 @@ export function GpsMapView({
     googleMapsApiKey: env.googleMapsApiKey,
   });
 
+  // `useJsApiLoader` resolves `isLoaded: true` with no `loadError` even when Google
+  // rejects the key, so this global is the only signal that the map will never draw.
+  const authFailed = useSyncExternalStore(
+    subscribeAuth,
+    getAuthFailed,
+    getAuthFailedServer,
+  );
+
   const [mapType, setMapType] = useState<MapType>("roadmap");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [now, setNow] = useState<number>(() => Date.now());
@@ -121,18 +168,27 @@ export function GpsMapView({
 
   const center = useMemo(() => DEFAULT_CENTER, []);
 
-  if (!env.googleMapsApiKey || loadError) {
+  if (!env.googleMapsApiKey || loadError || authFailed) {
+    // The map is the only thing lost: the toolbar, filters, list and export keep
+    // working, so a key problem degrades this panel rather than the screen.
+    const description = !env.googleMapsApiKey
+      ? "The Google Maps API key is not configured for this environment."
+      : authFailed
+        ? "Google rejected the Maps API key for this site. Check that the key is valid, that the Maps JavaScript API is enabled and billed on its project, and that this origin is allowed."
+        : "The map failed to load. Check your connection and try again.";
     return (
-      <div className="min-h-[26rem] flex-1">
-        <ErrorState
-          title="Map unavailable"
-          description={
-            env.googleMapsApiKey
-              ? "The map failed to load. Check your connection and try again."
-              : "The Google Maps API key is not configured for this environment."
-          }
-          onRetry={onRefresh}
-        />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div
+          data-map-shell
+          className="flex min-h-[26rem] flex-1 items-center justify-center rounded-surface border border-hairline bg-canvas"
+        >
+          <ErrorState
+            title="Map unavailable"
+            description={description}
+            onRetry={onRefresh}
+          />
+        </div>
+        <GpsLegend />
       </div>
     );
   }

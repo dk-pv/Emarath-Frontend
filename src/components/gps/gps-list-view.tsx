@@ -12,6 +12,9 @@ import { formatDateTime } from "@/lib/format";
 import type { GpsPinRecord } from "@/services/gps-service";
 import type { TableColumn } from "@/types";
 
+/** Stands in for a value the schema has no column for. */
+const EMPTY = <span className="text-ink-subtle">—</span>;
+
 const COLUMNS: TableColumn<GpsPinRecord>[] = [
   {
     key: "userName",
@@ -36,14 +39,22 @@ const COLUMNS: TableColumn<GpsPinRecord>[] = [
       </span>
     ),
   },
+  // Address, Notes and Actions exist in the reference table, so the column set
+  // matches it — but `CheckIn` stores only agent, time and coordinates, and no GPS
+  // acceptance criterion defines any of the three. They render an em-dash rather
+  // than a fabricated value; a real address would need reverse geocoding and notes
+  // a migration, neither of which is in scope.
+  { key: "address", header: "Address", render: () => EMPTY },
+  { key: "notes", header: "Notes", render: () => EMPTY },
+  { key: "actions", header: "Actions", align: "right", render: () => EMPTY },
 ];
 
 /**
  * The GPS list view (GPS-06.1): the same `/gps/locations` pins the map shows,
- * as a scannable table. Columns follow ui-reference/gps-map-list-view-table-
- * empty-state.png; Address, Notes and Actions are deferred (no backing data in
- * the existing API — see the GPS-06.1 report). Search and scrolling are
- * client-side, since the locations endpoint returns one capped, unpaged set.
+ * as a scannable table, with the column set of
+ * ui-reference/gps-map/gps-map-list-view-table-empty-state.png. Search and
+ * scrolling are client-side, since the locations endpoint returns one capped,
+ * unpaged set.
  */
 export function GpsListView({
   locations,

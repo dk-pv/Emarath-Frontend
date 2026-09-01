@@ -3,6 +3,8 @@ import { cn } from "@/lib/cn";
 type MetricCardsRowProps = {
   children: React.ReactNode;
   className?: string;
+  /** Lets a caller drive the scroller itself — the GPS Map's carousel arrows do. */
+  ref?: React.Ref<HTMLDivElement>;
   /**
    * Hides the scrollbar while keeping the row scrollable — Workpex draws no track
    * under its KPI carousel. Opt-in so the rows that still show the slim track are
@@ -23,9 +25,11 @@ export function MetricCardsRow({
   children,
   className,
   hideScrollbar = false,
+  ref,
 }: MetricCardsRowProps) {
   return (
     <div
+      ref={ref}
       className={cn(
         "flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto [&>*]:shrink-0 [&>*]:snap-start",
         // `pb-2` only reserves the slim track; with the scrollbar hidden there is

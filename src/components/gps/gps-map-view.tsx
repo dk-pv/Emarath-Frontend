@@ -123,7 +123,7 @@ export function GpsMapView({
 
   if (!env.googleMapsApiKey || loadError) {
     return (
-      <div className="h-[520px]">
+      <div className="min-h-[26rem] flex-1">
         <ErrorState
           title="Map unavailable"
           description={
@@ -138,12 +138,17 @@ export function GpsMapView({
   }
 
   return (
-    <div className="flex flex-col">
+    // The map grows into whatever height the screen has left, as the reference's
+    // does — the 26rem floor keeps it usable when the viewport is short.
+    <div className="flex min-h-0 flex-1 flex-col">
       <div
         ref={containerRef}
+        data-map-shell
         className={cn(
           "relative overflow-hidden rounded-surface border border-hairline bg-canvas",
-          isFullscreen ? "h-screen rounded-none border-0" : "h-[520px]",
+          isFullscreen
+            ? "h-screen rounded-none border-0"
+            : "min-h-[26rem] flex-1",
         )}
       >
         {!isLoaded ? (
@@ -153,7 +158,10 @@ export function GpsMapView({
           </div>
         ) : (
           <GoogleMap
-            mapContainerClassName="size-full"
+            // inset-0, not size-full: the wrapper's height comes from `min-height`
+            // when the column is unconstrained (tablet/mobile), and a percentage
+            // height cannot resolve against that — the map collapsed to 0 there.
+            mapContainerClassName="absolute inset-0"
             center={center}
             zoom={DEFAULT_ZOOM}
             mapTypeId={mapType}
@@ -182,11 +190,11 @@ export function GpsMapView({
           value={mapType}
           onChange={setMapType}
           variant="subtle"
-          className="absolute top-4 left-4 shadow-sm"
+          className="absolute top-4 left-4 z-10 shadow-sm"
         />
 
         {/* Last-refreshed indicator + manual refresh (AC3/AC4) and fullscreen (AC5). */}
-        <div className="absolute top-4 right-4 flex items-center gap-2">
+        <div className="absolute top-4 right-4 z-10 flex max-w-[calc(100%-11rem)] items-center gap-2">
           <button
             type="button"
             onClick={onRefresh}
@@ -198,7 +206,11 @@ export function GpsMapView({
               aria-hidden="true"
               className={cn(isLoading && "animate-spin")}
             />
-            Last Refreshed {formatAgo(now - refreshedAt)}
+            {/* The "Last Refreshed" prefix is dropped on narrow screens so this pill
+                cannot grow across the map and cover the base-layer toggle; the time
+                itself — the part that carries the information — always stays. */}
+            <span className="hidden sm:inline">Last Refreshed&nbsp;</span>
+            {formatAgo(now - refreshedAt)}
           </button>
           <button
             type="button"

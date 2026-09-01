@@ -13,11 +13,14 @@ export type TooltipPlacement = "top" | "bottom" | "left" | "right";
  * panel with a hairline border and dark text, used where the tooltip sits over
  * tinted cards and a dark bubble would read as a different component.
  */
-export type TooltipTone = "dark" | "light";
+export type TooltipTone = "dark" | "light" | "ink";
 
 const TONE_PANEL: Record<TooltipTone, string> = {
   dark: "bg-sidebar text-white shadow-lg",
   light: "border border-hairline bg-surface text-ink shadow-lg",
+  // For tooltips that sit over the sidebar itself, where `dark` is the sidebar's
+  // own colour and would disappear into it. Near-black, as the reference shows.
+  ink: "bg-ink text-white shadow-lg",
 };
 
 const PANEL_CLASS =
@@ -40,6 +43,7 @@ const POINTER_BASE = "absolute size-2 rotate-45";
 const TONE_POINTER: Record<TooltipTone, string> = {
   dark: "bg-sidebar",
   light: "border-hairline bg-surface",
+  ink: "bg-ink",
 };
 
 /**

@@ -13,12 +13,10 @@ import {
   IconTimelineEvent,
   IconUserPlus,
 } from "@tabler/icons-react";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Pagination } from "@/components/ui/Pagination";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Card } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
 import { Tag } from "@/components/ui/Tag";
@@ -30,17 +28,14 @@ import {
   type ManageableColumn,
 } from "@/components/leads/lead-manage-columns-drawer";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
-import { FilterPanel } from "@/components/filters/filter-panel";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadFollowUpFormDrawer } from "@/components/leads/lead-followup-form-drawer";
 import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
 import { ActivityTimelineDrawer } from "@/components/activities/activity-timeline-drawer";
-import { fetchAssignableAgents } from "@/services/lookups-service";
 import { fetchLead, type LeadListItem } from "@/services/leads-service";
 import { useStages } from "@/components/stages/stages-context";
 import { useDisclosure } from "@/hooks/use-disclosure";
-import { useFilters } from "@/hooks/use-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   CALLS_VIEW_KEY,
@@ -50,7 +45,7 @@ import {
 } from "@/services/view-preferences-service";
 import { cn } from "@/lib/cn";
 import { formatDate, formatTime } from "@/lib/format";
-import type { FilterField, TableColumn } from "@/types";
+import type { TableColumn } from "@/types";
 import {
   fetchCallLog,
   setCallFlagged,
@@ -59,6 +54,12 @@ import {
   type CallOutcome,
 } from "@/services/calls-service";
 import { resolveCallRange, type CallFilterState } from "./call-filter-panel";
+import {
+  CallLogFilterPanel,
+  EMPTY_CALL_LOG_FILTERS,
+  callLogFilterCount,
+  type CallLogFilterState,
+} from "./call-log-filter-panel";
 
 /** The quick outcome tabs (CALL-06.1 AC1); All clears the outcome filter. */
 const OUTCOME_TABS: { label: string; value: CallOutcome | null }[] = [
@@ -395,67 +396,23 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
   } | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
 
-  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchAssignableAgents(controller.signal)
-      .then(setAgents)
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
-
   const { stages } = useStages();
-  const fields = useMemo<FilterField[]>(
-    () => [
-      {
-        key: "agentId",
-        label: "Agent",
-        type: "select",
-        options: agents.map((agent) => ({
-          label: agent.name,
-          value: agent.id,
-        })),
-      },
-      { key: "dateFrom", label: "Date From", type: "date" },
-      { key: "dateTo", label: "Date To", type: "date" },
-      {
-        key: "leadStatus",
-        label: "Lead Status",
-        type: "select",
-        options: stages.map((stage) => ({
-          label: stage.name,
-          value: stage.name,
-        })),
-      },
-    ],
-    [agents, stages],
-  );
-  const logFilters = useFilters(fields);
-
-  const asString = (value: unknown): string | undefined =>
-    typeof value === "string" && value ? value : undefined;
-  const agentId = asString(logFilters.valueOf("agentId"));
-  const leadStatus = asString(logFilters.valueOf("leadStatus"));
-  const dateFrom = asString(logFilters.valueOf("dateFrom"));
-  const dateTo = asString(logFilters.valueOf("dateTo"));
-
   /**
-   * The log's own popup narrows what the dashboard Filter already selected: its
-   * Date From/To override that side of the window, its Agent overrides the
-   * dashboard's Select User. Neither can widen the window past the dashboard's.
+   * The log's own Filter, per the Workpex reference. `outcome` is shared with the
+   * tabs above the table — the reference shows both, and they are one selection.
    */
-  const range = useMemo(
-    () =>
-      resolveCallRange({
-        period: filters.period,
-        agentId: agentId ?? filters.agentId,
-        dateFrom: dateFrom ? new Date(dateFrom) : filters.dateFrom,
-        dateTo: dateTo ? new Date(dateTo) : filters.dateTo,
-      }),
-    [filters, agentId, dateFrom, dateTo],
+  const [logFilters, setLogFilters] = useState<CallLogFilterState>(
+    EMPTY_CALL_LOG_FILTERS,
+  );
+  const leadStatusOptions = useMemo(
+    () => stages.map((stage) => ({ label: stage.name, value: stage.name })),
+    [stages],
   );
 
-  const requestKey = `${page}|${size}|${outcome ?? ""}|${debouncedSearch}|${range.from}|${range.to}|${range.agentId ?? ""}|${leadStatus ?? ""}`;
+  /** The window and agent come from the dashboard's own Filter, unchanged. */
+  const range = useMemo(() => resolveCallRange(filters), [filters]);
+
+  const requestKey = `${page}|${size}|${outcome ?? ""}|${debouncedSearch}|${range.from}|${range.to}|${range.agentId ?? ""}|${logFilters.leadStatus ?? ""}|${logFilters.timeMetric ?? ""}|${logFilters.flaggedOnly}`;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -466,7 +423,9 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
       {
         outcome: outcome ?? undefined,
         search: debouncedSearch || undefined,
-        leadStatus,
+        leadStatus: logFilters.leadStatus ?? undefined,
+        timeMetric: logFilters.timeMetric ?? undefined,
+        flagged: logFilters.flaggedOnly || undefined,
         size,
       },
       controller.signal,
@@ -494,7 +453,7 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
     outcome,
     debouncedSearch,
     range,
-    leadStatus,
+    logFilters,
     requestKey,
     reloadToken,
   ]);
@@ -624,7 +583,9 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
   const isLoading = (!data && !isError) || loadingAction;
   const pageCount = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1;
   const anyActive =
-    outcome !== null || searchInput.trim() !== "" || logFilters.activeCount > 0;
+    outcome !== null ||
+    searchInput.trim() !== "" ||
+    callLogFilterCount(logFilters) > 0;
 
   // Local flag echoes are applied on read so a toggle shows immediately without
   // refetching the whole page.
@@ -638,45 +599,43 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
     [data, flagOverrides],
   );
 
-  const clearAll = () => {
-    setOutcome(null);
-    setSearchInput("");
-    logFilters.clearAll();
-    setPage(1);
-  };
-
   return (
-    <Card as="section">
-      <SectionHeader title="Recent Call Log" />
+    <section>
+      {/* One row above the table, as the reference shows: the heading stands
+          outside the bordered table on the left, and the tabs, search, Manage
+          Columns and Filter travel together on the right. */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-xl font-semibold text-ink">Recent Call Log</h3>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-2">
-        {/* Outcome tabs (AC1) — All clears the outcome. */}
-        <div className="flex items-center gap-1">
-          {OUTCOME_TABS.map((tab) => {
-            const activeTab = outcome === tab.value;
-            return (
-              <button
-                key={tab.label}
-                type="button"
-                aria-pressed={activeTab}
-                onClick={() => {
-                  setOutcome(tab.value);
-                  setPage(1);
-                }}
-                className={cn(
-                  "focus-ring h-control-sm rounded-full px-3 text-sm font-medium transition-colors duration-(--duration-shell) ease-shell",
-                  activeTab
-                    ? "bg-brand text-ink"
-                    : "text-ink-muted hover:bg-canvas hover:text-ink",
-                )}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* One line from `lg` up, as the reference shows; below that the controls
+            are allowed to wrap rather than squeeze. */}
+        <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+          {/* Outcome tabs (AC1) — All clears the outcome. */}
+          <div className="flex shrink-0 items-center gap-1">
+            {OUTCOME_TABS.map((tab) => {
+              const activeTab = outcome === tab.value;
+              return (
+                <button
+                  key={tab.label}
+                  type="button"
+                  aria-pressed={activeTab}
+                  onClick={() => {
+                    setOutcome(tab.value);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "focus-ring h-control-sm rounded-full px-3 text-sm font-medium transition-colors duration-(--duration-shell) ease-shell",
+                    activeTab
+                      ? "bg-brand text-ink"
+                      : "text-ink-muted hover:bg-canvas hover:text-ink",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
           <SearchInput
             value={searchInput}
             onChange={(event) => {
@@ -685,87 +644,80 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
             }}
             placeholder="Search by Name or Phone"
             aria-label="Search by name or phone"
-            className="w-64 max-w-full"
+            className="w-64 max-w-full min-w-0"
           />
           <button
             type="button"
             onClick={manageColumns.open}
-            className={TOOLBAR_BUTTON_CLASS}
+            className={cn(TOOLBAR_BUTTON_CLASS, "shrink-0")}
           >
             <IconColumns size={18} stroke={1.75} aria-hidden="true" />
             Manage Columns
           </button>
-          <FilterPanel
-            fields={fields}
-            activeCount={logFilters.activeCount}
-            valueOf={logFilters.valueOf}
-            onChange={(key, value) => {
-              logFilters.setCondition(key, value);
-              setPage(1);
-            }}
-            onClear={() => {
-              logFilters.clearAll();
+          <CallLogFilterPanel
+            value={{ ...logFilters, outcome }}
+            leadStatuses={leadStatusOptions}
+            onApply={(next) => {
+              setLogFilters(next);
+              setOutcome(next.outcome);
               setPage(1);
             }}
           />
-          {anyActive && (
-            <Button variant="ghost" size="sm" onClick={clearAll}>
-              Clear
-            </Button>
-          )}
         </div>
       </div>
 
-      {isError ? (
-        <div className="p-4">
-          <ErrorState
-            title="Couldn’t load the call log"
-            description="Something went wrong loading recent calls. Check your connection and try again."
-            onRetry={() => {
-              setFailed(null);
-              setReloadToken((token) => token + 1);
-            }}
-          />
-        </div>
-      ) : (
-        <ResponsiveTableContainer label="Recent call log">
-          <Table
-            columns={visibleColumns}
-            rows={rows}
-            getRowId={(row) => row.id}
-            isLoading={isLoading}
-            emptyState={
-              <EmptyState
-                icon={IconPhonePlus}
-                title="No records yet"
-                description={
-                  anyActive
-                    ? "No calls match your search or filters."
-                    : "Calls for this period will appear here once they are logged."
-                }
-              />
-            }
-          />
-        </ResponsiveTableContainer>
-      )}
+      <Card>
+        {isError ? (
+          <div className="p-4">
+            <ErrorState
+              title="Couldn’t load the call log"
+              description="Something went wrong loading recent calls. Check your connection and try again."
+              onRetry={() => {
+                setFailed(null);
+                setReloadToken((token) => token + 1);
+              }}
+            />
+          </div>
+        ) : (
+          <ResponsiveTableContainer label="Recent call log">
+            <Table
+              columns={visibleColumns}
+              rows={rows}
+              getRowId={(row) => row.id}
+              isLoading={isLoading}
+              emptyState={
+                <EmptyState
+                  icon={IconPhonePlus}
+                  title="No records yet"
+                  description={
+                    anyActive
+                      ? "No calls match your search or filters."
+                      : "Calls for this period will appear here once they are logged."
+                  }
+                />
+              }
+            />
+          </ResponsiveTableContainer>
+        )}
 
-      {data && (
-        <div className="border-t border-hairline px-4 py-3">
-          {/* The full footer the Leads list uses — rows-per-page beside the row
+        {data && (
+          <div className="border-t border-hairline px-4 py-3">
+            {/* The full footer the Leads list uses — rows-per-page beside the row
               count — so a long call history is workable, not just paged. */}
-          <Pagination
-            page={page}
-            pageCount={pageCount}
-            total={data.total}
-            pageSize={size}
-            onPageSizeChange={(next) => {
-              setSize(next);
-              setPage(1);
-            }}
-            onPageChange={setPage}
-          />
-        </div>
-      )}
+            <Pagination
+              page={page}
+              pageCount={pageCount}
+              total={data.total}
+              pageSize={size}
+              onPageSizeChange={(next) => {
+                setSize(next);
+                setPage(1);
+              }}
+              onPageChange={setPage}
+            />
+          </div>
+        )}
+      </Card>
 
       {/* Mounted per-open so the draft always starts from the applied columns. */}
       {manageColumns.isOpen && (
@@ -822,6 +774,6 @@ export function CallLog({ filters }: { filters: CallFilterState }) {
           onClose={() => setActionTarget(null)}
         />
       )}
-    </Card>
+    </section>
   );
 }

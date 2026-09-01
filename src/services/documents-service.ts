@@ -35,7 +35,7 @@ export interface DocumentResponse {
 
 /**
  * One document as the list endpoint returns it (DOC-03.1), mirroring the backend
- * `DocumentListItem`. Narrower than the upload response — no `access` — and every row
+ * `DocumentListItem`. Narrower than the upload response — no `category` — and every row
  * carries a short-lived signed `downloadUrl`; the raw storage key is never exposed.
  */
 export interface DocumentListItem {
@@ -46,6 +46,8 @@ export interface DocumentListItem {
   contentType: string;
   createdAt: string;
   uploadedBy: DocumentUserRef;
+  /** "Access" column — the users this document is shared with. */
+  access: DocumentUserRef[];
   downloadUrl: string;
 }
 
@@ -158,11 +160,7 @@ export function bulkDeleteDocuments(
   ids: string[],
   signal?: AbortSignal,
 ): Promise<BulkActionResponse> {
-  return apiPost<BulkActionResponse>(
-    "/documents/bulk/delete",
-    { ids },
-    signal,
-  );
+  return apiPost<BulkActionResponse>("/documents/bulk/delete", { ids }, signal);
 }
 
 /**

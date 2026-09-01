@@ -13,6 +13,8 @@ type DocumentTypeFilterProps = {
   active: DocumentTypeValue | null;
   /** Apply a type, or clear (null). Re-selecting the active type clears it. */
   onChange: (type: DocumentTypeValue | null) => void;
+  /** Orders the list newest-first — the menu's "Last Modified" entry. */
+  onSortByLastModified: () => void;
 };
 
 /**
@@ -21,20 +23,31 @@ type DocumentTypeFilterProps = {
  * allowed file types over the shared Dropdown (the same primitive the Leads menus use).
  * Selecting a type narrows the list in one click; re-selecting it clears back to All
  * Documents (the Leads Quick Filter convention — the reference shows no "All" row). The
- * trigger names the active type and turns green while a filter is applied. The reference's
- * "Last Modified" entry is intentionally omitted until a screenshot captures its behaviour.
+ * trigger names the active type and turns green while a filter is applied.
+ *
+ * "Last Modified" heads the menu as the reference shows. It is a sort, not a file
+ * type — choosing it orders the list newest-first and leaves any type filter alone.
  */
 export function DocumentTypeFilter({
   active,
   onChange,
+  onSortByLastModified,
 }: DocumentTypeFilterProps) {
-  const items: DropdownItem[] = DOCUMENT_TYPE_FILTERS.map((type) => ({
-    type: "item",
-    id: type,
-    label: type.toUpperCase(),
-    selected: active === type,
-    onSelect: () => onChange(active === type ? null : type),
-  }));
+  const items: DropdownItem[] = [
+    {
+      type: "item",
+      id: "last-modified",
+      label: "Last Modified",
+      onSelect: onSortByLastModified,
+    },
+    ...DOCUMENT_TYPE_FILTERS.map((type): DropdownItem => ({
+      type: "item",
+      id: type,
+      label: type.toUpperCase(),
+      selected: active === type,
+      onSelect: () => onChange(active === type ? null : type),
+    })),
+  ];
 
   return (
     <Dropdown

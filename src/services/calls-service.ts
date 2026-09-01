@@ -131,11 +131,17 @@ export type CallLogResponse = {
 };
 
 /** The Call Log filters (CALL-06.1): outcome tab, name/number search, lead status. */
+/** The reference's Time Metric: which measure the log is ordered by. */
+export type CallTimeMetric = "CALL_TIMING" | "CALL_DURATION";
+
 export type CallLogFilters = {
   outcome?: CallOutcome;
   search?: string;
   leadStatus?: string;
   agentId?: string;
+  timeMetric?: CallTimeMetric;
+  /** "Show flagged calls only"; omitted means both flagged and unflagged. */
+  flagged?: boolean;
   /** Rows per page; the API caps this at 100. */
   size?: number;
 };
@@ -154,5 +160,7 @@ export function fetchCallLog(
   if (filters.search) params.set("search", filters.search);
   if (filters.leadStatus) params.set("leadStatus", filters.leadStatus);
   if (filters.agentId) params.set("agentId", filters.agentId);
+  if (filters.timeMetric) params.set("timeMetric", filters.timeMetric);
+  if (filters.flagged) params.set("flagged", "true");
   return apiGet<CallLogResponse>("/calls/log", params, signal);
 }

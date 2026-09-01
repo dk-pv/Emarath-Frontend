@@ -1,4 +1,5 @@
 import type { Icon } from "@tabler/icons-react";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 /**
  * Shared geometry for every sidebar row — nav links and the logout button alike.
@@ -19,6 +20,39 @@ export const SIDEBAR_ROW_IDLE = "text-white hover:bg-sidebar-hover";
 
 export function SidebarRowIcon({ icon: IconComponent }: { icon: Icon }) {
   return <IconComponent size={20} stroke={2} className="shrink-0" />;
+}
+
+/**
+ * Names a row while the rail is collapsed and its label is hidden — the reference
+ * shows a black bubble beside the hovered icon.
+ *
+ * Portalled because both the aside and the nav clip their overflow, which would
+ * otherwise cut the bubble off at the rail's edge. `disabled` when expanded, so
+ * the visible label is never doubled by a tooltip repeating it. The wrapper takes
+ * the row's own width and fixed height, so wrapping a row does not change the
+ * nav's layout — the rows stay the same 60px flex items they were.
+ */
+export function SidebarRowTooltip({
+  label,
+  collapsed,
+  children,
+}: {
+  label: string;
+  collapsed: boolean;
+  children: React.ReactElement<{ "aria-describedby"?: string }>;
+}) {
+  return (
+    <Tooltip
+      content={label}
+      placement="right"
+      tone="ink"
+      portal
+      disabled={!collapsed}
+      className="w-full shrink-0"
+    >
+      {children}
+    </Tooltip>
+  );
 }
 
 export function SidebarRowLabel({

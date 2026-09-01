@@ -6,6 +6,7 @@ import {
   IconPencil,
   IconPlus,
   IconTrash,
+  IconUser,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -13,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { IconButton } from "@/components/ui/IconButton";
 import { Table } from "@/components/ui/Table";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useToast } from "@/components/ui/Toast";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { useAuth } from "@/components/auth/auth-context";
@@ -22,7 +24,7 @@ import { useDisclosure } from "@/hooks/use-disclosure";
 import { useListData, type ListDataSource } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import { ApiError } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { DocumentFormDrawer } from "@/components/documents/document-form-drawer";
 import { DocumentEditDrawer } from "@/components/documents/document-edit-drawer";
 import { DocumentTypeFilter } from "@/components/documents/document-type-filter";
@@ -35,6 +37,7 @@ import {
   formatFileSize,
   type BulkActionResponse,
   type DocumentListItem,
+  type DocumentUserRef,
   type DocumentTypeValue,
 } from "@/services/documents-service";
 import type { TableColumn } from "@/types";
@@ -57,6 +60,30 @@ function typeLabel(row: DocumentListItem): string {
  * and refetches the list on success so a new upload appears (DOC-02.2 AC4). DOC-04.1 appends
  * an Actions column with the Edit affordance.
  */
+/**
+ * The "Access" cell: the reference shows one small circular grey marker per row,
+ * not a list of names. Who it covers is named in the tooltip, so the column stays
+ * the same width whether a document is private or shared with a whole team.
+ */
+function AccessCell({ access }: { access: DocumentUserRef[] }) {
+  const label =
+    access.length === 0
+      ? "Owner only"
+      : `Shared with ${access.map((user) => user.name).join(", ")}`;
+  return (
+    <Tooltip content={label} portal>
+      <span
+        tabIndex={0}
+        role="img"
+        aria-label={label}
+        className="focus-ring inline-flex size-7 items-center justify-center rounded-full bg-canvas text-ink-muted"
+      >
+        <IconUser size={16} stroke={1.75} aria-hidden="true" />
+      </span>
+    </Tooltip>
+  );
+}
+
 const DATA_COLUMNS: TableColumn<DocumentListItem>[] = [
   {
     key: "title",
@@ -103,7 +130,24 @@ const DATA_COLUMNS: TableColumn<DocumentListItem>[] = [
     key: "createdAt",
     header: "Date and Time",
     sortable: true,
-    render: (row) => formatDateTime(row.createdAt, { seconds: true }),
+    // The reference stacks the date over the time rather than running them
+    // together on one line. Same stored instant, two lines.
+    render: (row) => (
+      <span className="flex flex-col">
+        <span className="text-ink">{formatDate(row.createdAt)}</span>
+        <span className="text-xs text-ink-muted">
+          {formatTime(row.createdAt, { seconds: true })}
+        </span>
+      </span>
+    ),
+  },
+  {
+    key: "access",
+    header: "Access",
+    align: "center",
+    // Who the document is shared with (DOC-01.1 AC3). The reference shows one
+    // small circular marker, not a list — the names live in its tooltip.
+    render: (row) => <AccessCell access={row.access} />,
   },
 ];
 
@@ -303,7 +347,6 @@ export function DocumentsView() {
   return (
     <TablePageLayout
       title="Documents"
-      description="Files shared across the team."
       actions={
         <div className="flex items-center gap-2">
           <DocumentSearch
@@ -315,7 +358,14 @@ export function DocumentsView() {
           />
           {!searchExpanded && (
             <>
-              <DocumentTypeFilter active={docType} onChange={onTypeChange} />
+              <DocumentTypeFilter
+                active={docType}
+                onChange={onTypeChange}
+                onSortByLastModified={() => {
+                  setSort({ key: "createdAt", direction: "desc" });
+                  resetPage();
+                }}
+              />
               <Button size="sm" onClick={addDocument.open}>
                 <IconPlus size={18} stroke={2} />
                 Add Document

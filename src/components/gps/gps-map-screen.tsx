@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IconList, IconMapPin, IconRefresh } from "@tabler/icons-react";
 import { ContentContainer } from "@/components/layout/ContentContainer";
-import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import {
   SegmentedControl,
   type SegmentedOption,
 } from "@/components/ui/SegmentedControl";
 import { FilterPanel } from "@/components/filters/filter-panel";
+import { GpsAgentPanel } from "@/components/gps/gps-agent-panel";
 import { GpsKpiCards } from "@/components/gps/gps-kpi-cards";
 import { GpsMapView } from "@/components/gps/gps-map-view";
 import { GpsListView } from "@/components/gps/gps-list-view";
@@ -61,6 +62,13 @@ export function GpsMapScreen() {
     EMPTY_FILTERS,
   );
 
+  // The roster panel's open state persists like the sidebar's, so a supervisor who
+  // works with it closed does not have to close it on every visit.
+  const [panelCollapsed, setPanelCollapsed] = usePersistentState(
+    "gps.agentPanelCollapsed",
+    false,
+  );
+
   const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     const controller = new AbortController();
@@ -87,7 +95,10 @@ export function GpsMapScreen() {
     [agents],
   );
 
-  const activeCount = (filters.userId ? 1 : 0) + (filters.date ? 1 : 0);
+  // The period is always in effect — no date picked means today, not "no filter" —
+  // so it always counts, which is why the reference's trigger reads "Filter/1" on a
+  // freshly loaded screen rather than "Filter".
+  const activeCount = 1 + (filters.userId ? 1 : 0);
   const valueOf = useCallback(
     (key: string) => filters[key as keyof GpsFilters] ?? null,
     [filters],
@@ -133,7 +144,10 @@ export function GpsMapScreen() {
   const { locations, isLoading, isError } = useGpsLocations(query, reloadToken);
 
   return (
-    <ContentContainer className="p-4 lg:p-6">
+    // lg:h-full gives the column a definite height, so the map's `flex-1` divides the
+    // space left over instead of growing past it and pushing the legend off-screen.
+    // Below `lg` the sections stack and the page scrolls normally.
+    <ContentContainer className="flex min-h-full flex-col gap-3 p-4 lg:h-full lg:min-h-0 lg:gap-3 lg:px-6 lg:py-4">
       <div className="flex items-center justify-end gap-2">
         <FilterPanel
           fields={fields}
@@ -141,6 +155,7 @@ export function GpsMapScreen() {
           valueOf={valueOf}
           onChange={onChange}
           onClear={onClear}
+          triggerVariant="solid"
         />
 
         <SegmentedControl
@@ -151,10 +166,14 @@ export function GpsMapScreen() {
           iconOnly
         />
 
-        <Button variant="secondary" size="sm" onClick={refresh}>
+        {/* The reference's refresh is a green icon button, not a labelled one. */}
+        <IconButton
+          size="lg"
+          onClick={refresh}
+          aria-label="Refresh field activity"
+        >
           <IconRefresh size={16} stroke={1.75} aria-hidden="true" />
-          Refresh
-        </Button>
+        </IconButton>
 
         {/* GPS-08.1 — exports the current scoped/filtered view (period + Team Member). */}
         <GpsExportMenu
@@ -162,23 +181,40 @@ export function GpsMapScreen() {
         />
       </div>
 
-      <GpsKpiCards query={query} reloadToken={reloadToken} />
+      {/* The roster sits beside the KPIs and the map, as the reference lays it out —
+          so the counters narrow with the agent the supervisor picks. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
+        <GpsAgentPanel
+          agents={agents}
+          locations={locations}
+          selectedId={filters.userId}
+          onSelect={(agentId) =>
+            setFilters((current) => ({ ...current, userId: agentId }))
+          }
+          collapsed={panelCollapsed}
+          onToggle={() => setPanelCollapsed((value) => !value)}
+        />
 
-      {view === "map" ? (
-        <GpsMapView
-          locations={locations}
-          isLoading={isLoading}
-          refreshedAt={refreshedAt}
-          onRefresh={refresh}
-        />
-      ) : (
-        <GpsListView
-          locations={locations}
-          isLoading={isLoading}
-          isError={isError}
-          onRetry={refresh}
-        />
-      )}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+          <GpsKpiCards query={query} reloadToken={reloadToken} />
+
+          {view === "map" ? (
+            <GpsMapView
+              locations={locations}
+              isLoading={isLoading}
+              refreshedAt={refreshedAt}
+              onRefresh={refresh}
+            />
+          ) : (
+            <GpsListView
+              locations={locations}
+              isLoading={isLoading}
+              isError={isError}
+              onRetry={refresh}
+            />
+          )}
+        </div>
+      </div>
     </ContentContainer>
   );
 }

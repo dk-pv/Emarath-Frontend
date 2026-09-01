@@ -76,6 +76,35 @@ export function saveKanbanPin(
   );
 }
 
+/** The Lead Aging report's banding thresholds, in days (RPT-02.8). */
+export interface AgingThresholds {
+  green: number;
+  amber: number;
+}
+
+/** The caller's saved aging thresholds, or the report's defaults. */
+export function fetchAgingThresholds(
+  signal?: AbortSignal,
+): Promise<AgingThresholds> {
+  return apiGet<AgingThresholds>(
+    "/view-preferences/lead-aging-thresholds",
+    undefined,
+    signal,
+  );
+}
+
+/** Saves the caller's aging thresholds; returns what the server stored. */
+export function saveAgingThresholds(
+  thresholds: AgingThresholds,
+  signal?: AbortSignal,
+): Promise<AgingThresholds> {
+  return apiPut<AgingThresholds>(
+    "/view-preferences/lead-aging-thresholds",
+    thresholds,
+    signal,
+  );
+}
+
 /**
  * Reconciles a saved layout against the columns that exist now.
  *

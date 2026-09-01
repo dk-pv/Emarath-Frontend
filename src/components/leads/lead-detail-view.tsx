@@ -124,6 +124,7 @@ const TAG_PICKER_ORIGINS = new Set([
   "leads-by-source",
   "converted-leads",
   "lost-leads",
+  "lead-aging",
 ]);
 
 export function LeadDetailView({

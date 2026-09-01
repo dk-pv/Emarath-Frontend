@@ -37,6 +37,14 @@ type TableProps<TRow> = {
   sort?: SortState;
   onSortChange?: (sort: SortState) => void;
   selection?: TableSelection<TRow>;
+  /**
+   * Makes each row activatable — the Lead Aging breakdown filters its details table when
+   * an agent row is clicked. Rows become focusable and respond to Enter/Space; omit it and
+   * rows stay plain, as every other list renders them.
+   */
+  onRowClick?: (row: TRow) => void;
+  /** Extra classes per row — the aging details tint each row by its health band. */
+  rowClassName?: (row: TRow) => string | undefined;
   isLoading?: boolean;
   /** A background refetch while rows stay on screen — dims the body, no skeleton. */
   isFetching?: boolean;
@@ -184,6 +192,8 @@ export function Table<TRow>({
   sort,
   onSortChange,
   selection,
+  onRowClick,
+  rowClassName,
   isLoading,
   isFetching,
   emptyState,
@@ -232,7 +242,21 @@ export function Table<TRow>({
           key={id}
           // `group` lets a sticky column's own background follow the row hover
           // (via group-hover on that column's className); harmless otherwise.
-          className="group border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas"
+          className={cn(
+            "group border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas",
+            onRowClick && "focus-ring-inset cursor-pointer",
+            rowClassName?.(row),
+          )}
+          {...(onRowClick && {
+            tabIndex: 0,
+            role: "button" as const,
+            onClick: () => onRowClick(row),
+            onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onRowClick(row);
+            },
+          })}
         >
           {selection && (
             <td className={cn(SELECT_CELL_CLASS, selection.cellClassName)}>
@@ -310,6 +334,7 @@ export function Table<TRow>({
                   "bg-canvas px-4 py-4 text-xs font-medium whitespace-nowrap text-ink-muted",
                   CELL_ALIGN[align],
                   column.className,
+                  column.headerClassName,
                 )}
               >
                 {column.sortable ? (
@@ -322,7 +347,14 @@ export function Table<TRow>({
                       active && "text-ink",
                     )}
                   >
-                    <span>{column.header}</span>
+                    <span>
+                      {column.header}
+                      {column.subheader && (
+                        <span className="block text-[11px] font-normal text-ink-subtle">
+                          {column.subheader}
+                        </span>
+                      )}
+                    </span>
                     {sortTooltips ? (
                       // Anchored to the glyph, not the header: the reference's little
                       // caret always points at the sort icon. Portalled so the table's
@@ -339,7 +371,14 @@ export function Table<TRow>({
                     )}
                   </button>
                 ) : (
-                  column.header
+                  <span>
+                    {column.header}
+                    {column.subheader && (
+                      <span className="block text-[11px] font-normal text-ink-subtle">
+                        {column.subheader}
+                      </span>
+                    )}
+                  </span>
                 )}
               </th>
             );

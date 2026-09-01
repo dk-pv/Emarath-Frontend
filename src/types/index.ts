@@ -38,10 +38,14 @@ export type LeaderboardRow = {
 export type TableColumn<TRow> = {
   key: string;
   header: string;
+  /** A second, smaller header line — "Since Created" under "Lead Age (D)". */
+  subheader?: string;
   /** Enables the sorting affordance in the table header. */
   sortable?: boolean;
   align?: "left" | "right" | "center";
   className?: string;
+  /** Classes for the header cell only — a tinted band header over plain body cells. */
+  headerClassName?: string;
   render: (row: TRow) => React.ReactNode;
 };
 

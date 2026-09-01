@@ -25,16 +25,21 @@ interface CustomerNameLinkProps {
    * without every caller needing a different destination.
    */
   from?: string;
+  /** Opens the details page in a new browser tab (reports whose reference asks for it). */
+  newTab?: boolean;
 }
 
 export function CustomerNameLink({
   leadId,
   name,
   from,
+  newTab = false,
 }: CustomerNameLinkProps) {
   return (
     <Link
       href={from ? `/leads/${leadId}?from=${from}` : `/leads/${leadId}`}
+      target={newTab ? "_blank" : undefined}
+      rel={newTab ? "noopener" : undefined}
       className="font-medium text-ink underline decoration-1 underline-offset-2 hover:text-ink-muted focus-ring rounded-sm transition-colors duration-(--duration-shell) ease-shell"
     >
       {name}

@@ -71,6 +71,13 @@ export interface ReportShellProps {
   emptyDescription?: string;
   errorMessage?: string;
   onRetry?: () => void;
+  /**
+   * Renders the toolbar bare on the page and hands the body its own canvas, instead of
+   * wrapping both in one results Card — for a report whose body is itself a set of cards
+   * (Lead Aging's thresholds bar, metric cards and two table sections). Every other report
+   * keeps the single-Card layout.
+   */
+  bare?: boolean;
   /** The results (table) rendered when `state` is "ready". */
   children?: React.ReactNode;
 }
@@ -167,6 +174,7 @@ export function ReportShell({
   aside,
   onExport,
   exporting = false,
+  bare = false,
   state,
   emptyTitle = "Nothing to show yet",
   emptyDescription = "No data matches the current filters.",
@@ -174,6 +182,78 @@ export function ReportShell({
   onRetry,
   children,
 }: ReportShellProps) {
+  const toolbar = (
+    <Toolbar
+      className={bare ? "px-0.5" : "p-4"}
+      left={filterBar}
+      right={
+        <>
+          {toolbarActions}
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={!onExport || exporting}
+            className={cn(
+              TOOLBAR_BUTTON_CLASS,
+              "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+            )}
+          >
+            <IconDownload size={18} stroke={1.75} aria-hidden="true" />
+            Export
+          </button>
+          {/* One flex item, so the kebab stays glued to the toggle's right (the reference)
+              when the cluster wraps — e.g. Detailed view's extra Manage Columns pill would
+              otherwise push it onto a row of its own. */}
+          <div className="flex items-center gap-2">
+            {viewMode !== undefined && onViewModeChange !== undefined && (
+              <ReportViewToggle
+                viewMode={viewMode}
+                onViewModeChange={onViewModeChange}
+              />
+            )}
+            {trailingActions}
+          </div>
+        </>
+      }
+    />
+  );
+
+  const states = (
+    <>
+      {state === "loading" && <Loading label="Loading report" />}
+      {state === "empty" && (
+        <EmptyState
+          icon={IconReportAnalytics}
+          title={emptyTitle}
+          description={emptyDescription}
+        />
+      )}
+      {state === "error" && (
+        <ErrorState
+          title="Couldn’t load the report"
+          description={
+            errorMessage ?? "Something went wrong. Please try again."
+          }
+          onRetry={onRetry ?? (() => {})}
+        />
+      )}
+    </>
+  );
+
+  if (bare) {
+    return (
+      <div className="flex flex-col gap-4">
+        <ReportHeader report={report} category={category} />
+        {toolbar}
+        {state === "ready" ? (
+          children
+        ) : (
+          <Card className="flex min-h-96 flex-col">{states}</Card>
+        )}
+      </div>
+    );
+  }
+
   const results = (
     <Card className="flex min-w-0 flex-col overflow-hidden">
       <Toolbar

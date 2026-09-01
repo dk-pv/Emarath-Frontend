@@ -57,7 +57,7 @@ import {
   deleteLead,
   setLeadStatus,
 } from "@/services/leads-row-actions-service";
-import { addLeadTag } from "@/services/leads-tags-service";
+import { addLeadTag, removeLeadTag } from "@/services/leads-tags-service";
 import { formatDateTime, initialsOf } from "@/lib/format";
 
 /** Workpex's shared empty copy, identical under every Details section. */
@@ -112,6 +112,20 @@ const CALL_COLUMNS = [
  * (the shared New Lead form in edit mode), Delete, Add Note — with no duplicate
  * implementations. Notes come from the same `GET /leads/:id/timeline` the drawer uses.
  */
+/**
+ * Report origins (`/leads/{id}?from=…`) whose reference hides the Tags section, and those
+ * whose reference shows the "+" tag picker under Forecasted Amount. Every other entry point
+ * keeps the panel exactly as it was.
+ */
+const HIDE_TAGS_ORIGINS = new Set(["today-leads", "leads-by-source"]);
+const TAG_PICKER_ORIGINS = new Set([
+  "today-leads",
+  "leads-by-status",
+  "leads-by-source",
+  "converted-leads",
+  "lost-leads",
+]);
+
 export function LeadDetailView({
   id,
   from = null,
@@ -482,6 +496,24 @@ export function LeadDetailView({
     }
   };
 
+  /** Removes one applied tag (LEAD-12.1), refreshing the panel in place. */
+  const removeTag = async (tagId: string) => {
+    setAddingTag(true);
+    try {
+      const updated = await removeLeadTag(lead.id, tagId);
+      setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+      toast({ title: "Tag removed", tone: "success" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t remove the tag",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
+    } finally {
+      setAddingTag(false);
+    }
+  };
+
   const sendWhatsapp = ({
     phone,
     message,
@@ -526,7 +558,7 @@ export function LeadDetailView({
           converting={converting}
           timelineOpen={timelineOpen}
           fields={visibleFields}
-          showTags={from !== "today-leads"}
+          showTags={!HIDE_TAGS_ORIGINS.has(from ?? "")}
           addingTag={addingTag}
           actions={{
             onWhatsapp: () => setWaOpen(true),
@@ -537,10 +569,12 @@ export function LeadDetailView({
             onManageFields: () => setManageFieldsOpen(true),
             // The reference shows the tag control on the Today Leads page; other
             // entry points keep the panel exactly as it was.
-            onAddTag:
-              from === "today-leads"
-                ? (tagId: string) => void addTag(tagId)
-                : undefined,
+            onAddTag: TAG_PICKER_ORIGINS.has(from ?? "")
+              ? (tagId: string) => void addTag(tagId)
+              : undefined,
+            onRemoveTag: TAG_PICKER_ORIGINS.has(from ?? "")
+              ? (tagId: string) => void removeTag(tagId)
+              : undefined,
             onConvert: () => setConvertOpen(true),
             onSelectPipeline: (pipeline) => void selectPipeline(pipeline),
           }}

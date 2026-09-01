@@ -44,8 +44,9 @@ export type ReportState = "loading" | "empty" | "error" | "ready";
 export interface ReportShellProps {
   report: ReportDefinition;
   category: ReportCategory;
-  viewMode: ReportViewMode;
-  onViewModeChange: (mode: ReportViewMode) => void;
+  /** Omit both view props for a single-view report — the toggle then never renders. */
+  viewMode?: ReportViewMode;
+  onViewModeChange?: (mode: ReportViewMode) => void;
   /** Report-supplied filter controls (the shell renders the bar region around them). */
   filterBar?: React.ReactNode;
   /** Extra toolbar controls, e.g. Manage Columns in the detailed view. */
@@ -82,7 +83,10 @@ const VIEW_MODES: SegmentedOption<ReportViewMode>[] = [
 function ReportViewToggle({
   viewMode,
   onViewModeChange,
-}: Pick<ReportShellProps, "viewMode" | "onViewModeChange">) {
+}: {
+  viewMode: ReportViewMode;
+  onViewModeChange: (mode: ReportViewMode) => void;
+}) {
   return (
     <SegmentedControl
       aria-label="Report view mode"
@@ -101,9 +105,8 @@ function ReportHeader({
   const router = useRouter();
   const others = category.reports.length - 1;
 
-  // The hub this report belongs to — `/reports` or `/analytics` — from the first href segment,
-  // so the back button returns to the correct hub for either module.
-  const hubHref = `/${report.href.split("/")[1]}`;
+  // Every report — Sales included — lives under /reports, so back always returns to that hub.
+  const hubHref = "/reports";
 
   const items: DropdownItem[] = category.reports.map((entry) => ({
     type: "item",
@@ -195,10 +198,12 @@ export function ReportShell({
                 when the cluster wraps — e.g. Detailed view's extra Manage Columns pill would
                 otherwise push it onto a row of its own. */}
             <div className="flex items-center gap-2">
-              <ReportViewToggle
-                viewMode={viewMode}
-                onViewModeChange={onViewModeChange}
-              />
+              {viewMode !== undefined && onViewModeChange !== undefined && (
+                <ReportViewToggle
+                  viewMode={viewMode}
+                  onViewModeChange={onViewModeChange}
+                />
+              )}
               {trailingActions}
             </div>
           </>

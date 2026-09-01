@@ -1,77 +1,43 @@
 import { apiGet } from "@/lib/api-client";
 import { env } from "@/lib/env";
 import type { ListResult } from "@/types";
-
-/** An assignee reference, mirroring the backend `LostLeadsAgentRef`. */
-export interface LostLeadsAgentRef {
-  id: string;
-  name: string;
-}
+import type { LeadListItem } from "@/services/leads-service";
+import type { LeadsByStatusDateField } from "@/services/leads-by-status-report-service";
 
 /**
- * One lost lead in the detailed view (RPT-02.7), mirroring `LostLeadRow`. `status` is always
- * "LOST" (the report's definition) with its Stage colour key; there is no loss-reason field.
+ * One lost lead: the Leads list's own row shape (so `leadColumns` cells render it
+ * unchanged) plus the LOST stage colour and the loss instant — mirrors `LostLeadRow`.
  */
-export interface LostLeadRow {
-  id: string;
-  name: string;
-  firstName: string | null;
-  primaryPhone: string;
-  source: string | null;
-  status: string;
+export type LostLeadRow = LeadListItem & {
   statusColor: string | null;
-  assignedTo: LostLeadsAgentRef[];
-}
+  lostAt: string;
+  /** Why the lead was lost; null renders "No reason recorded". */
+  lostReason: string | null;
+};
 
-/**
- * One summary row: lost-lead count per assignee, mirroring `LostLeadsSummaryRow`. `agentId` is
- * null for the "Unassigned" bucket and the "Total" row (flagged `isTotal`).
- */
-export interface LostLeadsSummaryRow {
-  agentId: string | null;
-  agentName: string;
+/** One reason bucket, mirroring `LostReasonCountRow`. */
+export interface LostReasonCountRow {
+  reason: string;
+  /** What the drill-down sends back as `reason` (`none` for the null bucket). */
+  value: string;
   count: number;
-  isTotal?: boolean;
 }
 
-/** The report's period/team filters (RPT-02.7 AC3). */
+/** The drill value for leads lost with no recorded reason; mirrors the backend. */
+export const NO_REASON_VALUE = "none";
+
+/** The report's filters — the same surface as the other rebuilt reports. */
 export interface LostLeadsFilters {
-  /** Creation-window lower bound — an ISO instant, derived from the selected period preset. */
   from?: string;
+  to?: string;
+  dateField?: LeadsByStatusDateField;
   team?: string[];
-}
-
-/**
- * The period presets the control offers, applied to lead creation date (there is no lost
- * timestamp in the model). "Any time" (no lower bound) is the default — the whole scoped set of
- * lost leads. `days` is turned into a client-timezone instant at fetch time so it always tracks
- * the user's today.
- */
-export interface PeriodPreset {
-  key: string;
-  label: string;
-  days: number | null;
-}
-
-export const PERIOD_PRESETS: readonly PeriodPreset[] = [
-  { key: "any", label: "Any time", days: null },
-  { key: "7", label: "Last 7 days", days: 7 },
-  { key: "30", label: "Last 30 days", days: 30 },
-  { key: "90", label: "Last 90 days", days: 90 },
-];
-
-export const DEFAULT_PERIOD_KEY = "any";
-
-/** Local midnight `days` ago as an ISO instant (timezone-correct, matching day-boundaries.ts). */
-export function periodFrom(days: number | null): string | undefined {
-  if (days == null) return undefined;
-  const now = new Date();
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() - days,
-  );
-  return start.toISOString();
+  agent?: string[];
+  source?: string[];
+  pipeline?: string;
+  conditions?: string;
+  /** Lost-reason buckets to narrow to (the summary drill-down). */
+  reason?: string[];
 }
 
 function appendFilters(
@@ -79,10 +45,17 @@ function appendFilters(
   filters: LostLeadsFilters,
 ): void {
   if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.dateField) params.set("dateField", filters.dateField);
+  if (filters.pipeline) params.set("pipeline", filters.pipeline);
+  if (filters.conditions) params.set("conditions", filters.conditions);
   for (const team of filters.team ?? []) params.append("team", team);
+  for (const agent of filters.agent ?? []) params.append("agent", agent);
+  for (const source of filters.source ?? []) params.append("source", source);
+  for (const reason of filters.reason ?? []) params.append("reason", reason);
 }
 
-/** One scoped page of lost leads (detailed view). */
+/** One scoped page of lost leads (the report's single, detailed view). */
 export function fetchLostLeadsDetailed(
   page: number,
   size: number,
@@ -97,35 +70,24 @@ export function fetchLostLeadsDetailed(
   return apiGet<ListResult<LostLeadRow>>("/reports/leads/lost", params, signal);
 }
 
-/** Lost-lead counts per assignee (summary view). */
+/** Lost-lead counts per reason (summary view — drives the table and the chart). */
 export function fetchLostLeadsSummary(
   filters: LostLeadsFilters,
   signal?: AbortSignal,
-): Promise<ListResult<LostLeadsSummaryRow>> {
+): Promise<ListResult<LostReasonCountRow>> {
   const params = new URLSearchParams();
   appendFilters(params, filters);
-  return apiGet<ListResult<LostLeadsSummaryRow>>(
+  return apiGet<ListResult<LostReasonCountRow>>(
     "/reports/leads/lost/summary",
     params,
     signal,
   );
 }
 
-/** The team values the filter offers (AC3). */
-export function fetchLostLeadsFilterOptions(
-  signal?: AbortSignal,
-): Promise<{ teams: string[] }> {
-  return apiGet<{ teams: string[] }>(
-    "/reports/leads/lost/filter-options",
-    undefined,
-    signal,
-  );
-}
-
 /**
- * Triggers the CSV download for the current filters (AC5). A plain anchor navigation streams the
- * attachment straight to disk (cookies ride along, so the server applies the caller's role scope)
- * — the same mechanism the Leads export uses. Never a client-side dump.
+ * Triggers the CSV download for the current filters (AC5). A plain anchor navigation streams
+ * the attachment straight to disk (cookies ride along, so the server applies the caller's role
+ * scope) — the same mechanism the Leads export uses. Never a client-side dump.
  */
 export function downloadLostLeadsExport(filters: LostLeadsFilters): void {
   const params = new URLSearchParams();

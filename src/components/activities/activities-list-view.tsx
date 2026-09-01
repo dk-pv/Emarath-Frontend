@@ -64,6 +64,11 @@ import { ApiError } from "@/lib/api-client";
 import { dayBoundaries, windowEdges } from "@/lib/day-boundaries";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { SelectOption } from "@/types";
+import {
+  CANCELLED,
+  LOST_STATUS,
+  useLostReasonPrompt,
+} from "@/components/leads/lost-reason-prompt";
 
 const NO_OPTIONS: {
   agents: SelectOption[];
@@ -288,6 +293,7 @@ export function ActivitiesListView() {
       return { ...prev, removed };
     });
 
+  const { ask: askLostReason, modal: lostReasonModal } = useLostReasonPrompt();
   /**
    * Lead Status is editable from the worklist, as it is on the Leads list: the same
    * `LeadStatusProvider` + `setLeadStatus` API, so both pages share one status
@@ -295,10 +301,18 @@ export function ActivitiesListView() {
    * the optimistic override reverts if the server rejects it.
    */
   const handleStatusChange = async (row: ActivityListItem, status: string) => {
+    // A move to LOST asks why first; skipping still sets LOST (no reason recorded),
+    // cancelling abandons the change.
+    let lostReason: string | undefined;
+    if (status === LOST_STATUS) {
+      const answer = await askLostReason(row.lead);
+      if (answer === CANCELLED) return;
+      lostReason = answer;
+    }
     setStatusPendingId(row.lead.id);
     applyOverride(row.id, { lead: { ...row.lead, status } });
     try {
-      const updated = await setLeadStatus(row.lead.id, status);
+      const updated = await setLeadStatus(row.lead.id, status, lostReason);
       applyOverride(row.id, {
         lead: { ...updated, isPinned: row.lead.isPinned },
       });
@@ -599,6 +613,7 @@ export function ActivitiesListView() {
           }
         />
       </LeadStatusProvider>
+      {lostReasonModal}
     </ActivityRowProvider>
   );
 

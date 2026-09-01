@@ -21,6 +21,12 @@ export type TableSelection<TRow> = {
   rowLabel?: (row: TRow) => string;
   /** Accessible name for the header checkbox. */
   allLabel?: string;
+  /**
+   * Extra classes for the checkbox column's header and body cells — how a list with a
+   * sticky first column pins the checkbox beside it (`sticky left-0 …`) so the two scroll
+   * as one block. Omit for an ordinary scrolling checkbox column.
+   */
+  cellClassName?: string;
 };
 
 type TableProps<TRow> = {
@@ -202,7 +208,7 @@ export function Table<TRow>({
     body = Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
       <tr key={index} className="border-b border-hairline last:border-b-0">
         {selection && (
-          <td className={SELECT_CELL_CLASS}>
+          <td className={cn(SELECT_CELL_CLASS, selection.cellClassName)}>
             <Skeleton className="size-5" />
           </td>
         )}
@@ -229,7 +235,7 @@ export function Table<TRow>({
           className="group border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas"
         >
           {selection && (
-            <td className={SELECT_CELL_CLASS}>
+            <td className={cn(SELECT_CELL_CLASS, selection.cellClassName)}>
               <Checkbox
                 checked={selection.selectedIds.has(id)}
                 onChange={() => selection.onToggleRow(id)}
@@ -265,7 +271,14 @@ export function Table<TRow>({
       <thead className="sticky top-0 z-20">
         <tr className="border-b border-hairline">
           {selection && (
-            <th scope="col" className={cn(SELECT_CELL_CLASS, "bg-canvas")}>
+            <th
+              scope="col"
+              className={cn(
+                SELECT_CELL_CLASS,
+                "bg-canvas",
+                selection.cellClassName,
+              )}
+            >
               <Checkbox
                 checked={allOnPageSelected}
                 indeterminate={selectedOnPage > 0 && !allOnPageSelected}

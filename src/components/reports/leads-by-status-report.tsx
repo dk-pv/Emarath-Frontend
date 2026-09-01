@@ -12,6 +12,7 @@ import {
   IconFilter as IconPipeline,
   IconStatusChange,
   IconUser,
+  IconUsers,
 } from "@tabler/icons-react";
 import { findReport } from "./report-registry";
 import { ReportDateFilter } from "./report-date-filter";
@@ -174,7 +175,13 @@ const DETAILED_COLUMNS: readonly TableColumn<LeadsByStatusLeadRow>[] = [
   {
     key: "name",
     header: "Customer Name",
-    render: (row) => <CustomerNameLink leadId={row.id} name={row.name} />,
+    render: (row) => (
+      <CustomerNameLink
+        leadId={row.id}
+        name={row.name}
+        from="leads-by-status"
+      />
+    ),
   },
   leadColumn("primaryPhone"),
   leadColumn("firstName"),
@@ -254,6 +261,7 @@ export function LeadsByStatusReport({
   // the board already read.
   const pipelines = useLookup("pipelines");
   const statuses = useLookup("leadStatus");
+  const teams = useLookup("teams");
 
   const view: ReportViewMode =
     params.get("view") === "detailed" ? "detailed" : "summary";
@@ -266,12 +274,14 @@ export function LeadsByStatusReport({
   const customTo = params.get("to") ?? undefined;
   const agentKey = params.get("agent") ?? "";
   const statusKey = params.get("status") ?? "";
+  const teamKey = params.get("team") ?? "";
   const pipelineKey = params.get("pipeline") ?? "";
 
   const split = (value: string) =>
     value ? value.split(",").filter(Boolean) : [];
   const agentIds = useMemo(() => split(agentKey), [agentKey]);
   const statusValues = useMemo(() => split(statusKey), [statusKey]);
+  const teamValues = useMemo(() => split(teamKey), [teamKey]);
   const pipelineValues = useMemo(
     () => (pipelineKey ? [pipelineKey] : []),
     [pipelineKey],
@@ -284,6 +294,7 @@ export function LeadsByStatusReport({
       dateField,
       agent: agentIds,
       status: statusValues,
+      team: teamValues,
       pipeline: pipelineKey || undefined,
       conditions: advancedFilter.appliedConditions,
     }),
@@ -294,6 +305,7 @@ export function LeadsByStatusReport({
       dateField,
       agentIds,
       statusValues,
+      teamValues,
       pipelineKey,
       advancedFilter.appliedConditions,
     ],
@@ -371,9 +383,18 @@ export function LeadsByStatusReport({
           operator: "is",
           values: filters.agent,
         });
-      if (filters.from && filters.to && filters.dateField === "created")
+      if (filters.team?.length)
         conditions.push({
-          field: "createdAt",
+          field: "team",
+          operator: "is",
+          values: filters.team,
+        });
+      if (filters.from && filters.to)
+        conditions.push({
+          field:
+            filters.dateField === "statusChanged"
+              ? "statusChangedAt"
+              : "createdAt",
           operator: "between",
           values: [filters.from, filters.to],
         });
@@ -457,6 +478,20 @@ export function LeadsByStatusReport({
           resetPage();
         }}
         options={statuses.options.map((option) => ({
+          value: option.value,
+          label: option.label,
+        }))}
+      />
+      <ReportToolbarSelect
+        label="Team"
+        icon={IconUsers}
+        multiple
+        value={teamValues}
+        onChange={(value) => {
+          setParams({ team: value.length ? value.join(",") : null });
+          resetPage();
+        }}
+        options={teams.options.map((option) => ({
           value: option.value,
           label: option.label,
         }))}

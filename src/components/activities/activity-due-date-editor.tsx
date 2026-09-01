@@ -75,6 +75,7 @@ export function ActivityDueDateEditor({
   onSave: (row: ActivityListItem, dueAt: string) => void;
 }) {
   const root = useRef<HTMLSpanElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const labelId = useId();
   const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(
     null,
@@ -91,7 +92,8 @@ export function ActivityDueDateEditor({
     if (next !== new Date(row.dueAt).toISOString()) onSave(row, next);
   };
 
-  useDismissable(root, isOpen, commit);
+  // The panel is portalled, so it must count as "inside" or a press in it commits early.
+  useDismissable([root, panelRef], isOpen, commit);
 
   const open = (event: React.MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -130,6 +132,7 @@ export function ActivityDueDateEditor({
       {isOpen &&
         createPortal(
           <div
+            ref={panelRef}
             role="dialog"
             aria-label="Change due date and time"
             className={PANEL_CLASS}

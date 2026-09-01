@@ -44,11 +44,13 @@ export function Popover({
 }: PopoverProps) {
   const root = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
   const mounted = useMounted();
   const [anchor, setAnchor] = useState<React.CSSProperties | null>(null);
 
-  useDismissable(root, isOpen, close);
+  // The portalled panel lives in <body>, so it must count as "inside" for dismissal.
+  useDismissable([root, panelRef], isOpen, close);
   // A fixed panel would drift away from a scrolling trigger, so re-anchor on open and
   // close if the page moves underneath it.
   useAnchoredPosition({
@@ -61,6 +63,7 @@ export function Popover({
 
   const panel = (
     <div
+      ref={panelRef}
       className={cn(
         portal ? PORTAL_PANEL_CLASS : PANEL_CLASS,
         !portal && (align === "end" ? "right-0" : "left-0"),

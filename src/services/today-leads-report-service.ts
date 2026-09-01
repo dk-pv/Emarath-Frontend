@@ -8,7 +8,7 @@ export interface TodayLeadsAgentRef {
   name: string;
 }
 
-/** One recently-contacted lead in the detailed view (RPT-02.2), mirroring `TodayLeadRow`. */
+/** One lead reached (an answered call) in the window — the detailed view, mirroring `TodayLeadRow`. */
 export interface TodayLeadRow {
   id: string;
   name: string;
@@ -30,8 +30,10 @@ export interface TodayLeadRow {
   /** The lead's existing engagement counters (LEAD-01.3) — "high engagement", shown not scored. */
   callAttempts: number;
   whatsappAttempts: number;
-  /** ISO instant of the lead's most recent call, or null if it has none. */
+  /** ISO instant of the lead's most recent answered call, or null if it has none. */
   lastContactedAt: string | null;
+  /** The lead's soonest outstanding follow-up (earliest incomplete activity), or null. */
+  nextFollowUpAt: string | null;
 }
 
 /** One summary row: recently-contacted-lead count per assignee, mirroring `TodayLeadsSummaryRow`. */

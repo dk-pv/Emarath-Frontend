@@ -17,8 +17,12 @@ export function ReportsHub({
 }: {
   variant?: "reports" | "analytics";
 }) {
+  // The Reports hub lists every business area — Leads, Follow Ups and Sales. The Analytics
+  // hub is a second entry point to the Sales cards; both open the same /reports/sales screens.
   const categories =
-    variant === "analytics" ? ANALYTICS_CATEGORIES : REPORT_CATEGORIES;
+    variant === "analytics"
+      ? ANALYTICS_CATEGORIES
+      : [...REPORT_CATEGORIES, ...ANALYTICS_CATEGORIES];
 
   return (
     <Card className="divide-y divide-hairline p-0">

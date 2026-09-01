@@ -70,7 +70,9 @@ function AssignedAgents({
  * highlight. This also makes the horizontal scroll usable on tablet and mobile —
  * the identifier stays put while the rest of the row scrolls.
  */
-const STICKY_FIRST = "sticky left-0 z-10 bg-surface group-hover:bg-canvas";
+// `left-10` = the checkbox column's 40px, which the Leads list pins at `left-0` with the same
+// classes (`selection.cellClassName`), so checkbox + name freeze as one block.
+const STICKY_FIRST = "sticky left-10 z-10 bg-surface group-hover:bg-canvas";
 
 /**
  * The Leads list columns in Workpex's full left-to-right order (LEAD-02.2), built
@@ -92,17 +94,35 @@ export const leadColumns: TableColumn<LeadListItem>[] = [
     // In the Leads list the name opens the Lead Detail drawer in place (the list
     // wraps the table in a LeadDetailProvider); the Activities list has no such
     // provider, so LeadNameCell there falls back to navigating to /leads/{id}
-    // (ACT-09.1). One cell, both behaviours. Workpex leads every name with a red
-    // warning triangle — the same marker on every row, so it is decorative here.
+    // (ACT-09.1). One cell, both behaviours. The warning triangle marks a lead nobody has
+    // worked yet — no completed activity and no logged call, the No Activity report's own
+    // definition — and its tooltip says since when.
     render: (row) => (
       <span className="flex items-center gap-2">
-        <IconAlertTriangle
-          size={18}
-          stroke={1.75}
-          aria-hidden="true"
-          // Workpex's triangle is a soft salmon, not the full danger red.
-          className="shrink-0 text-danger/70"
-        />
+        {!row.hasActivity && (
+          <Tooltip
+            portal
+            content={
+              <span className="block text-center leading-snug">
+                Lead Created on
+                <br />
+                <strong className="font-semibold">
+                  {formatDateTime(row.createdAt)}
+                </strong>
+                <br />
+                No Activities Yet
+              </span>
+            }
+          >
+            <IconAlertTriangle
+              size={18}
+              stroke={1.75}
+              aria-label="No activities yet"
+              // Workpex's triangle is a soft salmon, not the full danger red.
+              className="shrink-0 text-danger/70"
+            />
+          </Tooltip>
+        )}
         <LeadNameCell lead={row} />
       </span>
     ),

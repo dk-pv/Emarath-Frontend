@@ -14,15 +14,15 @@ import {
 } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagPicker } from "@/components/leads/lead-tag-picker";
+import { tagPillClass } from "@/lib/tag-palette";
 import { isLeadConverted } from "@/components/leads/lead-row-actions";
 import { useLookup } from "@/hooks/use-lookup";
 import { cn } from "@/lib/cn";
-import { formatDateTime, formatRelativeTime } from "@/lib/format";
+import { formatDateTime, formatRelativeTime, initialsOf } from "@/lib/format";
 import type { LeadDetailField } from "@/components/leads/lead-detail-fields";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { LeadListItem } from "@/services/leads-service";
@@ -42,6 +42,8 @@ export type LeadBasicInfoActions = {
   onManageFields: () => void;
   /** Applies one tag to the lead; omit to hide the tag control entirely. */
   onAddTag?: (tagId: string) => void;
+  /** Removes one applied tag (the picker's × pills); only offered with `onAddTag`. */
+  onRemoveTag?: (tagId: string) => void;
   /** Opens the Convert confirm dialog (ADR-0048) — the parent owns the write. */
   onConvert: () => void;
   /** Moves the lead to another board; the parent owns the write and the toast. */
@@ -197,7 +199,14 @@ export function LeadDetailBasicInfo({
       </div>
 
       <div className="mt-5 flex items-center gap-3 border-t border-hairline pt-5">
-        <Avatar name={lead.name} shape="square" size="lg" className="size-16" />
+        {/* The reference shows the lead's initials in the panel avatar ("RH"). */}
+        <Avatar
+          name={lead.name}
+          initials={initialsOf(lead.name)}
+          shape="square"
+          size="lg"
+          className="size-16"
+        />
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="truncate font-semibold text-ink">{lead.name}</span>
           <div className="flex flex-wrap items-center gap-2">
@@ -286,28 +295,38 @@ export function LeadDetailBasicInfo({
           ),
         )}
 
-        {showTags && lead.tags.length > 0 && (
+        {showTags && !actions.onAddTag && lead.tags.length > 0 && (
           <div>
             <dt className="text-xs text-ink-muted">Tags</dt>
             <dd className="mt-1.5 flex flex-wrap gap-1.5">
               {lead.tags.map((tag) => (
-                <Chip key={tag.id} tone="brand">
-                  {tag.name}
-                </Chip>
+                <span key={tag.id} className={tagPillClass(tag.name)}>
+                  <span className="truncate">{tag.name}</span>
+                </span>
               ))}
             </dd>
           </div>
         )}
       </dl>
 
-      {/* The reference puts the tag control directly under the field list, below
-          Forecasted Amount. */}
+      {/* The reference puts the tag area directly under the field list, below Forecasted
+          Amount: the lead's tags as pills with the manage-tags "+" beside them. */}
       {actions.onAddTag && (
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {showTags &&
+            lead.tags.map((tag) => (
+              <span
+                key={tag.id}
+                className={cn(tagPillClass(tag.name), "px-2.5 py-1")}
+              >
+                <span className="truncate">{tag.name}</span>
+              </span>
+            ))}
           <LeadTagPicker
             lead={lead}
             pending={addingTag}
             onSelect={actions.onAddTag}
+            onRemove={actions.onRemoveTag}
           />
         </div>
       )}

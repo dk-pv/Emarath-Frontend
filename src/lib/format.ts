@@ -117,3 +117,18 @@ export function formatRelativeTime(
   }
   return "—";
 }
+
+/**
+ * A compact whole-unit duration between two instants — "Same day", "3 hours", "12 days" —
+ * for metric columns like the Converted report's Conversion Time. Negative or invalid
+ * spans render as an em dash by the caller (this returns null for them).
+ */
+export function formatDuration(fromIso: string, toIso: string): string | null {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours < 1) return "Same day";
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"}`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"}`;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Toolbar } from "@/components/layout/Toolbar";
 import { StagesProvider, useStages } from "@/components/stages/stages-context";
@@ -25,6 +25,12 @@ import { KanbanDndProvider, type KanbanDnd } from "./kanban-dnd-context";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { StageLegend } from "./stage-legend";
 import { type BoardQuery, useKanbanBoard } from "./use-kanban-board";
+import {
+  CANCELLED,
+  LOST_STATUS,
+  useLostReasonPrompt,
+} from "@/components/leads/lost-reason-prompt";
+import type { LeadListItem } from "@/services/leads-service";
 
 /** The selected pipeline survives the session (KAN-06.1 AC4). */
 const PIPELINE_KEY = "kanban.pipeline";
@@ -269,6 +275,25 @@ function KanbanBoardView({
   const dragging = useRef<{ id: string; from: string } | null>(null);
   const [activeDragFrom, setActiveDragFrom] = useState<string | null>(null);
 
+  // Live mirror of each column's rows, so the stable drop handler can name the dragged
+  // lead in the prompt without being recreated on every board change.
+  const stateRef = useRef<Record<string, LeadListItem[]>>({});
+  useEffect(() => {
+    stateRef.current = Object.fromEntries(
+      Object.entries(columns).map(([stage, column]) => [stage, column.rows]),
+    );
+  }, [columns]);
+
+  const { ask, modal: lostReasonModal } = useLostReasonPrompt();
+  const askLostReason = useCallback(
+    async (lead: LeadListItem, from: string, to: string) => {
+      const reason = await ask(lead);
+      if (reason === CANCELLED) return;
+      moveCard(lead.id, from, to, reason);
+    },
+    [ask, moveCard],
+  );
+
   const dnd = useMemo<KanbanDnd>(
     () => ({
       onDragStart: (leadId, fromStage) => {
@@ -281,11 +306,23 @@ function KanbanBoardView({
       },
       onDropOnStage: (toStage) => {
         const current = dragging.current;
-        if (current) moveCard(current.id, current.from, toStage);
+        if (!current) return;
+        // A drop into LOST asks why first; skipping still moves the card, cancelling
+        // leaves it where it was.
+        if (toStage === LOST_STATUS) {
+          const lead = stateRef.current?.[current.from]?.find(
+            (row) => row.id === current.id,
+          );
+          if (lead) {
+            void askLostReason(lead, current.from, toStage);
+            return;
+          }
+        }
+        moveCard(current.id, current.from, toStage);
       },
       getDraggingFrom: () => dragging.current?.from ?? null,
     }),
-    [moveCard],
+    [moveCard, askLostReason],
   );
 
   if (phase === "error") {
@@ -325,6 +362,7 @@ function KanbanBoardView({
               ) : null;
             })}
       </ColumnRow>
+      {lostReasonModal}
     </KanbanDndProvider>
   );
 }

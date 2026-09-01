@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IconList, IconMapPin, IconRefresh } from "@tabler/icons-react";
 import { ContentContainer } from "@/components/layout/ContentContainer";
+import { cn } from "@/lib/cn";
 import { IconButton } from "@/components/ui/IconButton";
 import {
   SegmentedControl,
@@ -14,10 +15,16 @@ import { GpsKpiCards } from "@/components/gps/gps-kpi-cards";
 import { GpsMapView } from "@/components/gps/gps-map-view";
 import { GpsListView } from "@/components/gps/gps-list-view";
 import { GpsExportMenu } from "@/components/gps/gps-export-menu";
+import { useToast } from "@/components/ui/Toast";
 import { useGpsLocations } from "@/hooks/use-gps-locations";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { fetchAssignableAgents } from "@/services/lookups-service";
-import { downloadGpsExport } from "@/services/gps-export-service";
+import { exportGpsRecords, type GpsExportFormat } from "@/lib/gps-export";
+import {
+  GPS_EVENT_FILTERS,
+  filterGpsRecords,
+  type GpsPinType,
+} from "@/services/gps-service";
 import type { FilterCondition, FilterField, ListQuery } from "@/types";
 
 /**
@@ -44,17 +51,30 @@ const VIEWS: SegmentedOption<View>[] = [
 ];
 
 /** The GPS Filter's persisted selection — survives navigation within a session (AC3). */
-type GpsFilters = { userId: string | null; date: string | null };
-const EMPTY_FILTERS: GpsFilters = { userId: null, date: null };
+type GpsFilters = {
+  userId: string | null;
+  /** "Filter by Event" — a pin type, or null for All. Applied in the browser. */
+  event: GpsPinType | null;
+  date: string | null;
+};
+const EMPTY_FILTERS: GpsFilters = { userId: null, event: null, date: null };
 
 /**
  * The GPS Map screen root (GPS-04.2 KPIs + GPS-05.1 map + GPS-06.1 list + GPS-07.1
  * filter). One period + one refresh token + one locations fetch drive every
  * section, so the counters, map pins and list rows always agree; the Filter
  * (Team Member + By Date) drives that one period, so changing it updates all three
- * together (AC2) and the Map/List toggle keeps the selection. The "Filter by Event"
- * leg the Workpex popup shows is deferred — GPS-07.1's ACs cover period only and
- * the read APIs have no event dimension.
+ * together (AC2) and the Map/List toggle keeps the selection.
+ *
+ * This component owns the whole filtering pipeline. The server narrows by role, period
+ * and Team Member; `filterGpsRecords` then applies the two browser-only dimensions —
+ * Filter by Event and the table search — and the single array that falls out drives the
+ * map markers, the table rows and the export. None of those three filters anything
+ * itself, which is what guarantees they agree.
+ *
+ * The KPI cards stay on `/gps/summary`: they are the server's authoritative totals for
+ * the period and Team Member (GPS-04.1), and the event filter is a view narrowing over
+ * records, not a change to what the period contains.
  */
 export function GpsMapScreen() {
   const [filters, setFilters] = usePersistentState<GpsFilters>(
@@ -90,15 +110,26 @@ export function GpsMapScreen() {
           value: agent.id,
         })),
       },
+      {
+        key: "event",
+        label: "Filter by Event",
+        type: "select",
+        // The reference names the unfiltered option "All", not "Any filter by event".
+        emptyLabel: "All",
+        options: GPS_EVENT_FILTERS.map((option) => ({
+          label: option.label,
+          value: option.value,
+        })),
+      },
       { key: "date", label: "By Date", type: "date" },
     ],
     [agents],
   );
 
-  // The period is always in effect — no date picked means today, not "no filter" —
-  // so it always counts, which is why the reference's trigger reads "Filter/1" on a
-  // freshly loaded screen rather than "Filter".
-  const activeCount = 1 + (filters.userId ? 1 : 0);
+  // Only filters the user actually set count, so a freshly loaded screen reads
+  // "Filter" rather than claiming one active filter it does not have.
+  const activeCount =
+    (filters.userId ? 1 : 0) + (filters.event ? 1 : 0) + (filters.date ? 1 : 0);
   const valueOf = useCallback(
     (key: string) => filters[key as keyof GpsFilters] ?? null,
     [filters],
@@ -130,6 +161,14 @@ export function GpsMapScreen() {
   const [reloadToken, setReloadToken] = useState(0);
   const [refreshedAt, setRefreshedAt] = useState(() => Date.now());
   const [view, setView] = useState<View>("map");
+  // The table's search lives here, not in the table: it narrows the same record set the
+  // map and the export read, so it cannot be owned by one of the three consumers.
+  const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const { toast } = useToast();
+
+  // Refresh only reloads; it never touches the filters, the search or the view, so the
+  // screen comes back exactly as the supervisor left it.
   const refresh = useCallback(() => {
     setReloadToken((token) => token + 1);
     setRefreshedAt(Date.now());
@@ -142,6 +181,30 @@ export function GpsMapScreen() {
 
   // One fetch shared by the map and the list, so both show the same data (AC2).
   const { locations, isLoading, isError } = useGpsLocations(query, reloadToken);
+
+  // THE single filtered set. Everything below reads this and nothing re-filters.
+  const records = useMemo(
+    () => filterGpsRecords(locations, { event: filters.event, search }),
+    [locations, filters.event, search],
+  );
+
+  // A click while a fetch is already in flight would only restart the same request.
+  const refreshing = isLoading;
+
+  const handleExport = useCallback(
+    async (format: GpsExportFormat) => {
+      if (exporting) return;
+      setExporting(true);
+      try {
+        await exportGpsRecords(format, records);
+      } catch {
+        toast({ title: "Couldn’t create the export", tone: "danger" });
+      } finally {
+        setExporting(false);
+      }
+    },
+    [exporting, records, toast],
+  );
 
   return (
     // lg:h-full gives the column a definite height, so the map's `flex-1` divides the
@@ -170,14 +233,21 @@ export function GpsMapScreen() {
         <IconButton
           size="lg"
           onClick={refresh}
+          disabled={refreshing}
           aria-label="Refresh field activity"
         >
-          <IconRefresh size={16} stroke={1.75} aria-hidden="true" />
+          <IconRefresh
+            size={16}
+            stroke={1.75}
+            aria-hidden="true"
+            className={cn(refreshing && "animate-spin")}
+          />
         </IconButton>
 
-        {/* GPS-08.1 — exports the current scoped/filtered view (period + Team Member). */}
+        {/* GPS-08.1 — writes exactly the records on screen, filters and search included. */}
         <GpsExportMenu
-          onExport={(format) => downloadGpsExport(format, query)}
+          onExport={(format) => void handleExport(format)}
+          disabled={exporting}
         />
       </div>
 
@@ -186,7 +256,7 @@ export function GpsMapScreen() {
       <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
         <GpsAgentPanel
           agents={agents}
-          locations={locations}
+          locations={records}
           selectedId={filters.userId}
           onSelect={(agentId) =>
             setFilters((current) => ({ ...current, userId: agentId }))
@@ -200,17 +270,19 @@ export function GpsMapScreen() {
 
           {view === "map" ? (
             <GpsMapView
-              locations={locations}
+              locations={records}
               isLoading={isLoading}
               refreshedAt={refreshedAt}
               onRefresh={refresh}
             />
           ) : (
             <GpsListView
-              locations={locations}
+              locations={records}
               isLoading={isLoading}
               isError={isError}
               onRetry={refresh}
+              search={search}
+              onSearchChange={setSearch}
             />
           )}
         </div>

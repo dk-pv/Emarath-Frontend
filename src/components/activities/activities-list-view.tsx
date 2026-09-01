@@ -408,14 +408,16 @@ export function ActivitiesListView() {
       refetch();
     } catch (error) {
       clearOverride(target.id);
-      // ACT-10.1: the API returns 409 when the activity is location-tied and
-      // no valid GPS check-in exists. Surface the blueprint-specified message
-      // (§10: "Check in on site to complete this activity") so the user knows
-      // why completion was blocked (AC3). All other failures fall through to
-      // the generic error toast.
+      // ACT-10.1 / GPS-09.1: the API returns 409 when the activity is location-tied
+      // and no valid on-site check-in exists. The server now distinguishes "you never
+      // checked in" from "your check-in was 182 m away", so show its message rather
+      // than a fixed string — otherwise the specific reason is thrown away.
       if (error instanceof ApiError && error.status === 409) {
         toast({
-          title: "Check in on site to complete this activity",
+          title:
+            error.messages.join(" · ") ||
+            error.message ||
+            "Check in on site to complete this activity",
           tone: "danger",
         });
       } else {

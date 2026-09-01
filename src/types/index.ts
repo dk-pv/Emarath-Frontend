@@ -96,6 +96,12 @@ export type ListSource<TRow> = (
 export type FilterField = {
   key: string;
   label: string;
+  /**
+   * Overrides the "Any <label>" empty option a select/multi shows. Opt-in: the GPS
+   * event filter names it "All", as its reference does, and every other consumer keeps
+   * the derived wording.
+   */
+  emptyLabel?: string;
 } & (
   | { type: "text" }
   | { type: "select"; options: readonly SelectOption[] }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { IconFileSearch } from "@tabler/icons-react";
 import { Table } from "@/components/ui/Table";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -11,10 +10,8 @@ import { PIN_COLORS, PIN_LABELS } from "@/components/gps/gps-legend";
 import { formatDateTime } from "@/lib/format";
 import type { GpsPinRecord } from "@/services/gps-service";
 import type { TableColumn } from "@/types";
-
 /** Stands in for a value the schema has no column for. */
 const EMPTY = <span className="text-ink-subtle">—</span>;
-
 const COLUMNS: TableColumn<GpsPinRecord>[] = [
   {
     key: "userName",
@@ -48,37 +45,30 @@ const COLUMNS: TableColumn<GpsPinRecord>[] = [
   { key: "notes", header: "Notes", render: () => EMPTY },
   { key: "actions", header: "Actions", align: "right", render: () => EMPTY },
 ];
-
 /**
- * The GPS list view (GPS-06.1): the same `/gps/locations` pins the map shows,
- * as a scannable table, with the column set of
- * ui-reference/gps-map/gps-map-list-view-table-empty-state.png. Search and
- * scrolling are client-side, since the locations endpoint returns one capped,
- * unpaged set.
+ * The GPS list view (GPS-06.1): the same records the map shows, as a scannable table,
+ * with the column set of ui-reference/gps-map/gps-map-list-view-table-empty-state.png.
+ *
+ * It renders `locations` verbatim. The search box is presented here because that is
+ * where the reference puts it, but the screen owns the term and does the filtering —
+ * otherwise the table would show a different set from the map and the export.
  */
 export function GpsListView({
   locations,
   isLoading,
   isError,
   onRetry,
+  search,
+  onSearchChange,
 }: {
+  /** Already filtered by the screen — this view never narrows the set itself. */
   locations: GpsPinRecord[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  search: string;
+  onSearchChange: (value: string) => void;
 }) {
-  const [search, setSearch] = useState("");
-
-  const rows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return locations;
-    return locations.filter(
-      (pin) =>
-        pin.agentName.toLowerCase().includes(query) ||
-        PIN_LABELS[pin.type].toLowerCase().includes(query),
-    );
-  }, [locations, search]);
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
@@ -87,17 +77,16 @@ export function GpsListView({
           placeholder="Search here..."
           aria-label="Search field activity"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => onSearchChange(event.target.value)}
         />
       </div>
-
       <ResponsiveTableContainer
         label="Field activity"
         className="max-h-[520px] overflow-y-auto rounded-surface border border-hairline"
       >
         <Table
           columns={COLUMNS}
-          rows={rows}
+          rows={locations}
           getRowId={(row) => row.id}
           isLoading={isLoading}
           emptyState={

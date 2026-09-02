@@ -7,6 +7,8 @@ import {
 } from "@/components/reports/report-registry";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { LeadAgingReport } from "@/components/reports/lead-aging-report";
+import { DuplicateEnquiriesReport } from "@/components/reports/duplicate-enquiries-report";
+import { LeadFirstResponseReport } from "@/components/reports/lead-first-response-report";
 import { ReportView } from "@/components/reports/report-view";
 import { NoActivityLeadsReport } from "@/components/reports/no-activity-leads-report";
 import { TodayLeadsReport } from "@/components/reports/today-leads-report";
@@ -72,7 +74,11 @@ export default async function ReportPage({
                     ? OverdueFollowUpsReport
                     : slug === "lead-aging-stale-leads"
                       ? LeadAgingReport
-                      : ReportView;
+                      : slug === "lead-first-response"
+                        ? LeadFirstResponseReport
+                        : slug === "duplicate-enquiries"
+                          ? DuplicateEnquiriesReport
+                          : ReportView;
 
   return (
     <PageContainer>

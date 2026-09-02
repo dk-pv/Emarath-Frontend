@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { IconCalendar, IconChevronDown } from "@tabler/icons-react";
+import { IconCalendar, IconChevronDown, IconX } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -33,6 +33,12 @@ type ReportDateFilterProps = {
   value: DateFilterValue;
   onApply: (value: DateFilterValue) => void;
   onClear: () => void;
+  /**
+   * Show the applied period's own name on the chip, with an inline ✕ to clear it (the
+   * Lead First Response reference). Off elsewhere, so every other report's chip keeps
+   * reading "By Date" with its count badge.
+   */
+  showActiveLabel?: boolean;
 };
 
 /**
@@ -58,10 +64,17 @@ export function ReportDateFilter({
   value,
   onApply,
   onClear,
+  showActiveLabel = false,
 }: ReportDateFilterProps) {
   const { open, setOpen, pos, triggerRef, panelRef } =
     useAnchoredPanel(MAX_PANEL);
   const [draft, setDraft] = useState<DateFilterValue>(value);
+
+  const activeLabel =
+    showActiveLabel && value.period
+      ? (DATE_PERIODS.find((preset) => preset.key === value.period)?.label ??
+        null)
+      : null;
 
   const toggle = () => {
     if (!open) setDraft(value);
@@ -176,14 +189,39 @@ export function ReportDateFilter({
         className={cn(
           TOOLBAR_BUTTON_CLASS,
           "relative",
-          // Workpex tints the chip while its panel is open.
-          open && "bg-brand-subtle",
+          // Workpex tints the chip while its panel is open — and keeps it tinted while a
+          // period is applied, where the chip names that period.
+          (open || activeLabel !== null) && "bg-brand-subtle",
         )}
       >
         <IconCalendar size={18} stroke={1.75} aria-hidden="true" />
-        By Date
+        {activeLabel ?? "By Date"}
+        {activeLabel ? (
+          // With a period applied the chip doubles as its own clear control, so the
+          // window can be dropped without opening the panel.
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="Clear date filter"
+            onClick={(event) => {
+              event.stopPropagation();
+              setDraft(CLEARED);
+              onClear();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              event.stopPropagation();
+              setDraft(CLEARED);
+              onClear();
+            }}
+            className="focus-ring -mr-0.5 inline-flex size-4 items-center justify-center rounded-full text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink"
+          >
+            <IconX size={14} stroke={2} aria-hidden="true" />
+          </span>
+        ) : null}
         <IconChevronDown size={16} stroke={1.75} className="text-ink-muted" />
-        {value.period && (
+        {!showActiveLabel && value.period && (
           <Badge tone="brand" aria-label="1 selected">
             1
           </Badge>

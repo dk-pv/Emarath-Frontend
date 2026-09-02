@@ -65,6 +65,8 @@ export interface ReportShellProps {
   aside?: React.ReactNode;
   /** Runs the export for the current view. Omit to disable the Export control. */
   onExport?: () => void;
+  /** Drops the Export control entirely — for a reference whose toolbar has none. */
+  hideExport?: boolean;
   exporting?: boolean;
   state: ReportState;
   emptyTitle?: string;
@@ -78,6 +80,12 @@ export interface ReportShellProps {
    * keeps the single-Card layout.
    */
   bare?: boolean;
+  /**
+   * Keeps the toolbar's controls on one row (the Lead First Response reference), letting
+   * the cluster scroll sideways rather than wrap. Off elsewhere, so every other report's
+   * toolbar still wraps as it does today.
+   */
+  noWrap?: boolean;
   /** The results (table) rendered when `state` is "ready". */
   children?: React.ReactNode;
 }
@@ -174,7 +182,9 @@ export function ReportShell({
   aside,
   onExport,
   exporting = false,
+  hideExport = false,
   bare = false,
+  noWrap = false,
   state,
   emptyTitle = "Nothing to show yet",
   emptyDescription = "No data matches the current filters.",
@@ -184,23 +194,26 @@ export function ReportShell({
 }: ReportShellProps) {
   const toolbar = (
     <Toolbar
-      className={bare ? "px-0.5" : "p-4"}
+      className={cn(bare ? "px-0.5" : "p-4", noWrap && "flex-nowrap")}
+      rightClassName={noWrap ? "flex-nowrap" : undefined}
       left={filterBar}
       right={
         <>
           {toolbarActions}
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={!onExport || exporting}
-            className={cn(
-              TOOLBAR_BUTTON_CLASS,
-              "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
-            )}
-          >
-            <IconDownload size={18} stroke={1.75} aria-hidden="true" />
-            Export
-          </button>
+          {!hideExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              disabled={!onExport || exporting}
+              className={cn(
+                TOOLBAR_BUTTON_CLASS,
+                "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+              )}
+            >
+              <IconDownload size={18} stroke={1.75} aria-hidden="true" />
+              Export
+            </button>
+          )}
           {/* One flex item, so the kebab stays glued to the toggle's right (the reference)
               when the cluster wraps — e.g. Detailed view's extra Manage Columns pill would
               otherwise push it onto a row of its own. */}

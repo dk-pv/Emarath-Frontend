@@ -33,6 +33,7 @@ export function ToolbarSearch({
   onChange,
   placeholder = "Search",
   clearable = false,
+  clearWhenEmpty = false,
   scope,
 }: {
   value: string;
@@ -40,6 +41,12 @@ export function ToolbarSearch({
   placeholder?: string;
   /** Keep the term in the input with an inline clear ✕ (no chip row below). */
   clearable?: boolean;
+  /**
+   * Show that ✕ while the input is open but still empty, so it can be dismissed by
+   * pointer as well as Escape (the Lead First Response toolbar). Off elsewhere, so the
+   * Leads bar keeps an uncluttered empty box.
+   */
+  clearWhenEmpty?: boolean;
   /** Renders the full search bar with this selector at its left. */
   scope?: ToolbarSearchScope;
 }) {
@@ -104,9 +111,10 @@ export function ToolbarSearch({
     );
   }
 
-  // Leads keeps the term visible with an inline clear ✕; the ✕ only shows once
-  // there is something to clear, so an empty expanded box stays uncluttered.
-  const showClear = clearable && hasQuery;
+  // Leads keeps the term visible with an inline clear ✕; the ✕ only shows once there is
+  // something to clear, so an empty expanded box stays uncluttered — unless the caller
+  // asks for it whenever the box is open, which also makes it dismissable by pointer.
+  const showClear = clearable && (hasQuery || clearWhenEmpty);
 
   return (
     <span className="relative inline-flex h-control-sm w-56 items-center">
@@ -131,7 +139,7 @@ export function ToolbarSearch({
       {showClear && (
         <button
           type="button"
-          aria-label="Clear search"
+          aria-label={hasQuery ? "Clear search" : "Close search"}
           onClick={collapse}
           className="focus-ring absolute right-field-x flex size-4 items-center justify-center rounded-full text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink"
         >

@@ -3,10 +3,17 @@ import { cn } from "@/lib/cn";
 type ToolbarProps = {
   left?: React.ReactNode;
   right?: React.ReactNode;
+  /** Extra classes for the right-hand cluster — e.g. keeping it on one row. */
+  rightClassName?: string;
   className?: string;
 };
 
-export function Toolbar({ left, right, className }: ToolbarProps) {
+export function Toolbar({
+  left,
+  right,
+  className,
+  rightClassName,
+}: ToolbarProps) {
   return (
     <div
       className={cn(
@@ -23,7 +30,12 @@ export function Toolbar({ left, right, className }: ToolbarProps) {
           at narrower widths. `justify-end` keeps the cluster right-anchored (Workpex) in
           both the single-row and wrapped states. When there is room it sits at its natural
           width, right-aligned by the outer `justify-between`. */}
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+      <div
+        className={cn(
+          "flex min-w-0 flex-wrap items-center justify-end gap-2",
+          rightClassName,
+        )}
+      >
         {right}
       </div>
     </div>

@@ -1,46 +1,79 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { IconPuzzle, IconSettings } from "@tabler/icons-react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Select } from "@/components/ui/Select";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { isAbortError } from "@/lib/api-client";
+import {
+  fetchIntegrations,
+  type Integration,
+} from "@/services/integrations-service";
 import { IntegrationCard } from "./integration-card";
-import { INTEGRATION_CATEGORIES, INTEGRATIONS } from "./integration-registry";
 
-const FILTER_OPTIONS = [
-  { label: "All Integrations", value: "all" },
-  ...INTEGRATION_CATEGORIES.map((category) => ({
-    label: category,
-    value: category,
-  })),
-];
+const ALL = "all";
+
+/** The grid geometry, shared by the cards and their loading placeholders. */
+const GRID_CLASS = "mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4";
 
 /**
- * The Integration Library (INT-02.1 / 02.2 / 02.3), traced from
- * `ui-reference/integrations/integrations-library-grid-top-web-form-card-hover.png`: a header
- * (gear + "Integration Library", the enabled-count line, a category filter and a search box)
- * over a responsive 4/2/1-column card grid.
+ * The Integration Library (INT-02.1), traced from
+ * `ui-reference/integrations/integrations-library-grid-top-web-form-card-hover.png`: a
+ * header (gear + "Integration Library", the enabled-count line, a category filter and a
+ * search box) over a responsive 4/2/1-column card grid.
  *
- * All three behaviours are client-side over the local seed set (INT-01.1 backend registry is
- * unbuilt): enablement is `useState` and the count derives from it live (INT-02.2); category
- * filter + name/description/category search combine in one `useMemo` (INT-02.3). Wiring the
- * future registry API means replacing the two imported constants with fetched data — the shape
- * already matches, so nothing here changes. No backend call is faked.
+ * Data comes from `GET /api/integrations` (INT-01.1). The API returns the registry
+ * already ordered by `position`, so the reference card sequence is the server's and the
+ * client never re-sorts. All four states are real: skeletons while the request is in
+ * flight, an error state with retry when it fails, an empty state when the registry
+ * returns nothing, and the grid when it returns rows — no faked delay anywhere.
+ *
+ * Enablement is still local state seeded from the API (INT-02.2 persists it); the header
+ * count therefore starts from real backend data. The category filter derives its options
+ * from what the API actually returned rather than a hardcoded union, so a provider tag
+ * added server-side needs no frontend change.
  */
 export function IntegrationsLibrary() {
-  const [enabledIds, setEnabledIds] = useState(
-    () =>
-      new Set(
-        INTEGRATIONS.filter((integration) => integration.enabled).map(
-          (integration) => integration.id,
-        ),
-      ),
+  const [integrations, setIntegrations] = useState<Integration[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [enabledIds, setEnabledIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
   );
-  const [category, setCategory] = useState("all");
+  const [category, setCategory] = useState(ALL);
   const [query, setQuery] = useState("");
-  const gridId = useId();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    fetchIntegrations(controller.signal)
+      .then((rows) => {
+        if (!active) return;
+        setIntegrations(rows);
+        setEnabledIds(new Set(rows.filter((r) => r.enabled).map((r) => r.id)));
+        setFailed(false);
+      })
+      .catch((error: unknown) => {
+        if (!active || isAbortError(error)) return;
+        setFailed(true);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [reloadToken]);
+
+  const retry = useCallback(() => {
+    setIntegrations(null);
+    setFailed(false);
+    setReloadToken((token) => token + 1);
+  }, []);
 
   const toggle = (id: string) =>
     setEnabledIds((prev) => {
@@ -50,10 +83,20 @@ export function IntegrationsLibrary() {
       return next;
     });
 
+  const options = useMemo(() => {
+    const categories = [
+      ...new Set((integrations ?? []).map((r) => r.category)),
+    ];
+    return [
+      { label: "All Integrations", value: ALL },
+      ...categories.map((value) => ({ label: value, value })),
+    ];
+  }, [integrations]);
+
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return INTEGRATIONS.filter((integration) => {
-      if (category !== "all" && integration.category !== category) return false;
+    return (integrations ?? []).filter((integration) => {
+      if (category !== ALL && integration.category !== category) return false;
       if (!term) return true;
       return (
         integration.name.toLowerCase().includes(term) ||
@@ -61,7 +104,9 @@ export function IntegrationsLibrary() {
         integration.category.toLowerCase().includes(term)
       );
     });
-  }, [category, query]);
+  }, [integrations, category, query]);
+
+  const isLoading = integrations === null && !failed;
 
   return (
     <Card className="p-6 lg:p-8">
@@ -78,10 +123,18 @@ export function IntegrationsLibrary() {
               Integration Library
             </h2>
           </div>
-          <p className="mt-0.5 text-sm text-ink-muted">
-            {enabledIds.size} Enabled{" "}
-            {enabledIds.size === 1 ? "Integration" : "Integrations"}
-          </p>
+          {/* The count line is held while loading rather than showing "0 Enabled",
+              which would read as a real answer for a moment before correcting itself.
+              The placeholder replaces the paragraph rather than sitting inside it —
+              Skeleton renders a <div>, which is invalid (and a hydration error) in <p>. */}
+          {isLoading ? (
+            <Skeleton className="mt-1.5 h-4 w-40" />
+          ) : (
+            <p className="mt-0.5 text-sm text-ink-muted" aria-live="polite">
+              {enabledIds.size} Enabled{" "}
+              {enabledIds.size === 1 ? "Integration" : "Integrations"}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -91,9 +144,10 @@ export function IntegrationsLibrary() {
           <div className="sm:w-52">
             <Select
               aria-label="Filter integrations by category"
-              options={FILTER_OPTIONS}
+              options={options}
               value={category}
               onChange={(event) => setCategory(event.target.value)}
+              disabled={isLoading || failed}
             />
           </div>
           <div className="w-full sm:w-96">
@@ -102,12 +156,28 @@ export function IntegrationsLibrary() {
               placeholder="Search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              disabled={isLoading || failed}
             />
           </div>
         </div>
       </div>
 
-      {INTEGRATIONS.length === 0 ? (
+      {failed ? (
+        <ErrorState
+          className="mt-8"
+          title="Couldn't load integrations"
+          description="The integration library could not be reached. Check your connection and try again."
+          onRetry={retry}
+        />
+      ) : isLoading ? (
+        // Eight placeholders fill two rows of the desktop grid, so the page settles into
+        // its real height instead of jumping when the rows arrive.
+        <div className={GRID_CLASS} aria-hidden="true">
+          {Array.from({ length: 8 }, (_, index) => (
+            <Skeleton key={index} className="h-72 rounded-surface" />
+          ))}
+        </div>
+      ) : integrations?.length === 0 ? (
         <EmptyState
           className="mt-8"
           icon={IconPuzzle}
@@ -115,10 +185,7 @@ export function IntegrationsLibrary() {
           description="Integrations will appear here once they are added to the library."
         />
       ) : filtered.length > 0 ? (
-        <div
-          id={gridId}
-          className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4"
-        >
+        <div className={GRID_CLASS}>
           {filtered.map((integration) => (
             <IntegrationCard
               key={integration.id}

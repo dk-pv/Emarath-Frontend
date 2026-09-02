@@ -31,14 +31,26 @@ export const SETTINGS_ACCENTS: Record<SettingsAccent, string> = {
   fuchsia: "bg-fuchsia-100 text-fuchsia-500",
 };
 
+/**
+ * One row inside a category card, and one leaf in the settings sidebar.
+ *
+ * `href` is present only where a real screen exists. Everything else is still
+ * navigation-only, so a row without one renders as plain text rather than a link that
+ * would 404 — the hub has always listed the whole Workpex information architecture.
+ */
+export interface SettingsItem {
+  label: string;
+  href?: string;
+}
+
 export interface SettingsCategory {
   key: string;
   title: string;
   description: string;
   icon: Icon;
   accent: SettingsAccent;
-  /** Item labels shown as navigation rows. The "N Settings" badge derives from this list. */
-  items: string[];
+  /** Item rows. The "N Settings" badge derives from this list. */
+  items: readonly SettingsItem[];
 }
 
 /**
@@ -60,12 +72,12 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: IconAffiliate,
     accent: "orange",
     items: [
-      "General Settings",
-      "Category",
-      "Sales Pipeline",
-      "Lead Source",
-      "Tags",
-      "Duplicate Leads",
+      { label: "General Settings" },
+      { label: "Category" },
+      { label: "Sales Pipeline" },
+      { label: "Lead Source" },
+      { label: "Tags" },
+      { label: "Duplicate Leads" },
     ],
   },
   {
@@ -75,7 +87,11 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Configure company details, teams, hubs, and organization-level system settings.",
     icon: IconBuilding,
     accent: "green",
-    items: ["General Settings", "Company Details", "Host Mapping"],
+    items: [
+      { label: "General Settings" },
+      { label: "Company Details" },
+      { label: "Host Mapping" },
+    ],
   },
   {
     key: "users-access",
@@ -84,7 +100,10 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Control team members, roles, permissions, and access rules across platform.",
     icon: IconUserShield,
     accent: "rose",
-    items: ["Team Members", "Roles & Permissions"],
+    items: [
+      { label: "Team Members", href: "/settings/users-access/team-members" },
+      { label: "Roles & Permissions" },
+    ],
   },
   {
     key: "communication",
@@ -93,7 +112,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Manage templates, notifications, and alert settings for system communication.",
     icon: IconMessages,
     accent: "teal",
-    items: ["Templates", "Emarath Alerts"],
+    items: [{ label: "Templates" }, { label: "Emarath Alerts" }],
   },
   {
     key: "assignment",
@@ -102,7 +121,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Define assignment logic and rules to distribute leads and tasks automatically.",
     icon: IconSitemap,
     accent: "violet",
-    items: ["General Settings", "Assignment Rules"],
+    items: [{ label: "General Settings" }, { label: "Assignment Rules" }],
   },
   {
     key: "call-tracking",
@@ -111,7 +130,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Configure call tracking options, statuses, and monitoring preferences easily.",
     icon: IconPhoneCall,
     accent: "pink",
-    items: ["General Settings", "Call Status"],
+    items: [{ label: "General Settings" }, { label: "Call Status" }],
   },
   {
     key: "activity-reminders",
@@ -120,7 +139,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Set up activities, follow-up types, and reminder rules for daily operations.",
     icon: IconBellRinging,
     accent: "violet",
-    items: ["General Settings", "Follow Up Types"],
+    items: [{ label: "General Settings" }, { label: "Follow Up Types" }],
   },
   {
     key: "gps-tracking",
@@ -129,7 +148,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Manage location tracking, check-ins, and field visit form configurations.",
     icon: IconMapPin,
     accent: "red",
-    items: ["General Settings", "Location Check-in Form"],
+    items: [{ label: "General Settings" }, { label: "Location Check-in Form" }],
   },
   {
     key: "data-schema",
@@ -138,7 +157,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Customize fields, forms, and data imports to structure system information.",
     icon: IconDatabase,
     accent: "fuchsia",
-    items: ["Custom Field", "Form Customization"],
+    items: [{ label: "Custom Field" }, { label: "Form Customization" }],
   },
   {
     key: "application-controls",
@@ -147,6 +166,9 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Configure application-wide settings, dashboards, and demo account options.",
     icon: IconSettings,
     accent: "green",
-    items: ["Application General Settings", "Dashboard Settings"],
+    items: [
+      { label: "Application General Settings" },
+      { label: "Dashboard Settings" },
+    ],
   },
 ];

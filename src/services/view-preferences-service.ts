@@ -82,6 +82,34 @@ export interface AgingThresholds {
   amber: number;
 }
 
+/** The Lead First Response report's settings (RPT-02.9). */
+export interface FirstResponseSettings {
+  lateHours: number;
+}
+
+/** The caller's saved First Response settings, or the report's default. */
+export function fetchFirstResponseSettings(
+  signal?: AbortSignal,
+): Promise<FirstResponseSettings> {
+  return apiGet<FirstResponseSettings>(
+    "/view-preferences/lead-first-response-settings",
+    undefined,
+    signal,
+  );
+}
+
+/** Saves the caller's First Response settings; returns what the server stored. */
+export function saveFirstResponseSettings(
+  settings: FirstResponseSettings,
+  signal?: AbortSignal,
+): Promise<FirstResponseSettings> {
+  return apiPut<FirstResponseSettings>(
+    "/view-preferences/lead-first-response-settings",
+    settings,
+    signal,
+  );
+}
+
 /** The caller's saved aging thresholds, or the report's defaults. */
 export function fetchAgingThresholds(
   signal?: AbortSignal,

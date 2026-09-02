@@ -17,13 +17,13 @@ import {
   IconStatusChange,
   IconUser,
   IconUsers,
-  type Icon,
 } from "@tabler/icons-react";
 import { findReport } from "./report-registry";
 import { LeadAgingThresholdsDrawer } from "./lead-aging-thresholds-drawer";
 import { ReportMoreMenu } from "./report-more-menu";
 import { ReportToolbarSelect } from "./report-toolbar-select";
 import { ReportShell, type ReportState } from "./report-shell";
+import { ReportMetricCard } from "./report-metric-card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -81,58 +81,6 @@ function formatCount(value: number): string {
 function formatDays(value: number, digits = 2): string {
   return `${value.toFixed(digits)}d`;
 }
-
-/** One metric card: title, icon badge, value and its supporting label. */
-function MetricCard({
-  title,
-  icon: Glyph,
-  value,
-  label,
-  tone,
-}: {
-  title: string;
-  icon: Icon;
-  value: string;
-  label: string;
-  tone: { card: string; badge: string };
-}) {
-  return (
-    <div
-      className={cn(
-        "flex min-w-56 flex-1 flex-col rounded-surface border p-4",
-        tone.card,
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-sm font-medium text-ink">{title}</span>
-        <span
-          aria-hidden="true"
-          className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-control text-white",
-            tone.badge,
-          )}
-        >
-          <Glyph size={18} stroke={1.75} />
-        </span>
-      </div>
-      <p className="mt-3 text-2xl font-semibold text-ink">{value}</p>
-      <p className="mt-1 text-xs text-ink-muted">{label}</p>
-    </div>
-  );
-}
-
-/** The reference's six card tints, in its order. Literal classes so Tailwind emits them. */
-const CARD_TONES = {
-  blue: { card: "border-blue-200 bg-blue-50", badge: "bg-blue-500" },
-  red: { card: "border-red-200 bg-red-50", badge: "bg-red-500" },
-  amber: { card: "border-amber-200 bg-amber-50", badge: "bg-amber-500" },
-  emerald: {
-    card: "border-emerald-200 bg-emerald-50",
-    badge: "bg-emerald-500",
-  },
-  violet: { card: "border-violet-200 bg-violet-50", badge: "bg-violet-500" },
-  orange: { card: "border-orange-200 bg-orange-50", badge: "bg-orange-500" },
-} as const;
 
 /** A band's pill in the breakdown table, and the details table's row tint. */
 const BAND = {
@@ -692,45 +640,45 @@ export function LeadAgingReport({
               isRefreshing && "opacity-60",
             )}
           >
-            <MetricCard
+            <ReportMetricCard
               title="Total Leads Tracked"
               icon={IconUsers}
-              tone={CARD_TONES.blue}
+              tone="blue"
               value={formatCount(kpis.totalTracked)}
               label={includeLost ? "Incl. closed lost" : "Active Leads"}
             />
-            <MetricCard
+            <ReportMetricCard
               title="Stale / Critical"
               icon={IconAlertCircle}
-              tone={CARD_TONES.red}
+              tone="red"
               value={formatCount(kpis.stale)}
               label={`Age ≥${redFrom} days`}
             />
-            <MetricCard
+            <ReportMetricCard
               title="Needs Attention"
               icon={IconAlertTriangle}
-              tone={CARD_TONES.amber}
+              tone="amber"
               value={formatCount(kpis.needsAttention)}
               label={`Leads ${thresholds.green + 1}–${thresholds.amber} days old`}
             />
-            <MetricCard
+            <ReportMetricCard
               title="Healthy"
               icon={IconShieldCheck}
-              tone={CARD_TONES.emerald}
+              tone="emerald"
               value={formatCount(kpis.healthy)}
               label={`Age 0–${thresholds.green} days`}
             />
-            <MetricCard
+            <ReportMetricCard
               title="Avg Lead Age"
               icon={IconHourglassLow}
-              tone={CARD_TONES.violet}
+              tone="violet"
               value={formatDays(kpis.avgLeadAgeDays, 1)}
               label="Days across all tracked leads"
             />
-            <MetricCard
+            <ReportMetricCard
               title="No Activity Ever"
               icon={IconClockOff}
-              tone={CARD_TONES.orange}
+              tone="orange"
               value={formatCount(kpis.noActivityEver)}
               label="Leads with zero activity"
             />

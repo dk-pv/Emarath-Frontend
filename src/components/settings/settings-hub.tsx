@@ -24,7 +24,7 @@ export function SettingsHub() {
       (category) =>
         category.title.toLowerCase().includes(term) ||
         category.description.toLowerCase().includes(term) ||
-        category.items.some((item) => item.toLowerCase().includes(term)),
+        category.items.some((item) => item.label.toLowerCase().includes(term)),
     );
   }, [query]);
 

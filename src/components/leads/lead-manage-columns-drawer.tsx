@@ -5,6 +5,10 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { Drawer } from "@/components/ui/Drawer";
+import {
+  HIDE_NATIVE_SEARCH_CLEAR,
+  SearchClearButton,
+} from "@/components/ui/SearchInput/search-clear";
 import { cn } from "@/lib/cn";
 
 export type ManageableColumn = { key: string; label: string };
@@ -133,15 +137,20 @@ export function LeadManageColumnsDrawer({
         </div>
       }
     >
-      <div className="mb-2">
+      <div className="relative mb-2">
         <input
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={searchPlaceholder}
           aria-label={searchPlaceholder}
-          className="focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface px-field-x text-sm text-ink"
+          className={cn(
+            "focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface px-field-x text-sm text-ink",
+            HIDE_NATIVE_SEARCH_CLEAR,
+            query && "pr-8",
+          )}
         />
+        {query && <SearchClearButton onClick={() => setQuery("")} />}
       </div>
       {shown.length === 0 ? (
         <p className="px-1 py-6 text-center text-sm text-ink-subtle">

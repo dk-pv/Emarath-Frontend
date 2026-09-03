@@ -374,8 +374,6 @@ export function LeadFirstResponseReport({
         value={searchDraft}
         onChange={setSearchDraft}
         placeholder="Search"
-        clearable
-        clearWhenEmpty
       />
       <ReportToolbarSelect
         label="Sales Agent"

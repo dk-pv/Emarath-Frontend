@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   notFound,
   usePathname,
@@ -12,6 +13,7 @@ import { findReport } from "./report-registry";
 import { ReportDateFilter } from "./report-date-filter";
 import { ReportMetricCard, type CardTone } from "./report-metric-card";
 import { ReportToolbarSelect } from "./report-toolbar-select";
+import { ReportMoreMenu } from "./report-more-menu";
 import { ReportShell, type ReportState } from "./report-shell";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -51,6 +53,14 @@ const CARD_TONES: readonly CardTone[] = [
   "emerald",
   "yellow",
 ];
+
+/** The Leads list, showing every enquiry that shares one phone number. */
+function leadsHref(primaryPhone: string): string {
+  const conditions = [
+    { field: "primaryPhone", operator: "is", values: [primaryPhone] },
+  ];
+  return `/leads?conditions=${encodeURIComponent(JSON.stringify(conditions))}`;
+}
 
 /** A muted em dash, so an empty cell never reads as a layout gap. */
 function Dash() {
@@ -102,13 +112,21 @@ const COLUMNS: readonly TableColumn<DuplicateEnquiryRow>[] = [
     render: (row) => row.secondaryEmail ?? <Dash />,
   },
   {
+    // The count opens the Leads list showing exactly this group's enquiries — the only
+    // way from a group back to the leads it is about.
     key: "duplicateCount",
     header: "Duplicate Count",
     align: "right",
     render: (row) => (
-      <span className="font-semibold text-ink">
+      <Link
+        href={leadsHref(row.primaryPhone)}
+        target="_blank"
+        rel="noopener"
+        aria-label={`Open the ${row.duplicateCount} enquiries on ${row.primaryPhone} in a new tab`}
+        className="focus-ring rounded-sm font-semibold text-ink underline decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:text-ink-muted"
+      >
         {row.duplicateCount.toLocaleString("en-US")}
-      </span>
+      </Link>
     ),
   },
   {
@@ -326,6 +344,7 @@ export function DuplicateEnquiriesReport({
       category={resolved.category}
       bare
       hideExport
+      trailingActions={<ReportMoreMenu reportSlug={resolved.report.slug} />}
       toolbarActions={filterBar}
       state={state}
       emptyTitle="No duplicate enquiries"

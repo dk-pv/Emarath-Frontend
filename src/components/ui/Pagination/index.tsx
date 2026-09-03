@@ -11,6 +11,12 @@ type PaginationProps = {
   pageSize?: number;
   onPageSizeChange?: (pageSize: number) => void;
   total?: number;
+  /**
+   * Drop the page nav when everything fits on one page, leaving just the rows-per-page
+   * control — the Overdue Follow Ups summary reference, whose footer shows nothing else.
+   * Opt-in, so every other list keeps rendering its single "1" as it does today.
+   */
+  hideNavWhenSingle?: boolean;
 };
 
 type PageItem = number | "start-gap" | "end-gap";
@@ -83,8 +89,10 @@ export function Pagination({
   pageSize,
   onPageSizeChange,
   total,
+  hideNavWhenSingle = false,
 }: PaginationProps) {
   const items = pageItems(page, pageCount);
+  const showNav = !hideNavWhenSingle || pageCount > 1;
   const sizeOptions =
     pageSize === undefined || PAGE_SIZE_OPTIONS.includes(pageSize)
       ? PAGE_SIZE_OPTIONS
@@ -119,60 +127,62 @@ export function Pagination({
         )}
       </div>
 
-      <nav aria-label="Pagination">
-        <ul className="flex items-center gap-1">
-          <li>
-            <button
-              type="button"
-              aria-label="Previous page"
-              disabled={page <= 1}
-              onClick={() => onPageChange(page - 1)}
-              className={PAGE_BUTTON}
-            >
-              <IconChevronLeft size={16} stroke={2} />
-            </button>
-          </li>
-
-          {items.map((item) =>
-            typeof item === "number" ? (
-              <li key={item}>
-                <button
-                  type="button"
-                  aria-label={`Page ${item}`}
-                  aria-current={item === page ? "page" : undefined}
-                  onClick={() => onPageChange(item)}
-                  className={cn(
-                    PAGE_BUTTON,
-                    item === page && PAGE_BUTTON_ACTIVE,
-                  )}
-                >
-                  {item}
-                </button>
-              </li>
-            ) : (
-              <li
-                key={item}
-                aria-hidden="true"
-                className="flex size-control-sm shrink-0 items-center justify-center text-ink-subtle"
+      {showNav && (
+        <nav aria-label="Pagination">
+          <ul className="flex items-center gap-1">
+            <li>
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={page <= 1}
+                onClick={() => onPageChange(page - 1)}
+                className={PAGE_BUTTON}
               >
-                …
-              </li>
-            ),
-          )}
+                <IconChevronLeft size={16} stroke={2} />
+              </button>
+            </li>
 
-          <li>
-            <button
-              type="button"
-              aria-label="Next page"
-              disabled={page >= pageCount}
-              onClick={() => onPageChange(page + 1)}
-              className={PAGE_BUTTON}
-            >
-              <IconChevronRight size={16} stroke={2} />
-            </button>
-          </li>
-        </ul>
-      </nav>
+            {items.map((item) =>
+              typeof item === "number" ? (
+                <li key={item}>
+                  <button
+                    type="button"
+                    aria-label={`Page ${item}`}
+                    aria-current={item === page ? "page" : undefined}
+                    onClick={() => onPageChange(item)}
+                    className={cn(
+                      PAGE_BUTTON,
+                      item === page && PAGE_BUTTON_ACTIVE,
+                    )}
+                  >
+                    {item}
+                  </button>
+                </li>
+              ) : (
+                <li
+                  key={item}
+                  aria-hidden="true"
+                  className="flex size-control-sm shrink-0 items-center justify-center text-ink-subtle"
+                >
+                  …
+                </li>
+              ),
+            )}
+
+            <li>
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={page >= pageCount}
+                onClick={() => onPageChange(page + 1)}
+                className={PAGE_BUTTON}
+              >
+                <IconChevronRight size={16} stroke={2} />
+              </button>
+            </li>
+          </ul>
+        </nav>
+      )}
     </div>
   );
 }

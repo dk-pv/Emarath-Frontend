@@ -857,7 +857,6 @@ export function LeadsListView({
                 list.resetPage();
               }}
               placeholder="Search"
-              clearable
               scope={{
                 value: searchScope,
                 options: SEARCH_SCOPES,

@@ -18,6 +18,8 @@ import { LeadsByOwnershipReport } from "@/components/reports/leads-by-ownership-
 import { ConvertedLeadsReport } from "@/components/reports/converted-leads-report";
 import { LostLeadsReport } from "@/components/reports/lost-leads-report";
 import { OverdueFollowUpsReport } from "@/components/reports/overdue-follow-ups-report";
+import { TodaysFollowUpsReport } from "@/components/reports/todays-follow-ups-report";
+import { UpcomingFollowUpsReport } from "@/components/reports/upcoming-follow-ups-report";
 
 type RouteParams = { category: string; slug: string };
 
@@ -72,13 +74,17 @@ export default async function ReportPage({
                   ? LostLeadsReport
                   : slug === "overdue-follow-ups"
                     ? OverdueFollowUpsReport
-                    : slug === "lead-aging-stale-leads"
-                      ? LeadAgingReport
-                      : slug === "lead-first-response"
-                        ? LeadFirstResponseReport
-                        : slug === "duplicate-enquiries"
-                          ? DuplicateEnquiriesReport
-                          : ReportView;
+                    : slug === "todays-follow-ups"
+                      ? TodaysFollowUpsReport
+                      : slug === "upcoming-follow-ups"
+                        ? UpcomingFollowUpsReport
+                        : slug === "lead-aging-stale-leads"
+                          ? LeadAgingReport
+                          : slug === "lead-first-response"
+                            ? LeadFirstResponseReport
+                            : slug === "duplicate-enquiries"
+                              ? DuplicateEnquiriesReport
+                              : ReportView;
 
   return (
     <PageContainer>

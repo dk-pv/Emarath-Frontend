@@ -3,6 +3,10 @@
 import { useRef, useState } from "react";
 import { IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
+import {
+  HIDE_NATIVE_SEARCH_CLEAR,
+  SearchClearButton,
+} from "@/components/ui/SearchInput/search-clear";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
@@ -21,32 +25,24 @@ export type ToolbarSearchScope = {
  * on click, and collapses back once it is emptied and loses focus. An active
  * query keeps it expanded so the term stays visible.
  *
+ * Whenever it is expanded it shows a ✕ that clears the term and collapses it back to the
+ * button, so the control can always be dismissed by pointer as well as by Escape. That used to
+ * be opt-in, which left the Activities and Kanban bars with no visible way out; it is now the
+ * behaviour everywhere, matching `SearchInput` and `PanelSearch`.
+ *
  * With `scope` (Leads) the expanded control is Workpex's full search bar: a
  * canvas-tinted scope segment ("Lead ˅") that opens a small caret menu, the input
- * filling the toolbar row, and a ✕ that clears and collapses. With `clearable`
- * alone, an active query keeps the term inside a compact input with an inline
- * clear ✕. Without either (Activities, Kanban) the control keeps its plain
- * expand-on-click input, unchanged.
+ * filling the toolbar row, and the ✕ as a full-height segment at its right edge.
  */
 export function ToolbarSearch({
   value,
   onChange,
   placeholder = "Search",
-  clearable = false,
-  clearWhenEmpty = false,
   scope,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  /** Keep the term in the input with an inline clear ✕ (no chip row below). */
-  clearable?: boolean;
-  /**
-   * Show that ✕ while the input is open but still empty, so it can be dismissed by
-   * pointer as well as Escape (the Lead First Response toolbar). Off elsewhere, so the
-   * Leads bar keeps an uncluttered empty box.
-   */
-  clearWhenEmpty?: boolean;
   /** Renders the full search bar with this selector at its left. */
   scope?: ToolbarSearchScope;
 }) {
@@ -97,7 +93,10 @@ export function ToolbarSearch({
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           aria-label={placeholder}
-          className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm text-ink outline-none placeholder:text-ink-subtle"
+          className={cn(
+            "h-full min-w-0 flex-1 bg-transparent px-2 text-sm text-ink outline-none placeholder:text-ink-subtle",
+            HIDE_NATIVE_SEARCH_CLEAR,
+          )}
         />
         <button
           type="button"
@@ -110,11 +109,6 @@ export function ToolbarSearch({
       </span>
     );
   }
-
-  // Leads keeps the term visible with an inline clear ✕; the ✕ only shows once there is
-  // something to clear, so an empty expanded box stays uncluttered — unless the caller
-  // asks for it whenever the box is open, which also makes it dismissable by pointer.
-  const showClear = clearable && (hasQuery || clearWhenEmpty);
 
   return (
     <span className="relative inline-flex h-control-sm w-56 items-center">
@@ -132,20 +126,14 @@ export function ToolbarSearch({
         placeholder={placeholder}
         aria-label={placeholder}
         className={cn(
-          "focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface pl-8 text-sm text-ink",
-          showClear ? "pr-8" : "pr-2",
+          "focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface pr-8 pl-8 text-sm text-ink",
+          HIDE_NATIVE_SEARCH_CLEAR,
         )}
       />
-      {showClear && (
-        <button
-          type="button"
-          aria-label={hasQuery ? "Clear search" : "Close search"}
-          onClick={collapse}
-          className="focus-ring absolute right-field-x flex size-4 items-center justify-center rounded-full text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink"
-        >
-          <IconX size={14} stroke={2} />
-        </button>
-      )}
+      <SearchClearButton
+        onClick={collapse}
+        label={hasQuery ? "Clear search" : "Close search"}
+      />
     </span>
   );
 }

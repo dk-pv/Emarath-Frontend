@@ -18,15 +18,23 @@ export interface OverdueFollowUpsAgentRef {
 }
 
 /**
- * One overdue follow-up in the detailed view (RPT-03.2), mirroring `OverdueFollowUpRow`. There is
- * no Workpex detailed capture; columns follow the Activities-list + report conventions.
+ * One overdue follow-up in the detailed view (RPT-03.2), mirroring `OverdueFollowUpRow`: the
+ * reference's six columns — Lead Name, Lead Status, Assigned User, Follow up Type, Date and
+ * Time, Notes.
  */
 export interface OverdueFollowUpRow {
   id: string;
   type: FollowUpType;
+  /** Makes the Lead Name a link to that customer's details page. */
+  leadId: string;
   customerName: string;
   primaryPhone: string;
+  status: string;
+  /** The status's real Stage colour, so the badge matches its pill everywhere else. */
+  statusColor: string | null;
   dueAt: string;
+  /** The follow-up's own description — the reference's Notes column. */
+  notes: string | null;
   assignedTo: OverdueFollowUpsAgentRef[];
 }
 
@@ -41,50 +49,22 @@ export interface OverdueFollowUpsSummaryRow {
   count: number;
 }
 
-/** The report's period/agent/team filters (RPT-03.2 AC2). */
+/** The report's toolbar filters (RPT-03.2 AC2). */
 export interface OverdueFollowUpsFilters {
   /**
    * The client's local midnight, the overdue cutoff (`dueAt < todayStart`). Always sent — reuses
    * the shared `dayBoundaries()` so "overdue" resolves to the same instant as the Activities tab.
    */
   todayStart: string;
-  /** Creation-window lower bound — an ISO instant, derived from the selected period preset. */
+  /** The By Date window over the follow-up's creation date — half-open ISO instants. */
   from?: string;
+  to?: string;
+  /** Sales Agent — assignee ids. */
   agent?: string[];
-  team?: string[];
-}
-
-/**
- * The period presets the control offers, applied to the follow-up's creation date (there is no
- * status-history timestamp on an activity). "Any time" (no lower bound) is the default — the whole
- * scoped set of overdue follow-ups. `days` is turned into a client-timezone instant at fetch time
- * so it always tracks the user's today.
- */
-export interface PeriodPreset {
-  key: string;
-  label: string;
-  days: number | null;
-}
-
-export const PERIOD_PRESETS: readonly PeriodPreset[] = [
-  { key: "any", label: "Any time", days: null },
-  { key: "7", label: "Last 7 days", days: 7 },
-  { key: "30", label: "Last 30 days", days: 30 },
-  { key: "90", label: "Last 90 days", days: 90 },
-];
-
-export const DEFAULT_PERIOD_KEY = "any";
-
-/** Local midnight `days` ago as an ISO instant (timezone-correct, matching day-boundaries.ts). */
-export function periodFrom(days: number | null): string | undefined {
-  if (days == null) return undefined;
-  const now = new Date();
-  const start = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate() - days,
-  );
-  return start.toISOString();
+  /** Pipeline — matched on the linked lead. */
+  pipeline?: string[];
+  /** Follow Up Type — Call / Meeting / Task. */
+  type?: FollowUpType[];
 }
 
 function appendFilters(
@@ -93,8 +73,10 @@ function appendFilters(
 ): void {
   params.set("todayStart", filters.todayStart);
   if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
   for (const id of filters.agent ?? []) params.append("agent", id);
-  for (const team of filters.team ?? []) params.append("team", team);
+  for (const value of filters.pipeline ?? []) params.append("pipeline", value);
+  for (const value of filters.type ?? []) params.append("type", value);
 }
 
 /** One scoped page of overdue follow-ups (detailed view). */
@@ -116,27 +98,24 @@ export function fetchOverdueFollowUpsDetailed(
   );
 }
 
-/** Overdue-follow-up counts per assignee (summary view). */
+/**
+ * One page of the per-assignee overdue counts (summary view). `total` counts assignee rows —
+ * the pager's total — not follow-ups: a co-assigned follow-up is counted once per assignee.
+ */
 export function fetchOverdueFollowUpsSummary(
+  page: number,
+  size: number,
   filters: OverdueFollowUpsFilters,
   signal?: AbortSignal,
 ): Promise<ListResult<OverdueFollowUpsSummaryRow>> {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+  });
   appendFilters(params, filters);
   return apiGet<ListResult<OverdueFollowUpsSummaryRow>>(
     "/reports/follow-ups/overdue/summary",
     params,
-    signal,
-  );
-}
-
-/** The team values the filter offers (AC2). */
-export function fetchOverdueFollowUpsFilterOptions(
-  signal?: AbortSignal,
-): Promise<{ teams: string[] }> {
-  return apiGet<{ teams: string[] }>(
-    "/reports/follow-ups/overdue/filter-options",
-    undefined,
     signal,
   );
 }

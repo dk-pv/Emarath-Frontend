@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   IconCalendarEvent,
   IconColumns,
@@ -38,9 +39,27 @@ import {
   type ManageableColumn,
 } from "@/components/leads/lead-manage-columns-drawer";
 import { LeadStatusProvider } from "@/components/leads/lead-status-badge";
+import { LeadDetailProvider } from "@/components/leads/lead-detail-context";
+import { LeadDetailDrawer } from "@/components/leads/lead-detail-drawer";
+import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
+import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
+import { LeadReassignDrawer } from "@/components/leads/lead-reassign-drawer";
+import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
+import { fetchLeadForEdit } from "@/services/leads-service";
+import {
+  fetchLeadCustomFields,
+  type LeadCustomField,
+} from "@/services/leads-custom-fields-service";
 import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
 import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
-import { setLeadStatus } from "@/services/leads-row-actions-service";
+import {
+  deleteLead,
+  pinLead,
+  reassignLead,
+  setLeadStatus,
+  unpinLead,
+} from "@/services/leads-row-actions-service";
 import type { LeadListItem } from "@/services/leads-service";
 import { useActivitiesList } from "@/components/activities/use-activities-list";
 import { fetchAssignableAgents, fetchLookup } from "@/services/lookups-service";
@@ -59,7 +78,9 @@ import {
   type ActivityBucket,
   type ActivityDateWindow,
   type ActivityListItem,
+  type ActivityType,
 } from "@/services/activities-service";
+import { TYPE_OPTIONS } from "@/components/activities/activity-form-parts";
 import { ApiError } from "@/lib/api-client";
 import { dayBoundaries, windowEdges } from "@/lib/day-boundaries";
 import { whatsappUrl } from "@/lib/whatsapp";
@@ -120,7 +141,18 @@ const BUCKET_LABEL: Record<ActivityBucket, string> = {
  */
 export function ActivitiesListView() {
   const boundaries = useMemo(() => dayBoundaries(), []);
-  const [bucket, setBucket] = useState<ActivityBucket>("overdue");
+
+  // A link may open the worklist on a particular tab and assignee — the Overdue Follow Ups
+  // report's per-agent counts do exactly that, so the number opens the follow-ups it counted.
+  // Read once as the initial state, never synced back: navigating inside the page afterwards
+  // works exactly as it always has, and a plain /activities visit is unchanged.
+  const params = useSearchParams();
+  const [bucket, setBucket] = useState<ActivityBucket>(() => {
+    const requested = params.get("bucket");
+    return ACTIVITY_BUCKETS.includes(requested as ActivityBucket)
+      ? (requested as ActivityBucket)
+      : "overdue";
+  });
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -152,7 +184,17 @@ export function ActivitiesListView() {
 
   const [search, setSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState<ActivityFilterState>(
-    EMPTY_ACTIVITY_FILTERS,
+    () => {
+      const agent = params.get("agent");
+      const type = params.get("type");
+      return {
+        ...EMPTY_ACTIVITY_FILTERS,
+        assignedAgent: agent || null,
+        type: TYPE_OPTIONS.some((option) => option.value === type)
+          ? (type as ActivityType)
+          : null,
+      };
+    },
   );
   const manageColumns = useDisclosure();
   const addFollowUp = useDisclosure();
@@ -227,6 +269,141 @@ export function ActivitiesListView() {
   );
   // The lead whose activity timeline the ↗ beside its name opened.
   const [timelineLead, setTimelineLead] = useState<LeadListItem | null>(null);
+
+  // The Lead Details panel a Customer-Name click opens here, replacing the navigation to
+  // /leads/{id}: the same drawer the Leads list opens, so the panel, its timeline feed and
+  // every header action are the existing implementations rather than a second copy. Its
+  // sub-drawers below are the shared Leads ones too — the worklist already mounts the mail
+  // and WhatsApp composers for its row actions.
+  const { user } = useAuth();
+  const canReassign = can(user?.role, "reassignLeads");
+  const [detailLead, setDetailLead] = useState<LeadListItem | null>(null);
+  const [detailRefresh, setDetailRefresh] = useState(0);
+  const [leadEmail, setLeadEmail] = useState<LeadListItem | null>(null);
+  const [leadWhatsapp, setLeadWhatsapp] = useState<LeadListItem | null>(null);
+  const [noteTarget, setNoteTarget] = useState<LeadListItem | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<LeadListItem | null>(
+    null,
+  );
+  const [deleteLeadTarget, setDeleteLeadTarget] = useState<LeadListItem | null>(
+    null,
+  );
+  const [editLead, setEditLead] = useState<Awaited<
+    ReturnType<typeof fetchLeadForEdit>
+  > | null>(null);
+  /**
+   * The custom-field definitions the edit form needs. Not optional: on update the backend
+   * full-replaces a lead's custom values with what the form sends, so opening the form
+   * without the definitions would submit an empty set and wipe them.
+   */
+  const [customFieldDefs, setCustomFieldDefs] = useState<LeadCustomField[]>([]);
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [followUpTarget, setFollowUpTarget] = useState<LeadListItem | null>(
+    null,
+  );
+
+  /**
+   * Completes the panel's Next Follow-up through the same `completeActivity` call the
+   * worklist's own circle uses, then refreshes both the list and the open panel. A 409 is
+   * the location gate (ACT-10.1 / GPS-09.1); its message says which check-in is missing.
+   */
+  const handleCompleteFollowUp = async (id: string) => {
+    try {
+      await completeActivity(id);
+      setDetailRefresh((token) => token + 1);
+      refetch();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        toast({
+          title:
+            error.messages.join(" · ") ||
+            error.message ||
+            "Check in on site to complete this activity",
+          tone: "danger",
+        });
+        return;
+      }
+      toast({ title: "Couldn’t complete the follow-up", tone: "danger" });
+    }
+  };
+
+  /** Keeps the open panel's header in step with a change made from inside it. */
+  const patchDetail = (next: LeadListItem) =>
+    setDetailLead((current) =>
+      current && current.id === next.id ? next : current,
+    );
+
+  const handleTogglePin = async (lead: LeadListItem) => {
+    const isPinned = !lead.isPinned;
+    patchDetail({ ...lead, isPinned });
+    try {
+      await (isPinned ? pinLead(lead.id) : unpinLead(lead.id));
+      toast({
+        title: `${lead.name} ${isPinned ? "pinned" : "unpinned"}`,
+        tone: "success",
+      });
+    } catch {
+      patchDetail(lead);
+      toast({
+        title: isPinned ? "Couldn’t pin lead" : "Couldn’t unpin lead",
+        tone: "danger",
+      });
+    }
+  };
+
+  const handleEditLead = async (lead: LeadListItem) => {
+    try {
+      // Load the definitions alongside the lead, so the form can never submit an empty
+      // custom-field set (which the backend would take as "clear them all").
+      const [data, fields] = await Promise.all([
+        fetchLeadForEdit(lead.id),
+        fetchLeadCustomFields(),
+      ]);
+      setCustomFieldDefs(fields);
+      setEditLead(data);
+    } catch (error) {
+      const gone = error instanceof ApiError && error.status === 404;
+      toast({
+        title: gone ? "This lead no longer exists" : "Couldn’t open the lead",
+        tone: "danger",
+      });
+    }
+  };
+
+  const handleReassignLead = async (agentId: string) => {
+    const lead = reassignTarget;
+    if (!lead) return;
+    setLeadBusy(true);
+    try {
+      await reassignLead(lead.id, agentId);
+      setReassignTarget(null);
+      setDetailRefresh((token) => token + 1);
+      refetch();
+      toast({ title: `${lead.name} reassigned`, tone: "success" });
+    } catch {
+      toast({ title: "Couldn’t reassign the lead", tone: "danger" });
+    } finally {
+      setLeadBusy(false);
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    const lead = deleteLeadTarget;
+    if (!lead) return;
+    setLeadBusy(true);
+    try {
+      await deleteLead(lead.id);
+      setDeleteLeadTarget(null);
+      // The lead is gone, so its panel must close and the worklist drop its follow-ups.
+      setDetailLead(null);
+      refetch();
+      toast({ title: `${lead.name} deleted`, tone: "success" });
+    } catch {
+      toast({ title: "Couldn’t delete the lead", tone: "danger" });
+    } finally {
+      setLeadBusy(false);
+    }
+  };
 
   // Optimistic row patches (completion + edit field overrides, delete removals),
   // tied to the current `rows` identity so they drop automatically on the next
@@ -572,49 +749,51 @@ export function ActivitiesListView() {
         pendingAction: pending?.action ?? null,
       }}
     >
-      <LeadStatusProvider value={statusValue}>
-        <Table
-          columns={visibleColumns}
-          rows={displayRows}
-          getRowId={(row) => row.id}
-          selection={{
-            selectedIds,
-            onToggleRow: (id) =>
-              setSelectedIds((prev) => {
-                const next = new Set(prev);
-                if (next.has(id)) next.delete(id);
-                else next.add(id);
-                return next;
-              }),
-            onToggleAll: (ids) =>
-              setSelectedIds((prev) => {
-                const allOn = ids.every((id) => prev.has(id));
-                const next = new Set(prev);
-                ids.forEach((id) => (allOn ? next.delete(id) : next.add(id)));
-                return next;
-              }),
-            rowLabel: (row) => `Select ${row.title}`,
-            allLabel: "Select all activities on this page",
-          }}
-          isLoading={isLoading}
-          emptyState={
-            <EmptyState
-              icon={IconCalendarEvent}
-              title="No activities"
-              description="There are no activities in this view."
-            />
-          }
-          errorState={
-            isError ? (
-              <ErrorState
-                title="Couldn’t load activities"
-                description="Something went wrong while loading activities. Check your connection and try again."
-                onRetry={refetch}
+      <LeadDetailProvider value={{ onOpen: setDetailLead }}>
+        <LeadStatusProvider value={statusValue}>
+          <Table
+            columns={visibleColumns}
+            rows={displayRows}
+            getRowId={(row) => row.id}
+            selection={{
+              selectedIds,
+              onToggleRow: (id) =>
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                }),
+              onToggleAll: (ids) =>
+                setSelectedIds((prev) => {
+                  const allOn = ids.every((id) => prev.has(id));
+                  const next = new Set(prev);
+                  ids.forEach((id) => (allOn ? next.delete(id) : next.add(id)));
+                  return next;
+                }),
+              rowLabel: (row) => `Select ${row.title}`,
+              allLabel: "Select all activities on this page",
+            }}
+            isLoading={isLoading}
+            emptyState={
+              <EmptyState
+                icon={IconCalendarEvent}
+                title="No activities"
+                description="There are no activities in this view."
               />
-            ) : undefined
-          }
-        />
-      </LeadStatusProvider>
+            }
+            errorState={
+              isError ? (
+                <ErrorState
+                  title="Couldn’t load activities"
+                  description="Something went wrong while loading activities. Check your connection and try again."
+                  onRetry={refetch}
+                />
+              ) : undefined
+            }
+          />
+        </LeadStatusProvider>
+      </LeadDetailProvider>
       {lostReasonModal}
     </ActivityRowProvider>
   );
@@ -753,6 +932,117 @@ export function ActivitiesListView() {
         tone="danger"
       />
 
+      {/* The Lead Details panel: the same drawer the Leads list opens on a Customer-Name
+          click, fetching this lead's own timeline and follow-ups. Its header actions delegate
+          to the shared Leads flows below — no second implementation of any of them. */}
+      {detailLead && (
+        <LeadDetailDrawer
+          open
+          lead={detailLead}
+          refreshToken={detailRefresh}
+          onClose={() => setDetailLead(null)}
+          actions={{
+            onPin: (lead) => void handleTogglePin(lead),
+            onWhatsapp: (lead) => setLeadWhatsapp(lead),
+            onEmail: (lead) => setLeadEmail(lead),
+            onEdit: (lead) => void handleEditLead(lead),
+            onReassign: (lead) => setReassignTarget(lead),
+            onDelete: (lead) => setDeleteLeadTarget(lead),
+            onAddNote: (lead) => setNoteTarget(lead),
+            onNewFollowUp: (lead) => setFollowUpTarget(lead),
+            onCompleteFollowUp: (activity) =>
+              void handleCompleteFollowUp(activity.id),
+            canReassign,
+          }}
+        />
+      )}
+
+      {leadEmail && (
+        <LeadEmailDrawer
+          open
+          lead={leadEmail}
+          onClose={() => setLeadEmail(null)}
+          onSent={() => {
+            setLeadEmail(null);
+            toast({ title: "Email sent", tone: "success" });
+          }}
+        />
+      )}
+
+      {leadWhatsapp && (
+        <LeadWhatsappDrawer
+          open
+          lead={leadWhatsapp}
+          onClose={() => setLeadWhatsapp(null)}
+          onSend={({ phone, message }) => {
+            const base = whatsappUrl(phone);
+            if (base) {
+              window.open(
+                `${base}?text=${encodeURIComponent(message)}`,
+                "_blank",
+                "noopener,noreferrer",
+              );
+            }
+            setLeadWhatsapp(null);
+          }}
+        />
+      )}
+
+      {noteTarget && (
+        <LeadNoteDrawer
+          open
+          lead={noteTarget}
+          onClose={() => setNoteTarget(null)}
+          onSaved={() => {
+            setNoteTarget(null);
+            // A note is a timeline event: refresh the open panel so Recent Notes and the
+            // Timeline pick it up without reopening.
+            setDetailRefresh((token) => token + 1);
+            toast({ title: "Note added", tone: "success" });
+          }}
+        />
+      )}
+
+      {reassignTarget && (
+        <LeadReassignDrawer
+          open
+          count={1}
+          submitting={leadBusy}
+          onClose={() => setReassignTarget(null)}
+          onReassign={(agentId) => void handleReassignLead(agentId)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteLeadTarget !== null}
+        title="Delete lead"
+        description={
+          deleteLeadTarget
+            ? `Delete ${deleteLeadTarget.name}? This also removes their follow-ups.`
+            : ""
+        }
+        confirmLabel="Delete"
+        tone="danger"
+        busy={leadBusy}
+        onCancel={() => setDeleteLeadTarget(null)}
+        onConfirm={() => void handleDeleteLead()}
+      />
+
+      {editLead && (
+        <LeadFormDrawer
+          open
+          lead={editLead}
+          customFields={customFieldDefs}
+          onClose={() => setEditLead(null)}
+          onSaved={(updated) => {
+            patchDetail(updated);
+            setEditLead(null);
+            refetch();
+            toast({ title: `${updated.name} updated`, tone: "success" });
+          }}
+        />
+      )}
+
       {/* The lead's email composer, reused from the Leads row action (LEAD-10.2) so
           the worklist's Mail icon opens the same drawer rather than a second one. */}
       {emailTarget && (
@@ -788,6 +1078,21 @@ export function ActivitiesListView() {
               );
             }
             setWhatsappTarget(null);
+          }}
+        />
+      )}
+
+      {/* New Follow-up from the Lead Details panel — the same create drawer, with the
+          panel's lead fixed so its Lead field is prefilled rather than searched for. */}
+      {followUpTarget && (
+        <LeadFollowUpFormDrawer
+          lead={followUpTarget}
+          onClose={() => setFollowUpTarget(null)}
+          onCreated={() => {
+            setFollowUpTarget(null);
+            setDetailRefresh((token) => token + 1);
+            refetch();
+            toast({ title: "Follow-up created", tone: "success" });
           }}
         />
       )}

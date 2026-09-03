@@ -1,6 +1,11 @@
 "use client";
 
 import { IconSearch } from "@tabler/icons-react";
+import { cn } from "@/lib/cn";
+import {
+  HIDE_NATIVE_SEARCH_CLEAR,
+  SearchClearButton,
+} from "@/components/ui/SearchInput/search-clear";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 
 type DocumentSearchProps = {
@@ -56,7 +61,18 @@ export function DocumentSearch({
         }}
         placeholder="Search here..."
         aria-label="Search here..."
-        className="focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface pr-2 pl-8 text-sm text-ink"
+        className={cn(
+          "focus-ring h-control-sm w-full rounded-control border border-hairline bg-surface pr-8 pl-8 text-sm text-ink",
+          HIDE_NATIVE_SEARCH_CLEAR,
+        )}
+      />
+      {/* The same ✕ the toolbar searches carry: clears the term and collapses the control. */}
+      <SearchClearButton
+        onClick={() => {
+          onChange("");
+          onCollapse();
+        }}
+        label={value ? "Clear search" : "Close search"}
       />
     </span>
   );

@@ -140,6 +140,11 @@ function Truncated({ text }: { text: string }) {
 const STICKY_FIRST =
   "sticky left-0 z-10 w-[380px] max-w-[380px] bg-surface group-hover:bg-canvas";
 
+/*
+ * Every tooltip in this table is portalled. The worklist body scrolls horizontally, and that
+ * container crops an absolutely-placed bubble — on the first row a tooltip placed above the
+ * trigger was cut off by the header. Fixed in <body>, it is fully visible from any row.
+ */
 function AssignedAvatars({
   assignees,
 }: {
@@ -147,7 +152,7 @@ function AssignedAvatars({
 }) {
   if (assignees.length === 0) {
     return (
-      <Tooltip content="Unassigned">
+      <Tooltip content="Unassigned" portal>
         <Avatar name="Unassigned" size="sm" />
       </Tooltip>
     );
@@ -155,7 +160,7 @@ function AssignedAvatars({
   return (
     <span className="flex items-center -space-x-1">
       {assignees.map((assignee) => (
-        <Tooltip key={assignee.id} content={assignee.name}>
+        <Tooltip key={assignee.id} content={assignee.name} portal>
           <Avatar
             name={assignee.name}
             initials={initialsOf(assignee.name)}
@@ -165,6 +170,32 @@ function AssignedAvatars({
         </Tooltip>
       ))}
     </span>
+  );
+}
+
+/**
+ * The Activities cell's assignee avatar: always exactly one disc of fixed width, so every row's
+ * title starts at the same x however many people a follow-up is assigned to — a per-assignee
+ * stack here would shift the titles row by row. Hovering names them, all of them when a
+ * follow-up is shared. The Assigned column above still shows one avatar per assignee.
+ *
+ * Portalled because this cell is sticky inside the table's horizontal scroller, which clips an
+ * absolutely-placed bubble — the same reason the title's own tooltip is portalled.
+ */
+function ActivityAvatar({
+  assignees,
+}: {
+  assignees: ActivityListItem["assignees"];
+}) {
+  const names = assignees.map((assignee) => assignee.name);
+
+  return (
+    <Tooltip
+      portal
+      content={names.length > 0 ? names.join(", ") : "Unassigned"}
+    >
+      <Avatar name={names[0] ?? "Unassigned"} size="sm" />
+    </Tooltip>
   );
 }
 
@@ -199,7 +230,7 @@ function CompletionControl({ row }: { row: ActivityListItem }) {
 
   const pending = ctx.pendingId === row.id;
   return (
-    <Tooltip content="Mark as Complete">
+    <Tooltip content="Mark as Complete" portal>
       <button
         type="button"
         aria-label="Mark as Complete"
@@ -240,7 +271,7 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
 
   return (
     <span className="flex items-center justify-end gap-0.5">
-      <Tooltip content={waUrl ? "WhatsApp" : "No phone number"}>
+      <Tooltip content={waUrl ? "WhatsApp" : "No phone number"} portal>
         <IconButton
           aria-label="WhatsApp"
           disabled={!waUrl || busy}
@@ -253,7 +284,7 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
       {/* Reuses the Leads email composer (LEAD-10.2): it opens for every lead, one
           with no address simply starting empty — the same behaviour as the Leads
           row action, rather than a dead control. */}
-      <Tooltip content="Mail">
+      <Tooltip content="Mail" portal>
         <IconButton
           aria-label="Mail"
           disabled={busy}
@@ -263,7 +294,7 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
         </IconButton>
       </Tooltip>
 
-      <Tooltip content="Edit">
+      <Tooltip content="Edit" portal>
         <IconButton
           aria-label="Edit"
           disabled={busy}
@@ -273,7 +304,7 @@ function ActivityRowActions({ row }: { row: ActivityListItem }) {
         </IconButton>
       </Tooltip>
 
-      <Tooltip content="Delete">
+      <Tooltip content="Delete" portal>
         <IconButton
           aria-label="Delete"
           disabled={busy}
@@ -342,8 +373,9 @@ function ActivityCell({ row }: { row: ActivityListItem }) {
     ctx !== null && row.completedAt === null && row.dueAt < ctx.overdueBefore;
 
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex items-center gap-3">
       <CompletionControl row={row} />
+      <ActivityAvatar assignees={row.assignees} />
       <span className="flex min-w-0 flex-col">
         <span className="flex min-w-0 items-center gap-1.5">
           <Tooltip content={row.title} portal className="min-w-0 flex-1">
@@ -378,7 +410,7 @@ function CustomerNameCell({ row }: { row: ActivityListItem }) {
     <span className="inline-flex items-center gap-1.5">
       <LeadNameCell lead={row.lead} />
       {ctx && (
-        <Tooltip content="Open activity timeline">
+        <Tooltip content="Open activity timeline" portal>
           <button
             type="button"
             aria-label={`Open ${row.lead.name} activity timeline`}

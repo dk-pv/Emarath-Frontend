@@ -36,6 +36,12 @@ export type DrawerProps = {
    * Defaults to the scrolling, padded body every other drawer relies on.
    */
   scrollBody?: boolean;
+  /**
+   * Dims the page behind the panel. Off by default, because the form drawers deliberately
+   * leave the list they were opened from legible (see the frame comment below); the Roles
+   * → Move Role drawer is the one reference that shows a scrim.
+   */
+  overlay?: boolean;
 };
 
 type DrawerPanelProps = Omit<DrawerProps, "open">;
@@ -52,6 +58,7 @@ function DrawerPanel({
   width = "max-w-2xl",
   header,
   scrollBody = true,
+  overlay = false,
 }: DrawerPanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -76,6 +83,14 @@ function DrawerPanel({
     // width there is no page left beside it to press either. Wider than a phone the panel is
     // capped well inside this, so nothing else moves.
     <div className="pointer-events-none fixed top-navbar right-0 bottom-0 left-0 z-50 flex justify-end pl-control-lg">
+      {/* The frame lets presses through, so an opted-in scrim has to catch them itself. */}
+      {overlay && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-auto absolute inset-0 bg-ink/50"
+        />
+      )}
+
       <div
         ref={panel}
         role="dialog"

@@ -14,6 +14,11 @@ export type SelectOption<TValue extends string = string> = {
   label: string;
   value: TValue;
   disabled?: boolean;
+  /**
+   * Nesting level for a hierarchical list, indenting the option in the open panel.
+   * Roots are 0 or absent, so every existing flat list is unaffected.
+   */
+  depth?: number;
 };
 
 /** A Dashboard KPI card (demo data until the Dashboard module, Sprint 5). */

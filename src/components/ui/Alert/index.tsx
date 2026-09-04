@@ -43,7 +43,8 @@ const DISMISS_CLASS =
 
 type AlertProps = {
   tone?: Tone;
-  title: string;
+  /** Omitted when the message is a single run of text with no heading above it. */
+  title?: string;
   onDismiss?: () => void;
 } & Omit<React.ComponentPropsWithoutRef<"div">, "title">;
 
@@ -74,9 +75,11 @@ export function Alert({
         className={cn("mt-0.5 size-5 shrink-0", TONE_ICON_CLASS[tone])}
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-ink">{title}</p>
+        {title && <p className="text-sm font-semibold text-ink">{title}</p>}
         {children && (
-          <div className="mt-1 text-sm text-ink-muted">{children}</div>
+          <div className={cn("text-sm text-ink-muted", title && "mt-1")}>
+            {children}
+          </div>
         )}
       </div>
       {onDismiss && (

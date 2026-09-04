@@ -6,7 +6,7 @@ import { PanelSearch } from "@/components/ui/PanelSearch";
 import { cn } from "@/lib/cn";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
-import type { SelectOption } from "@/types";
+import type { SelectOption, Size } from "@/types";
 
 export type SearchableSelectProps = {
   options: readonly SelectOption[];
@@ -31,10 +31,21 @@ export type SearchableSelectProps = {
   allowCreate?: boolean;
   createLabel?: (query: string) => string;
   onCreate?: (query: string) => void;
+  /**
+   * Trigger height on the shared control scale. Only the height moves — the label stays
+   * `text-sm` at every size, unlike `Input`, whose `lg` also steps the type up.
+   */
+  size?: Size;
 };
 
 const TRIGGER_CLASS =
-  "flex h-control-md w-full items-center gap-2 rounded-control border bg-surface px-field-x text-sm transition-colors duration-(--duration-shell) ease-shell focus-ring disabled:cursor-not-allowed disabled:opacity-50";
+  "flex w-full items-center gap-2 rounded-control border bg-surface px-field-x text-sm transition-colors duration-(--duration-shell) ease-shell focus-ring disabled:cursor-not-allowed disabled:opacity-50";
+
+const TRIGGER_HEIGHT: Record<Size, string> = {
+  sm: "h-control-sm",
+  md: "h-control-md",
+  lg: "h-control-lg",
+};
 
 const PANEL_CLASS =
   "absolute top-[calc(100%+6px)] left-0 z-50 max-h-64 w-full min-w-56 overflow-hidden rounded-surface border border-hairline bg-surface shadow-lg";
@@ -62,6 +73,7 @@ export function SearchableSelect({
   allowCreate = false,
   createLabel = (query) => `Create “${query}”`,
   onCreate,
+  size = "md",
 }: SearchableSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
@@ -109,6 +121,7 @@ export function SearchableSelect({
         onClick={toggle}
         className={cn(
           TRIGGER_CLASS,
+          TRIGGER_HEIGHT[size],
           invalid ? "border-danger" : "border-hairline",
         )}
       >
@@ -170,6 +183,14 @@ export function SearchableSelect({
                     aria-selected={option.value === value}
                     disabled={option.disabled}
                     onClick={() => choose(option.value)}
+                    // One rem per level on top of OPTION_CLASS's own px-4 (1rem). A
+                    // measurement, not a palette value, so it stays inline rather than
+                    // becoming a set of padding classes only this list would ever use.
+                    style={
+                      option.depth
+                        ? { paddingLeft: `${1 + option.depth}rem` }
+                        : undefined
+                    }
                     className={cn(
                       OPTION_CLASS,
                       option.value === value && "bg-sidebar-active/40 text-ink",

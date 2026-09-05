@@ -51,7 +51,7 @@ fallbacks) — components do not read `process.env` directly.
 | -------------------------- | --------------------------- | ----------------------------------- |
 | `NEXT_PUBLIC_APP_NAME`     | `Emarath`                   | Display name                        |
 | `NEXT_PUBLIC_APP_ENV`      | `development`               | Logical environment (see below)     |
-| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:5000/api` | Backend API base URL (`/api` prefix)|
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:5001/api` | Backend API base URL (`/api` prefix)|
 
 ### Selecting an environment (no code changes)
 

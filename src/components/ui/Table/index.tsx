@@ -371,8 +371,9 @@ export function Table<TRow>({
                     )}
                   </button>
                 ) : (
-                  <span>
+                  <span className={cn(column.headerAccessory && "inline-flex items-center gap-1.5")}>
                     {column.header}
+                    {column.headerAccessory}
                     {column.subheader && (
                       <span className="block text-[11px] font-normal text-ink-subtle">
                         {column.subheader}

@@ -14,6 +14,11 @@ export type SelectOption<TValue extends string = string> = {
   label: string;
   value: TValue;
   disabled?: boolean;
+  /**
+   * Nesting level for a hierarchical list, indenting the option in the open panel.
+   * Roots are 0 or absent, so every existing flat list is unaffected.
+   */
+  depth?: number;
 };
 
 /** A Dashboard KPI card (demo data until the Dashboard module, Sprint 5). */
@@ -40,6 +45,12 @@ export type TableColumn<TRow> = {
   header: string;
   /** A second, smaller header line — "Since Created" under "Lead Age (D)". */
   subheader?: string;
+  /**
+   * Rendered beside the header text — the ⓘ the Workpex Tags table carries on its
+   * "Lead Count" column. Kept separate from `header` so that stays a plain string for
+   * the sort tooltips to interpolate.
+   */
+  headerAccessory?: React.ReactNode;
   /** Enables the sorting affordance in the table header. */
   sortable?: boolean;
   align?: "left" | "right" | "center";

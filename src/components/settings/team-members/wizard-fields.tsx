@@ -113,7 +113,7 @@ export function ColorCodeField({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   return (
-    <div className="flex h-control-md items-center overflow-hidden rounded-control border border-hairline bg-surface">
+    <div className="relative flex h-control-md items-center overflow-hidden rounded-control border border-hairline bg-surface">
       <button
         type="button"
         aria-label="Pick button color"
@@ -123,13 +123,18 @@ export function ColorCodeField({
       >
         <IconColorPicker size={16} stroke={1.75} aria-hidden="true" />
       </button>
+      {/* Overlays the swatch rather than being sr-only. sr-only is `position:absolute`,
+          which drops the input at a fixed document position (measured y=931 in every
+          viewport) so the browser anchored its colour popup hundreds of pixels from the
+          field — fully off-screen below 1440px. Anchoring it to the swatch keeps the
+          popup attached and lets the browser flip it near the viewport edge. */}
       <input
         ref={inputRef}
         id={id}
         type="color"
         value={value ?? "#65ca7b"}
         onChange={(event) => onChange(event.target.value)}
-        className="sr-only"
+        className="pointer-events-none absolute left-0 top-0 h-full w-12 opacity-0"
         tabIndex={-1}
       />
       <span

@@ -72,12 +72,20 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: IconAffiliate,
     accent: "orange",
     items: [
-      { label: "General Settings" },
-      { label: "Category" },
-      { label: "Sales Pipeline" },
-      { label: "Lead Source" },
-      { label: "Tags" },
-      { label: "Duplicate Leads" },
+      {
+        label: "General Settings",
+        href: "/settings/sales-crm/general-settings",
+      },
+      { label: "Category", href: "/settings/sales-crm/category" },
+      { label: "Sales Pipeline", href: "/settings/sales-crm/sales-pipeline" },
+      { label: "Lead Source", href: "/settings/sales-crm/lead-source" },
+      { label: "Tags", href: "/settings/sales-crm/tags" },
+      // The reference rail reads "Duplicate Settings"; the hub tile transcription had
+      // "Duplicate Leads". The rail screenshot is the later, legible one.
+      {
+        label: "Duplicate Settings",
+        href: "/settings/sales-crm/duplicate-settings",
+      },
     ],
   },
   {
@@ -102,7 +110,10 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     accent: "rose",
     items: [
       { label: "Team Members", href: "/settings/users-access/team-members" },
-      { label: "Roles & Permissions" },
+      {
+        label: "Roles & Permissions",
+        href: "/settings/users-access/roles-permissions",
+      },
     ],
   },
   {

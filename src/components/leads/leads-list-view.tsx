@@ -31,6 +31,7 @@ import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
 import { LeadDetailDrawer } from "@/components/leads/lead-detail-drawer";
 import { LeadDetailProvider } from "@/components/leads/lead-detail-context";
 import { LeadFollowUpFormDrawer } from "@/components/leads/lead-followup-form-drawer";
+import { useActivityWorkflow } from "@/hooks/use-activity-workflow";
 import {
   LeadManageColumnsDrawer,
   type ManageableColumn,
@@ -375,6 +376,12 @@ export function LeadsListView({
   // The lead whose Detail drawer is open (Lead Detail, from a Customer-Name click).
   // Held whole so the header reflects live changes (pin/edit); `detailRefresh` forces
   // the timeline to refetch after a note or reassignment adds an event.
+  /**
+   * Settings → Activity and Reminders: the completion prompt and the status-change
+   * follow-up screen. Both stay off until the settings row says otherwise.
+   */
+  const workflow = useActivityWorkflow();
+
   const [detailLead, setDetailLead] = useState<LeadListItem | null>(null);
   const [detailRefresh, setDetailRefresh] = useState(0);
   const syncDetail = (id: string, next: LeadListItem | null) =>
@@ -481,6 +488,10 @@ export function LeadsListView({
         title: "Activity status updated to Completed",
         tone: "success",
       });
+      // "Enable automatic prompt to create a follow up on completion".
+      if (workflow?.general.autoPromptFollowUpOnCompletion && detailLead) {
+        setFollowUpTarget(detailLead);
+      }
     } catch (error) {
       toast({
         title:
@@ -636,6 +647,10 @@ export function LeadsListView({
       // Preserve the caller's pin — the status response doesn't carry it (ADR-0031).
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: `${lead.name} set to ${status}`, tone: "success" });
+      // "Make the follow-up screen mandatory when changing the status".
+      if (workflow?.general.followUpMandatoryOnStatusChange) {
+        setFollowUpTarget({ ...updated, isPinned: lead.isPinned });
+      }
     } catch {
       patchRow(lead.id, lead);
       toast({ title: "Couldn’t update status", tone: "danger" });

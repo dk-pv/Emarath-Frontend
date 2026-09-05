@@ -10,10 +10,12 @@ import { MultiSelect } from "@/components/ui/MultiSelect";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import {
-  TYPE_OPTIONS,
   TimeRow,
   composeIso,
+  followUpFieldOrder,
+  followUpTypeOptions,
 } from "@/components/activities/activity-form-parts";
+import { useActivityWorkflow } from "@/hooks/use-activity-workflow";
 import { LeadSearchSelect } from "@/components/activities/lead-search-select";
 import { ApiError } from "@/lib/api-client";
 import { fetchAssignableAgents } from "@/services/lookups-service";
@@ -113,7 +115,14 @@ export function LeadFollowUpFormDrawer({
   }, [agents, form.lead]);
 
   const typeSelected = form.type !== null;
-  const showEnd = form.type === "MEETING" || form.type === "TASK";
+
+  // Settings → Activity and Reminders → Follow Up Types decides which fields this form
+  // shows and in what order. Until it loads (or if it cannot be read) the helpers return
+  // the shipped order, so the drawer behaves exactly as it did before it was configurable.
+  const workflow = useActivityWorkflow();
+  const typeOptions = followUpTypeOptions(workflow);
+  const fieldOrder = followUpFieldOrder(workflow, form.type);
+  const showEnd = fieldOrder.includes("END_TIME");
   const endTouched = Boolean(form.endHour || form.endMinute || form.endAmpm);
 
   function validate(): boolean {
@@ -202,7 +211,7 @@ export function LeadFollowUpFormDrawer({
         <FormField label="Follow Up Type" required error={errors.type}>
           <SearchableSelect
             searchable={false}
-            options={TYPE_OPTIONS}
+            options={typeOptions}
             value={form.type}
             onChange={(v) => set("type", (v as ActivityType | null) ?? null)}
             placeholder="Select Follow Up Type"
@@ -211,77 +220,121 @@ export function LeadFollowUpFormDrawer({
 
         {typeSelected && (
           <>
-            <FormField
-              label="Follow-up Description"
-              required
-              error={errors.description}
-            >
-              {(control) => (
-                <Textarea
-                  {...control}
-                  value={form.description}
-                  onChange={(e) => set("description", e.target.value)}
-                  placeholder="Follow-up Description"
-                />
-              )}
-            </FormField>
-
-            <FormField label="Assigned To" required error={errors.assigneeIds}>
-              <MultiSelect
-                searchable
-                options={agentOptions}
-                value={form.assigneeIds}
-                onChange={(v) => set("assigneeIds", v)}
-                placeholder="Assigned To"
-              />
-            </FormField>
-
-            <FormField label="Lead" required error={errors.lead}>
-              {lead ? (
-                <div className="flex h-control-md items-center rounded-control border border-hairline bg-canvas px-3 text-sm text-ink">
-                  {lead.name}
-                </div>
-              ) : (
-                <LeadSearchSelect
-                  value={form.lead}
-                  onChange={(picked) => set("lead", picked)}
-                  invalid={Boolean(errors.lead)}
-                />
-              )}
-            </FormField>
-
-            <FormField label="Due Date" required error={errors.date}>
-              <DatePicker
-                numeric
-                value={form.date}
-                onChange={(d) => set("date", d)}
-                placeholder="DD/MM/YYYY"
-              />
-            </FormField>
-
-            <FormField label="Start Time" required error={errors.startHour}>
-              <TimeRow
-                hour={form.startHour}
-                minute={form.startMinute}
-                ampm={form.startAmpm}
-                onHour={(v) => set("startHour", v)}
-                onMinute={(v) => set("startMinute", v)}
-                onAmpm={(v) => set("startAmpm", v)}
-              />
-            </FormField>
-
-            {showEnd && (
-              <FormField label="End Time" error={errors.endHour}>
-                <TimeRow
-                  hour={form.endHour}
-                  minute={form.endMinute}
-                  ampm={form.endAmpm}
-                  onHour={(v) => set("endHour", v)}
-                  onMinute={(v) => set("endMinute", v)}
-                  onAmpm={(v) => set("endAmpm", v)}
-                />
-              </FormField>
-            )}
+            {fieldOrder.map((key) => {
+              switch (key) {
+                case "DESCRIPTION":
+                  return (
+                    <FormField
+                      key={key}
+                      label="Follow-up Description"
+                      required
+                      error={errors.description}
+                    >
+                      {(control) => (
+                        <Textarea
+                          {...control}
+                          value={form.description}
+                          onChange={(e) => set("description", e.target.value)}
+                          placeholder="Follow-up Description"
+                        />
+                      )}
+                    </FormField>
+                  );
+                case "ASSIGNED_TO":
+                  return (
+                    <FormField
+                      key={key}
+                      label="Assigned To"
+                      required
+                      error={errors.assigneeIds}
+                    >
+                      <MultiSelect
+                        searchable
+                        options={agentOptions}
+                        value={form.assigneeIds}
+                        onChange={(v) => set("assigneeIds", v)}
+                        placeholder="Assigned To"
+                      />
+                    </FormField>
+                  );
+                case "LEAD_NAME":
+                  return (
+                    <FormField
+                      key={key}
+                      label="Lead"
+                      required
+                      error={errors.lead}
+                    >
+                      {lead ? (
+                        <div className="flex h-control-md items-center rounded-control border border-hairline bg-canvas px-3 text-sm text-ink">
+                          {lead.name}
+                        </div>
+                      ) : (
+                        <LeadSearchSelect
+                          value={form.lead}
+                          onChange={(picked) => set("lead", picked)}
+                          invalid={Boolean(errors.lead)}
+                        />
+                      )}
+                    </FormField>
+                  );
+                case "DUE_DATE":
+                  return (
+                    <FormField
+                      key={key}
+                      label="Due Date"
+                      required
+                      error={errors.date}
+                    >
+                      <DatePicker
+                        numeric
+                        value={form.date}
+                        onChange={(d) => set("date", d)}
+                        placeholder="DD/MM/YYYY"
+                      />
+                    </FormField>
+                  );
+                case "START_TIME":
+                  return (
+                    <FormField
+                      key={key}
+                      label="Start Time"
+                      required
+                      error={errors.startHour}
+                    >
+                      <TimeRow
+                        hour={form.startHour}
+                        minute={form.startMinute}
+                        ampm={form.startAmpm}
+                        onHour={(v) => set("startHour", v)}
+                        onMinute={(v) => set("startMinute", v)}
+                        onAmpm={(v) => set("startAmpm", v)}
+                      />
+                    </FormField>
+                  );
+                case "END_TIME":
+                  return (
+                    <FormField
+                      key={key}
+                      label="End Time"
+                      error={errors.endHour}
+                    >
+                      <TimeRow
+                        hour={form.endHour}
+                        minute={form.endMinute}
+                        ampm={form.endAmpm}
+                        onHour={(v) => set("endHour", v)}
+                        onMinute={(v) => set("endMinute", v)}
+                        onAmpm={(v) => set("endAmpm", v)}
+                      />
+                    </FormField>
+                  );
+                default:
+                  // LOCATION: configurable, but no follow-up form draws a location
+                  // picker yet, so there is nothing to render (ADR-0071).
+                  return null;
+              }
+            })}
           </>
         )}
       </form>

@@ -18,11 +18,13 @@ import {
 } from "@/services/activities-service";
 import {
   TYPE_LABEL,
-  TYPE_OPTIONS,
   TimeRow,
   composeIso,
+  followUpFieldOrder,
+  followUpTypeOptions,
   splitTime,
 } from "@/components/activities/activity-form-parts";
+import { useActivityWorkflow } from "@/hooks/use-activity-workflow";
 import type { SelectOption } from "@/types";
 
 type ActivityFormDrawerProps = {
@@ -107,7 +109,11 @@ export function ActivityFormDrawer({
     return (id: string) => byId.get(id) ?? id;
   }, [agents, activity.assignees]);
 
-  const showEnd = form.type === "MEETING" || form.type === "TASK";
+  // The same configuration the Add form reads, so the two cannot disagree about which
+  // fields a follow-up type has (ADR-0071).
+  const workflow = useActivityWorkflow();
+  const typeOptions = followUpTypeOptions(workflow);
+  const showEnd = followUpFieldOrder(workflow, form.type).includes("END_TIME");
   const endTouched = Boolean(form.endHour || form.endMinute || form.endAmpm);
 
   function validate(): boolean {
@@ -204,7 +210,7 @@ export function ActivityFormDrawer({
         <FormField label="Follow Up Type" required>
           <SearchableSelect
             searchable={false}
-            options={TYPE_OPTIONS}
+            options={typeOptions}
             value={form.type}
             onChange={(v) => set("type", (v ?? form.type) as ActivityType)}
             placeholder="Follow Up Type"

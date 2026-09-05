@@ -33,6 +33,7 @@ import {
 } from "@/components/activities/activity-columns";
 import { ActivityFormDrawer } from "@/components/activities/activity-form-drawer";
 import { LeadFollowUpFormDrawer } from "@/components/leads/lead-followup-form-drawer";
+import { useActivityWorkflow } from "@/hooks/use-activity-workflow";
 import { ActivityTimelineDrawer } from "@/components/activities/activity-timeline-drawer";
 import {
   LeadManageColumnsDrawer,
@@ -298,6 +299,14 @@ export function ActivitiesListView() {
    */
   const [customFieldDefs, setCustomFieldDefs] = useState<LeadCustomField[]>([]);
   const [leadBusy, setLeadBusy] = useState(false);
+  /**
+   * Settings → Activity and Reminders drives two moments on this screen: completing a
+   * follow-up can prompt for the next one, and changing a lead's status can require the
+   * follow-up screen. Both are off until the settings row says otherwise, so an
+   * unreachable settings read leaves the worklist behaving exactly as it did.
+   */
+  const workflow = useActivityWorkflow();
+
   const [followUpTarget, setFollowUpTarget] = useState<LeadListItem | null>(
     null,
   );
@@ -494,6 +503,10 @@ export function ActivitiesListView() {
         lead: { ...updated, isPinned: row.lead.isPinned },
       });
       toast({ title: `${row.lead.name} set to ${status}`, tone: "success" });
+      // "Make the follow-up screen mandatory when changing the status".
+      if (workflow?.general.followUpMandatoryOnStatusChange) {
+        setFollowUpTarget({ ...updated, isPinned: row.lead.isPinned });
+      }
     } catch {
       applyOverride(row.id, { lead: row.lead });
       toast({ title: "Couldn’t update status", tone: "danger" });
@@ -583,6 +596,11 @@ export function ActivitiesListView() {
     try {
       await completeActivity(target.id);
       refetch();
+      // "Enable automatic prompt to create a follow up on completion": the next
+      // follow-up is offered on the same lead, with its Lead field already fixed.
+      if (workflow?.general.autoPromptFollowUpOnCompletion) {
+        setFollowUpTarget(target.lead);
+      }
     } catch (error) {
       clearOverride(target.id);
       // ACT-10.1 / GPS-09.1: the API returns 409 when the activity is location-tied

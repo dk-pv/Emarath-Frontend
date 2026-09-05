@@ -13,10 +13,17 @@ import { cn } from "@/lib/cn";
 import { useDismissable } from "@/hooks/use-dismissable";
 import type { Size } from "@/types";
 
-const SIZE_CLASS: Record<Size, string> = {
+/**
+ * `xl` is Modal's own, not one of the shared control sizes: the Follow Up Type builder
+ * puts two field panels side by side, which no smaller dialog has room for.
+ */
+export type ModalSize = Size | "xl";
+
+const SIZE_CLASS: Record<ModalSize, string> = {
   sm: "max-w-md",
   md: "max-w-lg",
   lg: "max-w-2xl",
+  xl: "max-w-5xl",
 };
 
 const FOCUSABLE_SELECTOR =
@@ -99,7 +106,7 @@ export type ModalProps = {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: Size;
+  size?: ModalSize;
 };
 
 export function Modal({

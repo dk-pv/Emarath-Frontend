@@ -2,6 +2,10 @@
 
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { ActivityType } from "@/services/activities-service";
+import type {
+  ActivityWorkflowSettings,
+  FollowUpFieldKey,
+} from "@/services/activity-settings-service";
 import type { SelectOption } from "@/types";
 
 /** Follow Up Type options and labels, shared by the edit and create follow-up forms. */
@@ -16,6 +20,73 @@ export const TYPE_LABEL: Record<ActivityType, string> = {
   MEETING: "Meeting",
   TASK: "Task",
 };
+
+/**
+ * The follow-up form's field order before anything is configured — the same sequence the
+ * drawers have always rendered, so an unreachable settings row changes nothing.
+ * `LOCATION` is absent because no follow-up form renders a location picker yet: the
+ * builder can select it, and the field appears here once ACT-03.2 grows the control.
+ */
+const SHIPPED_FIELD_ORDER: FollowUpFieldKey[] = [
+  "DESCRIPTION",
+  "ASSIGNED_TO",
+  "LEAD_NAME",
+  "DUE_DATE",
+  "START_TIME",
+  "END_TIME",
+];
+
+/** Every key a follow-up drawer can actually draw a control for today. */
+const RENDERABLE: readonly FollowUpFieldKey[] = SHIPPED_FIELD_ORDER;
+
+/**
+ * The Follow Up Type dropdown's options (Settings → Activity and Reminders → Follow Up
+ * Types), or the shipped three when nothing is configured.
+ *
+ * Only a type bound to a stored activity type is offered: a custom type is a name and a
+ * field configuration, and `Activity.type` has no value to store it as, so offering it
+ * would be offering a follow-up that cannot be created (ADR-0071).
+ */
+export function followUpTypeOptions(
+  workflow: ActivityWorkflowSettings | null,
+): SelectOption[] {
+  const configured = (workflow?.followUpTypes ?? []).filter(
+    (type) => type.activityType !== null,
+  );
+  return configured.length === 0
+    ? TYPE_OPTIONS
+    : configured.map((type) => ({
+        value: type.activityType as string,
+        label: type.name,
+      }));
+}
+
+/**
+ * The fields one type's follow-up form shows, in the configured order.
+ *
+ * Without a configuration this is the shipped order, with End Time on a Meeting or a
+ * Task only — exactly what the drawers did before the builder existed.
+ */
+export function followUpFieldOrder(
+  workflow: ActivityWorkflowSettings | null,
+  type: ActivityType | null,
+): FollowUpFieldKey[] {
+  const configured = workflow?.followUpTypes.find(
+    (candidate) => candidate.activityType === type,
+  );
+
+  if (!configured) {
+    return SHIPPED_FIELD_ORDER.filter(
+      (key) =>
+        key !== "END_TIME" || type === "MEETING" || type === "TASK",
+    );
+  }
+
+  return [...configured.fields]
+    .sort((a, b) => a.position - b.position)
+    .map((field) => field.key)
+    .filter((key) => RENDERABLE.includes(key));
+}
 
 export const HOUR_OPTIONS: SelectOption[] = Array.from(
   { length: 12 },

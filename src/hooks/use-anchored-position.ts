@@ -37,19 +37,27 @@ export function anchoredStyle(
   viewport: Viewport,
   side: AnchorSide = "bottom",
 ): React.CSSProperties {
+  // Room on each side, before the MIN_SIZE floor is applied.
+  const below = viewport.height - (rect.bottom + TRIGGER_GAP) - MARGIN;
+  const above = rect.top - TRIGGER_GAP - MARGIN;
+
+  // Flips when the requested side cannot hold the minimum and the other side can hold
+  // more. Without this the floor wins over the fit and the panel hangs off the screen —
+  // which is exactly what happens to a control near the bottom of a wizard: it keeps its
+  // 140px and the last row is painted below the viewport. Only this case changes; a side
+  // with room is left where the caller asked for it.
+  const asked = side === "top" ? above : below;
+  const other = side === "top" ? below : above;
+  const placed: AnchorSide =
+    asked < MIN_SIZE && other > asked ? (side === "top" ? "bottom" : "top") : side;
+
   // Opening upward pins the panel's BOTTOM edge above the trigger, so it grows towards
   // the top of the screen; the room it has is whatever sits above the trigger.
   const vertical: React.CSSProperties =
-    side === "top"
+    placed === "top"
       ? { bottom: Math.max(MARGIN, viewport.height - rect.top + TRIGGER_GAP) }
       : { top: rect.bottom + TRIGGER_GAP };
-  const maxHeight =
-    side === "top"
-      ? Math.max(MIN_SIZE, rect.top - TRIGGER_GAP - MARGIN)
-      : Math.max(
-          MIN_SIZE,
-          viewport.height - (rect.bottom + TRIGGER_GAP) - MARGIN,
-        );
+  const maxHeight = Math.max(MIN_SIZE, placed === "top" ? above : below);
   /** The widest a panel may ever be: the viewport minus a margin either side. */
   const usable = Math.max(MIN_SIZE, viewport.width - MARGIN * 2);
 

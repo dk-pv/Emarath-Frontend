@@ -77,12 +77,15 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
         href: "/settings/sales-crm/general-settings",
       },
       { label: "Category", href: "/settings/sales-crm/category" },
-      { label: "Sales Pipeline" },
-      { label: "Lead Source" },
-      { label: "Tags" },
+      { label: "Sales Pipeline", href: "/settings/sales-crm/sales-pipeline" },
+      { label: "Lead Source", href: "/settings/sales-crm/lead-source" },
+      { label: "Tags", href: "/settings/sales-crm/tags" },
       // The reference rail reads "Duplicate Settings"; the hub tile transcription had
       // "Duplicate Leads". The rail screenshot is the later, legible one.
-      { label: "Duplicate Settings" },
+      {
+        label: "Duplicate Settings",
+        href: "/settings/sales-crm/duplicate-settings",
+      },
     ],
   },
   {

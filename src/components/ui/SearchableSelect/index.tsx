@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { IconChevronDown, IconPlus, IconX } from "@tabler/icons-react";
 import { PanelSearch } from "@/components/ui/PanelSearch";
+import { useMounted } from "@/components/ui/Modal";
+import { useAnchoredPosition } from "@/hooks/use-anchored-position";
 import { cn } from "@/lib/cn";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
@@ -36,6 +39,14 @@ export type SearchableSelectProps = {
    * `text-sm` at every size, unlike `Input`, whose `lg` also steps the type up.
    */
   size?: Size;
+  /**
+   * Renders the panel fixed in `<body>` instead of absolutely inside the trigger's box, so
+   * an ancestor that scrolls or hides its overflow can no longer crop it — the same escape
+   * hatch `Popover` and `Tooltip` offer, using the same anchoring hook.
+   */
+  portal?: boolean;
+  /** Accessible name for the trigger where no visible <label> is wired to its id. */
+  "aria-label"?: string;
 };
 
 const TRIGGER_CLASS =
@@ -49,6 +60,9 @@ const TRIGGER_HEIGHT: Record<Size, string> = {
 
 const PANEL_CLASS =
   "absolute top-[calc(100%+6px)] left-0 z-50 max-h-64 w-full min-w-56 overflow-hidden rounded-surface border border-hairline bg-surface shadow-lg";
+
+const PORTAL_PANEL_CLASS =
+  "fixed z-50 max-h-64 min-w-56 overflow-hidden rounded-surface border border-hairline bg-surface shadow-lg";
 
 const OPTION_CLASS =
   "flex w-full cursor-pointer items-center px-4 py-2.5 text-left text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas";
@@ -74,14 +88,45 @@ export function SearchableSelect({
   createLabel = (query) => `Create “${query}”`,
   onCreate,
   size = "md",
+  portal = false,
+  "aria-label": ariaLabel,
 }: SearchableSelectProps) {
   const root = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
   const [query, setQuery] = useState("");
+  const mounted = useMounted();
+  const [anchor, setAnchor] = useState<React.CSSProperties | null>(null);
 
-  useDismissable(root, isOpen, () => {
+  // Stable: the anchoring hook memoises on its callbacks, so a fresh closure each render
+  // would re-run its effect on every render that effect itself causes. `close` and the
+  // state setter are both stable, so this is too.
+  const dismiss = useCallback(() => {
     close();
     setQuery("");
+  }, [close]);
+
+  // A portalled panel lives in <body>, so it must count as "inside" for dismissal.
+  useDismissable([root, panelRef], isOpen, dismiss);
+  // A fixed panel would drift away from a scrolling trigger, so it re-anchors on open and
+  // detaches if the trigger scrolls out of view.
+  // Stable for the same reason as `dismiss`.
+  const position = useCallback((style: React.CSSProperties) => {
+    // The panel matches its trigger's width, as an inline one does via `w-full`; the hook
+    // supplies placement and clamping, not the trigger's own measurements.
+    setAnchor({
+      ...style,
+      width: triggerRef.current?.getBoundingClientRect().width,
+    });
+  }, []);
+
+  useAnchoredPosition({
+    enabled: portal && isOpen,
+    triggerRef,
+    align: "start",
+    onPosition: position,
+    onDetach: dismiss,
   });
 
   const selected = options.find((option) => option.value === value);
@@ -110,12 +155,21 @@ export function SearchableSelect({
       (option) => option.label.toLowerCase() === trimmedQuery.toLowerCase(),
     );
 
+  /** Inline by default; portalled only once anchored, so it never flashes at 0,0. */
+  const renderPanel = (panel: React.ReactElement) => {
+    if (!portal) return panel;
+    if (!mounted || anchor === null) return null;
+    return createPortal(panel, document.body);
+  };
+
   return (
     <div ref={root} className="relative">
       <button
         id={id}
+        ref={triggerRef}
         type="button"
         disabled={disabled}
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={toggle}
@@ -153,8 +207,13 @@ export function SearchableSelect({
         />
       </button>
 
-      {isOpen && (
-        <div className={PANEL_CLASS}>
+      {isOpen &&
+        renderPanel(
+          <div
+            ref={panelRef}
+            className={portal ? PORTAL_PANEL_CLASS : PANEL_CLASS}
+            style={portal ? (anchor ?? undefined) : undefined}
+          >
           {searchable && (
             <div className="border-b border-hairline p-2">
               <PanelSearch
@@ -204,26 +263,26 @@ export function SearchableSelect({
             )}
           </ul>
 
-          {canCreate && (
-            <button
-              type="button"
-              onClick={() => {
-                onCreate?.(trimmedQuery);
-                close();
-                setQuery("");
-              }}
-              className="flex w-full items-center gap-2 border-t border-hairline px-4 py-2.5 text-left text-sm text-brand hover:bg-canvas"
-            >
-              <IconPlus
-                aria-hidden="true"
-                stroke={2}
-                className="size-4 shrink-0"
-              />
-              <span className="truncate">{createLabel(trimmedQuery)}</span>
-            </button>
-          )}
-        </div>
-      )}
+            {canCreate && (
+              <button
+                type="button"
+                onClick={() => {
+                  onCreate?.(trimmedQuery);
+                  close();
+                  setQuery("");
+                }}
+                className="flex w-full items-center gap-2 border-t border-hairline px-4 py-2.5 text-left text-sm text-brand hover:bg-canvas"
+              >
+                <IconPlus
+                  aria-hidden="true"
+                  stroke={2}
+                  className="size-4 shrink-0"
+                />
+                <span className="truncate">{createLabel(trimmedQuery)}</span>
+              </button>
+            )}
+          </div>,
+        )}
     </div>
   );
 }

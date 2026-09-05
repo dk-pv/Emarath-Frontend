@@ -83,6 +83,8 @@ export interface TeamMember {
   role: UserRole;
   roleId: string | null;
   roleName: string | null;
+  /** Who this member reports to — the roster's org tree; null at the top of a branch. */
+  reportingToId: string | null;
   jobTitle: string | null;
   phone: string | null;
   team: string | null;
@@ -96,7 +98,6 @@ export interface TeamMember {
 
 /** The full wizard configuration (GET /api/users/:id), for the edit drawer. */
 export interface TeamMemberDetail extends TeamMember {
-  reportingToId: string | null;
   reportingToName: string | null;
   leadFormId: string | null;
   pipelines: string[];

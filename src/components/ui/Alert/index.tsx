@@ -45,18 +45,25 @@ type AlertProps = {
   tone?: Tone;
   /** Omitted when the message is a single run of text with no heading above it. */
   title?: string;
+  /**
+   * Overrides the tone's glyph. Workpex does not always pair the two the way this
+   * component's default map does — its Pipeline Settings overview is an amber panel
+   * carrying the ⓘ circle, not the warning triangle.
+   */
+  icon?: Icon;
   onDismiss?: () => void;
 } & Omit<React.ComponentPropsWithoutRef<"div">, "title">;
 
 export function Alert({
   tone = "info",
   title,
+  icon,
   onDismiss,
   className,
   children,
   ...props
 }: AlertProps) {
-  const IconComponent = TONE_ICON[tone];
+  const IconComponent = icon ?? TONE_ICON[tone];
 
   return (
     <div

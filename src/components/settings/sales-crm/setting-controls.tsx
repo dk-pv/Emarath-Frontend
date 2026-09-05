@@ -2,6 +2,7 @@
 
 import { IconInfoCircle } from "@tabler/icons-react";
 import { Switch } from "@/components/ui/Switch";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 
 /**
@@ -16,20 +17,33 @@ import { cn } from "@/lib/cn";
 /**
  * A field label carrying the reference's ⓘ glyph.
  *
- * The screenshots show the icon but no open tooltip, so no copy is invented for it
- * (CLAUDE.md §16.4): it is presentational until the tooltip states are captured, and the
- * label itself is the accessible name. `hint` is the seam that turns it into a real
- * tooltip trigger the moment that copy exists.
+ * Without `hint` the icon is presentational, because no screenshot has yet captured an
+ * open tooltip on those fields and no copy is invented for them (CLAUDE.md §16.4). With
+ * `hint` it becomes a real trigger for the shared `Tooltip` — portalled, so a wizard
+ * body that scrolls cannot crop it.
  */
 export function SettingLabel({
   children,
   htmlFor,
+  hint,
   className,
 }: {
   children: React.ReactNode;
   htmlFor?: string;
+  /** One short sentence naming what the field does. Omitted leaves the icon inert. */
+  hint?: string;
   className?: string;
 }) {
+  const icon = (
+    <IconInfoCircle
+      size={15}
+      stroke={1.75}
+      aria-hidden={hint ? undefined : "true"}
+      aria-label={hint}
+      className="shrink-0 text-ink-subtle"
+    />
+  );
+
   return (
     <label
       htmlFor={htmlFor}
@@ -39,12 +53,13 @@ export function SettingLabel({
       )}
     >
       {children}
-      <IconInfoCircle
-        size={15}
-        stroke={1.75}
-        aria-hidden="true"
-        className="shrink-0 text-ink-subtle"
-      />
+      {hint ? (
+        <Tooltip content={hint} portal>
+          <span className="inline-flex shrink-0">{icon}</span>
+        </Tooltip>
+      ) : (
+        icon
+      )}
     </label>
   );
 }
@@ -111,6 +126,14 @@ export interface ToggleFieldProps {
   onChange: (checked: boolean) => void;
   /** The Category drawer's status row carries no ⓘ; the General Settings rows do. */
   showInfo?: boolean;
+  /** Tooltip copy for the ⓘ, where the field has an established description. */
+  hint?: string;
+  /**
+   * Overrides the switch's accessible name. Needed where the visible label states the
+   * current value ("Status : Active") but the control should be addressable by what it
+   * controls ("Lead Source status").
+   */
+  ariaLabel?: string;
 }
 
 /**
@@ -123,11 +146,13 @@ export function ToggleField({
   checked,
   onChange,
   showInfo = true,
+  hint,
+  ariaLabel,
 }: ToggleFieldProps) {
   return (
     <div className="flex min-h-control-lg items-center justify-between gap-3 rounded-control border border-hairline bg-canvas px-4 py-2">
       {showInfo ? (
-        <SettingLabel htmlFor={id} className="cursor-pointer">
+        <SettingLabel htmlFor={id} hint={hint} className="cursor-pointer">
           {label}
         </SettingLabel>
       ) : (
@@ -138,8 +163,15 @@ export function ToggleField({
           {label}
         </label>
       )}
+      {/*
+        Named explicitly as well as by its <label>: the accessible name is the same
+        either way, but the switch is then addressable by that name on its own, which
+        is how the row is identified in tests and by assistive tech that reads controls
+        out of their surrounding label.
+      */}
       <Switch
         id={id}
+        aria-label={ariaLabel ?? label}
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
       />

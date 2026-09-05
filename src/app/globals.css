@@ -200,3 +200,35 @@ body {
     cursor: pointer;
   }
 }
+
+/**
+ * The rich-text editor's body (Settings → Communication → Templates).
+ *
+ * Preflight strips list markers and heading sizes from every element, which is right for
+ * an application shell and wrong inside an editor: a bulleted list the user just made has
+ * to look like one. Scoped to this one class so no other surface is affected.
+ */
+@layer components {
+  .rich-text-body ul {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+  }
+
+  .rich-text-body ol {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+  }
+
+  .rich-text-body pre {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    background: var(--color-canvas);
+    border-radius: var(--radius-control);
+    padding: 0.5rem 0.75rem;
+    white-space: pre-wrap;
+  }
+
+  .rich-text-body b,
+  .rich-text-body strong {
+    font-weight: 600;
+  }
+}

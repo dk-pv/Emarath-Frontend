@@ -1,4 +1,4 @@
-import { apiGet, apiPut } from "@/lib/api-client";
+import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api-client";
 
 /**
  * Settings → Organization Setup → General Settings.
@@ -76,5 +76,103 @@ export function saveOrganizationGeneral(
   return apiPut<OrganizationGeneralSettings>(
     "/settings/organization/general",
     input,
+  );
+}
+
+/**
+ * Settings → Organization Setup → Company Details.
+ *
+ * A second JSON row in `app_settings`, alongside the general settings above. The telephone
+ * is kept the way `Lead.primaryPhone` is — dial digits followed by the local number, no
+ * "+" — with the dialling country stored beside it so the flag comes back exactly as it
+ * was chosen rather than being guessed from an ambiguous prefix (ADR-0066).
+ */
+export interface OrganizationCompanyDetails {
+  companyName: string;
+  address: string;
+  street: string;
+  city: string;
+  state: string;
+  country: string;
+  zipCode: string;
+  /** ISO 3166-1 alpha-2, matching `constants/countries.ts`. */
+  telephoneCountry: string;
+  telephone: string;
+  email: string;
+  website: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export function fetchOrganizationCompany(
+  signal?: AbortSignal,
+): Promise<OrganizationCompanyDetails> {
+  return apiGet<OrganizationCompanyDetails>(
+    "/settings/organization/company-details",
+    undefined,
+    signal,
+  );
+}
+
+export function saveOrganizationCompany(
+  input: OrganizationCompanyDetails,
+): Promise<OrganizationCompanyDetails> {
+  return apiPut<OrganizationCompanyDetails>(
+    "/settings/organization/company-details",
+    input,
+  );
+}
+
+/**
+ * Settings → Organization Setup → Host Mapping.
+ *
+ * A third row in `app_settings`, holding the whole domain list rather than one record
+ * (ADR-0067). Every mutation returns the list it produced, so the screen redraws from the
+ * response instead of refetching.
+ */
+export interface HostDomain {
+  id: string;
+  domainName: string;
+  fromEmailAddress: string;
+  fromEmailName: string;
+  /** ISO-8601 — what the list's "Date and Time" column prints. */
+  createdAt: string;
+}
+
+export interface OrganizationHostMapping {
+  domains: HostDomain[];
+}
+
+/** The Add Domain form's payload: the three fields the reference draws. */
+export interface CreateHostDomainInput {
+  domainName: string;
+  fromEmailAddress: string;
+  fromEmailName: string;
+}
+
+export function fetchOrganizationHostMapping(
+  signal?: AbortSignal,
+): Promise<OrganizationHostMapping> {
+  return apiGet<OrganizationHostMapping>(
+    "/settings/organization/host-mapping",
+    undefined,
+    signal,
+  );
+}
+
+export function addHostDomain(
+  input: CreateHostDomainInput,
+): Promise<OrganizationHostMapping> {
+  return apiPost<OrganizationHostMapping>(
+    "/settings/organization/host-mapping/domains",
+    input,
+  );
+}
+
+export function deleteHostDomain(
+  id: string,
+): Promise<OrganizationHostMapping> {
+  return apiDelete<OrganizationHostMapping>(
+    `/settings/organization/host-mapping/domains/${id}`,
   );
 }

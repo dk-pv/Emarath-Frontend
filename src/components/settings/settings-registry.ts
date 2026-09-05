@@ -100,8 +100,14 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
         label: "General Settings",
         href: "/settings/organization/general-settings",
       },
-      { label: "Company Details" },
-      { label: "Host Mapping" },
+      {
+        label: "Company Details",
+        href: "/settings/organization/company-details",
+      },
+      {
+        label: "Host Mapping",
+        href: "/settings/organization/host-mapping",
+      },
     ],
   },
   {
@@ -126,7 +132,13 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Manage templates, notifications, and alert settings for system communication.",
     icon: IconMessages,
     accent: "teal",
-    items: [{ label: "Templates" }, { label: "Emarath Alerts" }],
+    items: [
+      { label: "Templates", href: "/settings/communication/templates" },
+      {
+        label: "Emarath Alerts",
+        href: "/settings/communication/emarath-alerts",
+      },
+    ],
   },
   {
     key: "assignment",
@@ -135,7 +147,16 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Define assignment logic and rules to distribute leads and tasks automatically.",
     icon: IconSitemap,
     accent: "violet",
-    items: [{ label: "General Settings" }, { label: "Assignment Rules" }],
+    items: [
+      {
+        label: "General Settings",
+        href: "/settings/assignment/general-settings",
+      },
+      {
+        label: "Assignment Rules",
+        href: "/settings/assignment/assignment-rules",
+      },
+    ],
   },
   {
     key: "call-tracking",
@@ -144,7 +165,13 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Configure call tracking options, statuses, and monitoring preferences easily.",
     icon: IconPhoneCall,
     accent: "pink",
-    items: [{ label: "General Settings" }, { label: "Call Status" }],
+    items: [
+      {
+        label: "General Settings",
+        href: "/settings/call-tracking/general-settings",
+      },
+      { label: "Call Status", href: "/settings/call-tracking/call-status" },
+    ],
   },
   {
     key: "activity-reminders",
@@ -153,7 +180,16 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Set up activities, follow-up types, and reminder rules for daily operations.",
     icon: IconBellRinging,
     accent: "violet",
-    items: [{ label: "General Settings" }, { label: "Follow Up Types" }],
+    items: [
+      {
+        label: "General Settings",
+        href: "/settings/activity-reminders/general-settings",
+      },
+      {
+        label: "Follow Up Types",
+        href: "/settings/activity-reminders/follow-up-types",
+      },
+    ],
   },
   {
     key: "gps-tracking",

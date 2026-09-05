@@ -96,7 +96,10 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: IconBuilding,
     accent: "green",
     items: [
-      { label: "General Settings" },
+      {
+        label: "General Settings",
+        href: "/settings/organization/general-settings",
+      },
       { label: "Company Details" },
       { label: "Host Mapping" },
     ],

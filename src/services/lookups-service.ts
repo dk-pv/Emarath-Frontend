@@ -25,7 +25,9 @@ export type LookupType =
   | "tags"
   | "teams"
   | "leadActivity"
-  | "lostReasons";
+  | "lostReasons"
+  /** Organization → General Settings' Currency field (156 entries). */
+  | "currencies";
 
 export function fetchLookup(
   type: LookupType,

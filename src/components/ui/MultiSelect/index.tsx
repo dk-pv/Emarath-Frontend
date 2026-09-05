@@ -34,6 +34,14 @@ export type MultiSelectProps = {
    * Unset (the default) keeps every chip visible, as the drawers and reports need.
    */
   maxVisibleChips?: number;
+  /** Wires the control to a visible <label htmlFor>. */
+  id?: string;
+  /**
+   * Accessible name for the trigger where the visible label is not wired to its id, or
+   * where the control needs a name of its own — the same escape hatch `SearchableSelect`
+   * offers. Falls back to the existing "Select options" behaviour when omitted.
+   */
+  "aria-label"?: string;
 };
 
 /** Chips sit inside the control, so the box grows rather than clipping the selection. */
@@ -61,6 +69,8 @@ export function MultiSelect({
   createLabel = (query) => `Create “${query}”`,
   onCreate,
   maxVisibleChips,
+  id,
+  "aria-label": ariaLabel,
 }: MultiSelectProps) {
   const root = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
@@ -163,12 +173,15 @@ export function MultiSelect({
         )}
 
         <button
+          id={id}
           ref={opener}
           type="button"
           disabled={disabled}
           aria-expanded={isOpen}
           aria-controls={isOpen ? panelId : undefined}
-          aria-label={hasVisiblePlaceholder ? undefined : "Select options"}
+          aria-label={
+            ariaLabel ?? (hasVisiblePlaceholder ? undefined : "Select options")
+          }
           onClick={toggle}
           className={OPENER_CLASS}
         >

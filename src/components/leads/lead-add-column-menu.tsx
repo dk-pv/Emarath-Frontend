@@ -94,7 +94,7 @@ export function LeadAddColumnMenu({
   const activeType = FIELD_TYPES.find((entry) => entry.type === type);
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative flex">
       <button
         type="button"
         aria-haspopup="menu"
@@ -102,7 +102,7 @@ export function LeadAddColumnMenu({
         onClick={() => (isOpen ? closeAndReset() : toggle())}
         className={TOOLBAR_BUTTON_CLASS}
       >
-        <IconPlus size={18} stroke={1.75} />
+        <IconPlus size={16} stroke={1.75} />
         Add Column
       </button>
 

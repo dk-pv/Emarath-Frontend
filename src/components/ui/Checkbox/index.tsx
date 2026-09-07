@@ -11,10 +11,10 @@ import { cn } from "@/lib/cn";
  * so the box and the tick fade together.
  */
 const INPUT_CLASS =
-  "peer size-5 shrink-0 appearance-none rounded-check border border-hairline bg-surface transition-colors duration-(--duration-shell) ease-shell focus-ring checked:border-brand checked:bg-brand indeterminate:border-brand indeterminate:bg-brand aria-invalid:border-danger disabled:cursor-not-allowed";
+  "peer size-4.5 shrink-0 appearance-none rounded-check border border-hairline bg-surface transition-colors duration-(--duration-shell) ease-shell focus-ring checked:border-brand checked:bg-brand indeterminate:border-brand indeterminate:bg-brand aria-invalid:border-danger disabled:cursor-not-allowed";
 
 const GLYPH_CLASS =
-  "pointer-events-none absolute inset-0 m-auto size-3.5 text-white opacity-0";
+  "pointer-events-none absolute inset-0 m-auto size-3 text-white opacity-0";
 
 export type CheckboxProps = Omit<
   React.ComponentProps<"input">,

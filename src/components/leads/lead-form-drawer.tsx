@@ -22,6 +22,11 @@ import {
   type LeadEditData,
   type LeadListItem,
 } from "@/services/leads-service";
+import React from "react";
+import {
+  useLeadFormLayout,
+  type LeadFormLayout,
+} from "@/hooks/use-lead-form-layout";
 import type {
   LeadCustomField,
   LeadCustomFieldType,
@@ -189,13 +194,16 @@ function formFromEdit(lead: LeadEditData): FormState {
 }
 
 /** Custom-field type → native input type. NUMBER also gets inputMode="decimal"; DATE
- * and DATETIME use the browser's native pickers (no captured Workpex control). */
+ * and DATETIME use the browser's native pickers (no captured Workpex control).
+ * DROP_DOWN is listed but unused: it renders a select over the field's own configured
+ * options rather than a typed input (ADR-0072). */
 const CUSTOM_INPUT_TYPE: Record<LeadCustomFieldType, string | undefined> = {
   TEXT: undefined,
   TEXTBOX: undefined,
   NUMBER: undefined,
   DATE: "date",
   DATETIME: "datetime-local",
+  DROP_DOWN: undefined,
 };
 
 /**
@@ -215,6 +223,22 @@ export function LeadFormDrawer({
   onSaved,
 }: LeadFormDrawerProps) {
   const editing = lead !== undefined;
+  /*
+    Settings > Data & Schema Management > Form Customization decides which fields this
+    drawer shows (ADR-0072). Until it answers — and if it cannot be read at all — every
+    field renders, so a settings failure never leaves the form blank. The four fields the
+    create API refuses a lead without are not guarded: a form cannot hide them.
+  */
+  const layout = useLeadFormLayout();
+  /*
+    The custom fields the form still shows. Their *placement* is the layout's job — the
+    renderer below orders and groups every field, system and custom alike, from the one
+    configuration — so this only drops what the form hides.
+  */
+  const orderedCustomFields = useMemo(
+    () => customFields.filter((field) => layout.shows(field.key)),
+    [customFields, layout],
+  );
   // Assigned defaults to the current user on create (verified Workpex behaviour); on edit it
   // starts from the lead's existing assignees. The id comes from the server session (useAuth),
   // never a client-typed value, and the backend re-resolves the caller for scope/authorization.
@@ -411,6 +435,373 @@ export function LeadFormDrawer({
     }
   }
 
+  /**
+   * Every system field's control, keyed by the same stable key a configured form stores.
+   * Built here rather than inline so the form's *layout* is a list to render, not a shape
+   * baked into the JSX.
+   */
+  /** One custom field's control, bound to this form's value and error. */
+  const renderCustom = (field: LeadCustomField) =>
+    renderCustomField(
+      field,
+      customValues[field.key] ?? "",
+      customErrors[field.key],
+      (value) => setCustom(field.key, value),
+    );
+
+  const systemNodes: Record<string, React.ReactNode> = {
+    name: (
+      <FormField label="Customer Name" required error={errors.name}>
+              {(control) => (
+                <Input
+                  {...control}
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="Customer Name"
+                />
+              )}
+            </FormField>
+    ),
+    primaryPhone: (
+      <FormField label="Primary Phone" required error={errors.primaryPhone}>
+              <PhoneInput
+                value={form.primaryPhone}
+                onChange={(v) => set("primaryPhone", v)}
+                placeholder="Primary Phone"
+                invalid={Boolean(errors.primaryPhone)}
+              />
+            </FormField>
+    ),
+    firstName: (
+      <FormField label="First Name">
+                {(control) => (
+                  <Input
+                    {...control}
+                    value={form.firstName}
+                    onChange={(e) => set("firstName", e.target.value)}
+                    placeholder="First Name"
+                  />
+                )}
+              </FormField>
+    ),
+    secondaryPhone: (
+      <FormField label="Secondary Phone">
+                <PhoneInput
+                  value={form.secondaryPhone}
+                  onChange={(v) => set("secondaryPhone", v)}
+                  placeholder="Secondary Phone"
+                />
+              </FormField>
+    ),
+    email: (
+      <FormField label="Email">
+                {(control) => (
+                  <Input
+                    {...control}
+                    value={form.email}
+                    onChange={(e) => set("email", e.target.value)}
+                    placeholder="Email"
+                  />
+                )}
+              </FormField>
+    ),
+    assignedAgentIds: (
+      <FormField label="Assigned">
+                <MultiSelect
+                  searchable
+                  options={agents}
+                  value={form.assignedAgentIds}
+                  onChange={(v) => set("assignedAgentIds", v)}
+                  placeholder="Assigned"
+                />
+              </FormField>
+    ),
+    status: (
+      <FormField label="Lead Status" required error={errors.status}>
+              <SearchableSelect
+                searchable={false}
+                clearable
+                options={leadStatus.options}
+                value={form.status}
+                onChange={(v) => set("status", v)}
+                loading={leadStatus.isLoading}
+                invalid={Boolean(errors.status)}
+                placeholder="Lead Status"
+              />
+            </FormField>
+    ),
+    tagIds: (
+      <FormField label="Tags">
+                <MultiSelect
+                  searchable
+                  options={tags.options}
+                  value={form.tagIds}
+                  onChange={(v) => set("tagIds", v)}
+                  placeholder="Tags"
+                />
+              </FormField>
+    ),
+    complaintReason: (
+      <FormField label="COMPLAINTS">
+                <SearchableSelect
+                  searchable={false}
+                  clearable
+                  options={complaintReasons.options}
+                  value={form.complaintReason}
+                  onChange={(v) => set("complaintReason", v)}
+                  loading={complaintReasons.isLoading}
+                  placeholder="COMPLAINTS"
+                />
+              </FormField>
+    ),
+    product: (
+      <FormField label="Product" error={errors.product}>
+                <SearchableSelect
+                  options={products.options}
+                  value={form.product}
+                  onChange={(v) => set("product", v)}
+                  loading={products.isLoading}
+                  invalid={Boolean(errors.product)}
+                  placeholder="Select Product"
+                />
+              </FormField>
+    ),
+    language: (
+      <FormField label="Language" error={errors.language}>
+                <SearchableSelect
+                  searchable={false}
+                  options={languages.options}
+                  value={form.language}
+                  onChange={(v) => set("language", v)}
+                  loading={languages.isLoading}
+                  invalid={Boolean(errors.language)}
+                  placeholder="Select Language"
+                />
+              </FormField>
+    ),
+    source: (
+      <FormField label="Source">
+                <SearchableSelect
+                  searchable={false}
+                  options={sources.options}
+                  value={form.source}
+                  onChange={(v) => set("source", v)}
+                  loading={sources.isLoading}
+                  placeholder="Source"
+                />
+              </FormField>
+    ),
+    productQty: (
+      <FormField label="QTY" error={errors.productQty}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    inputMode="decimal"
+                    value={form.productQty}
+                    onChange={(e) => set("productQty", e.target.value)}
+                    placeholder="QTY"
+                  />
+                )}
+              </FormField>
+    ),
+    product2: (
+      <FormField label="Product 2">
+                <SearchableSelect
+                  options={products.options}
+                  value={form.product2}
+                  onChange={(v) => set("product2", v)}
+                  loading={products.isLoading}
+                  placeholder="Select Product 2"
+                />
+              </FormField>
+    ),
+    product2Qty: (
+      <FormField label="QTY OF PRODUCT 2" error={errors.product2Qty}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    inputMode="decimal"
+                    value={form.product2Qty}
+                    onChange={(e) => set("product2Qty", e.target.value)}
+                    placeholder="QTY OF PRODUCT 2"
+                  />
+                )}
+              </FormField>
+    ),
+    callStatus: (
+      <FormField label="Call Status" error={errors.callStatus}>
+                <SearchableSelect
+                  searchable={false}
+                  options={callStatuses.options}
+                  value={form.callStatus}
+                  onChange={(v) => set("callStatus", v)}
+                  loading={callStatuses.isLoading}
+                  invalid={Boolean(errors.callStatus)}
+                  placeholder="Select Call Status"
+                />
+              </FormField>
+    ),
+    callAttempts: (
+      <FormField label="NO.OF CALL ATTEMTS" error={errors.callAttempts}>
+                <SearchableSelect
+                  searchable={false}
+                  options={attempts.options}
+                  value={form.callAttempts}
+                  onChange={(v) => set("callAttempts", v)}
+                  loading={attempts.isLoading}
+                  invalid={Boolean(errors.callAttempts)}
+                  placeholder="Select NO.OF CALL ATTEMTS"
+                />
+              </FormField>
+    ),
+    msgAttempts: (
+      <FormField label="NO.OF MSG ATTEMPTS">
+                <SearchableSelect
+                  searchable={false}
+                  options={attempts.options}
+                  value={form.msgAttempts}
+                  onChange={(v) => set("msgAttempts", v)}
+                  loading={attempts.isLoading}
+                  placeholder="NO.OF MSG ATTEMPTS"
+                />
+              </FormField>
+    ),
+    country: (
+      <FormField label="Country" error={errors.country}>
+                  <SearchableSelect
+                    options={COUNTRY_OPTIONS}
+                    value={form.country}
+                    onChange={(v) => {
+                      set("country", v);
+                      set("state", null);
+                    }}
+                    invalid={Boolean(errors.country)}
+                    placeholder="Country"
+                  />
+                </FormField>
+    ),
+    state: (
+      <FormField label="State">
+                  <SearchableSelect
+                    options={stateOptions}
+                    value={form.state}
+                    onChange={(v) => set("state", v)}
+                    placeholder="State"
+                  />
+                </FormField>
+    ),
+    street: (
+      <FormField label="Street">
+                  {(control) => (
+                    <Input
+                      {...control}
+                      value={form.street}
+                      onChange={(e) => set("street", e.target.value)}
+                      placeholder="Street"
+                    />
+                  )}
+                </FormField>
+    ),
+    city: (
+      <FormField label="CITY">
+                  {(control) => (
+                    <Input
+                      {...control}
+                      value={form.city}
+                      onChange={(e) => set("city", e.target.value)}
+                      placeholder="CITY"
+                    />
+                  )}
+                </FormField>
+    ),
+    nationalCode: (
+      <FormField label="National Code">
+                  {(control) => (
+                    <Textarea
+                      {...control}
+                      value={form.nationalCode}
+                      onChange={(e) => set("nationalCode", e.target.value)}
+                      placeholder="National Code"
+                    />
+                  )}
+                </FormField>
+    ),
+    bookingDate: (
+      <FormField label="BOOKING DATE">
+                <DatePicker
+                  numeric
+                  value={form.bookingDate}
+                  onChange={(d) => set("bookingDate", d)}
+                  placeholder="DD/MM/YYYY"
+                />
+              </FormField>
+    ),
+    pipeline: (
+      <FormField label="Lead Pipeline" required error={errors.pipeline}>
+                <SearchableSelect
+                  searchable={false}
+                  clearable
+                  options={pipelines.options}
+                  value={form.pipeline}
+                  onChange={(v) => set("pipeline", v)}
+                  loading={pipelines.isLoading}
+                  invalid={Boolean(errors.pipeline)}
+                  placeholder="Lead Pipeline"
+                />
+              </FormField>
+    ),
+    category: (
+      <FormField label="Category">
+                  <SearchableSelect
+                    options={categories.options}
+                    value={form.category}
+                    onChange={(v) => set("category", v)}
+                    loading={categories.isLoading}
+                    placeholder="Select Category"
+                  />
+                </FormField>
+    ),
+    actualAmount: (
+      <FormField label="Actual Amount" error={errors.actualAmount}>
+                  {(control) => (
+                    <Input
+                      {...control}
+                      inputMode="decimal"
+                      value={form.actualAmount}
+                      onChange={(e) => set("actualAmount", e.target.value)}
+                      placeholder="Actual Amount"
+                    />
+                  )}
+                </FormField>
+    ),
+    forecastedAmount: (
+      <FormField label="Forecasted Amount" error={errors.forecastedAmount}>
+                  {(control) => (
+                    <Input
+                      {...control}
+                      inputMode="decimal"
+                      value={form.forecastedAmount}
+                      onChange={(e) => set("forecastedAmount", e.target.value)}
+                      placeholder="Forecasted Amount"
+                    />
+                  )}
+                </FormField>
+    ),
+    paymentMethod: (
+      <FormField label="Payment Method" error={errors.paymentMethod}>
+                  <SearchableSelect
+                    searchable={false}
+                    options={paymentMethods.options}
+                    value={form.paymentMethod}
+                    onChange={(v) => set("paymentMethod", v)}
+                    loading={paymentMethods.isLoading}
+                    invalid={Boolean(errors.paymentMethod)}
+                    placeholder="Select Payment Method"
+                  />
+                </FormField>
+    ),
+  };
+
   return (
     <Drawer
       open={open}
@@ -442,371 +833,120 @@ export function LeadFormDrawer({
       >
         {apiError && <FormError>{apiError}</FormError>}
 
-        <FormField label="Customer Name" required error={errors.name}>
-          {(control) => (
-            <Input
-              {...control}
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="Customer Name"
-            />
-          )}
-        </FormField>
-
-        <FormField label="Primary Phone" required error={errors.primaryPhone}>
-          <PhoneInput
-            value={form.primaryPhone}
-            onChange={(v) => set("primaryPhone", v)}
-            placeholder="Primary Phone"
-            invalid={Boolean(errors.primaryPhone)}
-          />
-        </FormField>
-
-        <FormField label="First Name">
-          {(control) => (
-            <Input
-              {...control}
-              value={form.firstName}
-              onChange={(e) => set("firstName", e.target.value)}
-              placeholder="First Name"
-            />
-          )}
-        </FormField>
-
-        <FormField label="Secondary Phone">
-          <PhoneInput
-            value={form.secondaryPhone}
-            onChange={(v) => set("secondaryPhone", v)}
-            placeholder="Secondary Phone"
-          />
-        </FormField>
-
-        {/* Email (ADR-0032): backs the row Email composer's To prefill. Optional and
-            validated server-side (@IsEmail); an invalid value surfaces in the banner. */}
-        <FormField label="Email">
-          {(control) => (
-            <Input
-              {...control}
-              value={form.email}
-              onChange={(e) => set("email", e.target.value)}
-              placeholder="Email"
-            />
-          )}
-        </FormField>
-
-        <FormField label="Assigned">
-          <MultiSelect
-            searchable
-            options={agents}
-            value={form.assignedAgentIds}
-            onChange={(v) => set("assignedAgentIds", v)}
-            placeholder="Assigned"
-          />
-        </FormField>
-
-        <FormField label="Lead Status" required error={errors.status}>
-          <SearchableSelect
-            searchable={false}
-            clearable
-            options={leadStatus.options}
-            value={form.status}
-            onChange={(v) => set("status", v)}
-            loading={leadStatus.isLoading}
-            invalid={Boolean(errors.status)}
-            placeholder="Lead Status"
-          />
-        </FormField>
-
-        <FormField label="Tags">
-          <MultiSelect
-            searchable
-            options={tags.options}
-            value={form.tagIds}
-            onChange={(v) => set("tagIds", v)}
-            placeholder="Tags"
-          />
-        </FormField>
-
-        <FormField label="COMPLAINTS">
-          <SearchableSelect
-            searchable={false}
-            clearable
-            options={complaintReasons.options}
-            value={form.complaintReason}
-            onChange={(v) => set("complaintReason", v)}
-            loading={complaintReasons.isLoading}
-            placeholder="COMPLAINTS"
-          />
-        </FormField>
-
-        <FormField label="Product" error={errors.product}>
-          <SearchableSelect
-            options={products.options}
-            value={form.product}
-            onChange={(v) => set("product", v)}
-            loading={products.isLoading}
-            invalid={Boolean(errors.product)}
-            placeholder="Select Product"
-          />
-        </FormField>
-
-        <FormField label="Language" error={errors.language}>
-          <SearchableSelect
-            searchable={false}
-            options={languages.options}
-            value={form.language}
-            onChange={(v) => set("language", v)}
-            loading={languages.isLoading}
-            invalid={Boolean(errors.language)}
-            placeholder="Select Language"
-          />
-        </FormField>
-
-        <FormField label="Source">
-          <SearchableSelect
-            searchable={false}
-            options={sources.options}
-            value={form.source}
-            onChange={(v) => set("source", v)}
-            loading={sources.isLoading}
-            placeholder="Source"
-          />
-        </FormField>
-
-        <FormField label="QTY" error={errors.productQty}>
-          {(control) => (
-            <Input
-              {...control}
-              inputMode="decimal"
-              value={form.productQty}
-              onChange={(e) => set("productQty", e.target.value)}
-              placeholder="QTY"
-            />
-          )}
-        </FormField>
-
-        {/* Product 2 shares the SAME product dataset as Product (one list, no duplication). */}
-        <FormField label="Product 2">
-          <SearchableSelect
-            options={products.options}
-            value={form.product2}
-            onChange={(v) => set("product2", v)}
-            loading={products.isLoading}
-            placeholder="Select Product 2"
-          />
-        </FormField>
-
-        <FormField label="QTY OF PRODUCT 2" error={errors.product2Qty}>
-          {(control) => (
-            <Input
-              {...control}
-              inputMode="decimal"
-              value={form.product2Qty}
-              onChange={(e) => set("product2Qty", e.target.value)}
-              placeholder="QTY OF PRODUCT 2"
-            />
-          )}
-        </FormField>
-
-        <FormField label="Call Status" error={errors.callStatus}>
-          <SearchableSelect
-            searchable={false}
-            options={callStatuses.options}
-            value={form.callStatus}
-            onChange={(v) => set("callStatus", v)}
-            loading={callStatuses.isLoading}
-            invalid={Boolean(errors.callStatus)}
-            placeholder="Select Call Status"
-          />
-        </FormField>
-
-        <FormField label="NO.OF CALL ATTEMTS" error={errors.callAttempts}>
-          <SearchableSelect
-            searchable={false}
-            options={attempts.options}
-            value={form.callAttempts}
-            onChange={(v) => set("callAttempts", v)}
-            loading={attempts.isLoading}
-            invalid={Boolean(errors.callAttempts)}
-            placeholder="Select NO.OF CALL ATTEMTS"
-          />
-        </FormField>
-
-        <FormField label="NO.OF MSG ATTEMPTS">
-          <SearchableSelect
-            searchable={false}
-            options={attempts.options}
-            value={form.msgAttempts}
-            onChange={(v) => set("msgAttempts", v)}
-            loading={attempts.isLoading}
-            placeholder="NO.OF MSG ATTEMPTS"
-          />
-        </FormField>
-
-        <CollapsibleSection title="Address">
-          <FormField label="Country" error={errors.country}>
-            <SearchableSelect
-              options={COUNTRY_OPTIONS}
-              value={form.country}
-              onChange={(v) => {
-                set("country", v);
-                set("state", null);
-              }}
-              invalid={Boolean(errors.country)}
-              placeholder="Country"
-            />
-          </FormField>
-
-          <FormField label="State">
-            <SearchableSelect
-              options={stateOptions}
-              value={form.state}
-              onChange={(v) => set("state", v)}
-              placeholder="State"
-            />
-          </FormField>
-
-          <FormField label="Street">
-            {(control) => (
-              <Input
-                {...control}
-                value={form.street}
-                onChange={(e) => set("street", e.target.value)}
-                placeholder="Street"
-              />
-            )}
-          </FormField>
-
-          <FormField label="CITY">
-            {(control) => (
-              <Input
-                {...control}
-                value={form.city}
-                onChange={(e) => set("city", e.target.value)}
-                placeholder="CITY"
-              />
-            )}
-          </FormField>
-
-          <FormField label="National Code">
-            {(control) => (
-              <Textarea
-                {...control}
-                value={form.nationalCode}
-                onChange={(e) => set("nationalCode", e.target.value)}
-                placeholder="National Code"
-              />
-            )}
-          </FormField>
-        </CollapsibleSection>
-
-        <FormField label="BOOKING DATE">
-          <DatePicker
-            numeric
-            value={form.bookingDate}
-            onChange={(d) => set("bookingDate", d)}
-            placeholder="DD/MM/YYYY"
-          />
-        </FormField>
-
-        <CollapsibleSection title="Notes">
-          <FormField label="Lead Pipeline" required error={errors.pipeline}>
-            <SearchableSelect
-              searchable={false}
-              clearable
-              options={pipelines.options}
-              value={form.pipeline}
-              onChange={(v) => set("pipeline", v)}
-              loading={pipelines.isLoading}
-              invalid={Boolean(errors.pipeline)}
-              placeholder="Lead Pipeline"
-            />
-          </FormField>
-
-          <FormField label="Category">
-            <SearchableSelect
-              options={categories.options}
-              value={form.category}
-              onChange={(v) => set("category", v)}
-              loading={categories.isLoading}
-              placeholder="Select Category"
-            />
-          </FormField>
-
-          <FormField label="Actual Amount" error={errors.actualAmount}>
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                value={form.actualAmount}
-                onChange={(e) => set("actualAmount", e.target.value)}
-                placeholder="Actual Amount"
-              />
-            )}
-          </FormField>
-
-          <FormField label="Forecasted Amount" error={errors.forecastedAmount}>
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                value={form.forecastedAmount}
-                onChange={(e) => set("forecastedAmount", e.target.value)}
-                placeholder="Forecasted Amount"
-              />
-            )}
-          </FormField>
-
-          <FormField label="Payment Method" error={errors.paymentMethod}>
-            <SearchableSelect
-              searchable={false}
-              options={paymentMethods.options}
-              value={form.paymentMethod}
-              onChange={(v) => set("paymentMethod", v)}
-              loading={paymentMethods.isLoading}
-              invalid={Boolean(errors.paymentMethod)}
-              placeholder="Select Payment Method"
-            />
-          </FormField>
-        </CollapsibleSection>
-
-        {/* Custom columns (LEAD-05.1): rendered by type, collected into the payload's
-            `customFields`. Values prefill on edit and persist through the same
-            create/update call as the standard fields. */}
-        {customFields.length > 0 && (
-          <CollapsibleSection title="Custom Fields">
-            {customFields.map((field) => (
-              <FormField
-                key={field.key}
-                label={field.name}
-                error={customErrors[field.key]}
-              >
-                {(control) =>
-                  field.type === "TEXTBOX" ? (
-                    <Textarea
-                      {...control}
-                      value={customValues[field.key] ?? ""}
-                      onChange={(e) => setCustom(field.key, e.target.value)}
-                      placeholder={field.name}
-                    />
-                  ) : (
-                    <Input
-                      {...control}
-                      type={CUSTOM_INPUT_TYPE[field.type]}
-                      inputMode={
-                        field.type === "NUMBER" ? "decimal" : undefined
-                      }
-                      value={customValues[field.key] ?? ""}
-                      onChange={(e) => setCustom(field.key, e.target.value)}
-                      placeholder={field.name}
-                    />
-                  )
-                }
-              </FormField>
-            ))}
-          </CollapsibleSection>
-        )}
+        {/*
+          The Lead form's own layout comes from Settings > Data & Schema Management >
+          Form Customization (ADR-0073): which fields the form shows, the order they sit
+          in, and which section each belongs to. With no configuration — or if it cannot
+          be read — `layout` reports every field visible and unplaced, and the form falls
+          back to the order it shipped with.
+        */}
+        {renderConfigured({
+          layout,
+          nodes: systemNodes,
+          customFields: orderedCustomFields,
+          renderCustom,
+        })}
       </form>
     </Drawer>
+  );
+}
+
+/** One custom field's control, by its type. */
+function renderCustomField(
+  field: LeadCustomField,
+  value: string,
+  error: string | undefined,
+  onChange: (value: string) => void,
+): React.ReactNode {
+  return (
+    <FormField key={field.key} label={field.name} error={error}>
+      {(control) =>
+        field.type === "DROP_DOWN" ? (
+          <SearchableSelect
+            searchable={field.options.length > 8}
+            options={field.options.map((option) => ({
+              value: option.label,
+              label: option.label,
+            }))}
+            value={value === "" ? null : value}
+            onChange={(next) => onChange(next ?? "")}
+            placeholder={field.name}
+            invalid={Boolean(error)}
+          />
+        ) : field.type === "TEXTBOX" ? (
+          <Textarea
+            {...control}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.name}
+          />
+        ) : (
+          <Input
+            {...control}
+            type={CUSTOM_INPUT_TYPE[field.type]}
+            inputMode={field.type === "NUMBER" ? "decimal" : undefined}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.name}
+          />
+        )
+      }
+    </FormField>
+  );
+}
+
+/**
+ * Renders the form in the order and grouping the configured default form stores.
+ *
+ * Ungrouped fields come first, in their configured order, then each section in its own
+ * order — the same arrangement the builder's Preview draws, because both read the same
+ * configuration. Without a configuration the shipped order is used and nothing is grouped.
+ */
+function renderConfigured({
+  layout,
+  nodes,
+  customFields,
+  renderCustom,
+}: {
+  layout: LeadFormLayout;
+  nodes: Record<string, React.ReactNode>;
+  customFields: LeadCustomField[];
+  renderCustom: (field: LeadCustomField) => React.ReactNode;
+}): React.ReactNode {
+  const custom = new Map(customFields.map((field) => [field.key, field]));
+
+  const node = (key: string): React.ReactNode => {
+    const builtIn = nodes[key];
+    if (builtIn) return builtIn;
+    const field = custom.get(key);
+    return field ? renderCustom(field) : null;
+  };
+
+  const ordered = layout.orderedKeys([
+    ...Object.keys(nodes),
+    ...customFields.map((field) => field.key),
+  ]);
+
+  const ungrouped = ordered.filter((key) => layout.sectionOf(key) === null);
+  const grouped = layout.sections
+    .map((section) => ({
+      section,
+      keys: ordered.filter((key) => layout.sectionOf(key) === section),
+    }))
+    .filter((group) => group.keys.length > 0);
+
+  return (
+    <>
+      {ungrouped.map((key) => (
+        <React.Fragment key={key}>{node(key)}</React.Fragment>
+      ))}
+      {grouped.map((group) => (
+        <CollapsibleSection key={group.section} title={group.section}>
+          {group.keys.map((key) => (
+            <React.Fragment key={key}>{node(key)}</React.Fragment>
+          ))}
+        </CollapsibleSection>
+      ))}
+    </>
   );
 }

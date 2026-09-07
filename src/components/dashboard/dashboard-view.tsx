@@ -8,6 +8,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { can } from "@/constants/permissions";
 import { DashboardWidget } from "./dashboard-widget";
 import { Leaderboard } from "./leaderboard";
+import { ConfiguredSummaryCards } from "./configured-summary-cards";
 import { SummaryCards } from "./summary-cards";
 import { TeamRevenue } from "./team-revenue";
 import type { DashboardData } from "@/services/dashboard-service";
@@ -40,13 +41,22 @@ export function DashboardView({ data }: { data: DashboardData }) {
   return (
     <ContentContainer className="flex flex-col gap-4 p-4 lg:p-6">
       <Alert tone="info" title="Sample dashboard — demo data only">
-        The layout, per-widget filters and widget states are live; the figures
-        are still placeholders. Real role-scoped counters arrive with DASH-02.1.
+        The layout, per-widget filters and widget states are live; the KPI and
+        team figures are still placeholders. The configured summary row below
+        them is real. Role-scoped counters arrive with DASH-02.2.
       </Alert>
 
       {/* The KPI counters keep their current placeholder form until DASH-02.2,
           which rebuilds them as six independently-filtered cards. */}
       <SummaryCards cards={data.summary} />
+
+      {/*
+        The cards Settings → Application Controls → Dashboard Settings configures, and
+        the only live figures on this page. Its own row rather than part of the carousel
+        above, because that carousel is still fixtures — the two merge into one when
+        DASH-02.2 replaces them with the real KPI counters.
+      */}
+      <ConfiguredSummaryCards />
 
       {canViewTeamMetrics && (
         <section className="flex flex-col gap-4">

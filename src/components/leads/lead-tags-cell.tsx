@@ -67,7 +67,7 @@ export function LeadTagsCell({ lead }: { lead: LeadListItem }) {
     if (lead.tags.length === 0)
       return <span className="text-ink-subtle">—</span>;
     return (
-      <span className="flex flex-wrap gap-1">
+      <span className="flex flex-nowrap gap-1">
         {lead.tags.map((tag) => (
           <span key={tag.id} className={tagPillClass(tag.name)}>
             <span className="truncate">{tag.name}</span>
@@ -123,9 +123,12 @@ function InteractiveTagsCell({
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={hasTags ? `Edit tags for ${lead.name}` : `Add a tag`}
+          // Never `flex-wrap`: with the table at min-content width the Tags column
+          // collapses to its widest chip, and chips stacked 2–3 deep stretched every
+          // tagged row to 63–91px. One line, and the column widens instead.
           className={cn(
             "focus-ring flex items-center gap-1.5 rounded-control",
-            hasTags ? "flex-wrap" : "px-0.5 py-0.5",
+            hasTags ? "flex-nowrap" : "px-0.5 py-0.5",
           )}
         >
           {hasTags ? (

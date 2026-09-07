@@ -1,3 +1,4 @@
+import { apiGet } from "@/lib/api-client";
 import {
   LEADERBOARD_ROWS,
   SUMMARY_CARDS,
@@ -23,4 +24,32 @@ export function getDashboardData(): DashboardData {
     leaderboard: LEADERBOARD_ROWS,
     totals: TEAM_TOTALS,
   };
+}
+
+/** One configured summary card, as `/api/dashboard/summary` returns it. */
+export interface DashboardSummaryCard {
+  fieldKey: string;
+  label: string;
+  count: number;
+  /** Summed actual amount, as a string — Decimal precision must survive the wire. */
+  amount: string;
+}
+
+export interface DashboardSummary {
+  summaryMode: "LEAD_STAGE" | "LEAD_SOURCE";
+  displayOnCards: "BOTH" | "LEAD_COUNT" | "AMOUNT";
+  cards: DashboardSummaryCard[];
+}
+
+/**
+ * The stage or source cards Settings → Application Controls → Dashboard Settings
+ * configured, counted and summed under the caller's own role scope.
+ *
+ * Unlike the fixtures above, this is live: it is the one part of the Dashboard that
+ * reads real leads today.
+ */
+export function fetchDashboardSummary(
+  signal?: AbortSignal,
+): Promise<DashboardSummary> {
+  return apiGet<DashboardSummary>("/dashboard/summary", undefined, signal);
 }

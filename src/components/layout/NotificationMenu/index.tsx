@@ -20,7 +20,7 @@ export function NotificationMenu() {
           aria-label="Notifications"
           className="relative flex size-control shrink-0 items-center justify-center rounded-full text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring"
         >
-          <IconBell size={23} stroke={1.75} />
+          <IconBell size={21} stroke={1.75} />
         </span>
       }
     >

@@ -841,8 +841,12 @@ export function LeadsListView({
       title="No leads yet"
       description="Create your first lead to get started."
       action={
-        <Button size="sm" onClick={newLead.open}>
-          <IconPlus size={18} stroke={2} />
+        <Button
+          size="sm"
+          className="gap-1.5 px-2.5 text-[13px]"
+          onClick={newLead.open}
+        >
+          <IconPlus size={16} stroke={2} />
           New Lead
         </Button>
       }
@@ -861,8 +865,12 @@ export function LeadsListView({
           // Export. Import History is not a Workpex toolbar control (still routable
           // at /leads/import/history), so it is not shown here.
           <>
-            <Button size="sm" onClick={newLead.open}>
-              <IconPlus size={18} stroke={2} />
+            <Button
+              size="sm"
+              className="gap-1.5 px-2.5 text-[13px]"
+              onClick={newLead.open}
+            >
+              <IconPlus size={16} stroke={2} />
               New Lead
             </Button>
             <ToolbarSearch
@@ -905,11 +913,11 @@ export function LeadsListView({
               onClick={manageColumns.open}
               className={TOOLBAR_BUTTON_CLASS}
             >
-              <IconColumns size={18} stroke={1.75} />
+              <IconColumns size={16} stroke={1.75} />
               Manage Columns
             </button>
             <Link href="/leads/import" className={TOOLBAR_BUTTON_CLASS}>
-              <IconFileImport size={18} stroke={1.75} />
+              <IconFileImport size={16} stroke={1.75} />
               Import
             </Link>
             <LeadExportMenu onExport={handleExport} />

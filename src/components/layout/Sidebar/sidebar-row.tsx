@@ -19,7 +19,7 @@ export const SIDEBAR_ROW_CLASS =
 export const SIDEBAR_ROW_IDLE = "text-white hover:bg-sidebar-hover";
 
 export function SidebarRowIcon({ icon: IconComponent }: { icon: Icon }) {
-  return <IconComponent size={20} stroke={2} className="shrink-0" />;
+  return <IconComponent size={18} stroke={2} className="shrink-0" />;
 }
 
 /**

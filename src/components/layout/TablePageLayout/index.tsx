@@ -99,7 +99,12 @@ export function TablePageLayout({
   const hasPageHeader = Boolean(description || actions || breadcrumb);
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+    // Measured from leads-list-default-scroll-left-….png: the toolbar sits 13px below
+    // the navbar and the table 12px below the toolbar, so the header row starts 108px
+    // from the top of the content area — 10/10/97 at the chosen density (ADR-0076).
+    // The bottom inset keeps the clearance the reference leaves between the card and
+    // the viewport edge.
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2.5 px-4 pt-2.5 pb-4 lg:px-6 lg:pb-5">
       {hasPageHeader && (
         <PageHeader
           title={title}
@@ -148,7 +153,7 @@ export function TablePageLayout({
             page count. A `border-t` separates it from the rows and its `px-4` aligns
             with the table cells, so it reads as the card's own footer. */}
         {pagination && (
-          <div className="border-t border-hairline px-4 py-3">
+          <div className="border-t border-hairline px-4 py-2">
             <Pagination
               page={pagination.page}
               pageCount={pagination.pageCount}

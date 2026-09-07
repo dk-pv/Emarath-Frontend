@@ -32,7 +32,7 @@ export function Toolbar({
           width, right-aligned by the outer `justify-between`. */}
       <div
         className={cn(
-          "flex min-w-0 flex-wrap items-center justify-end gap-2",
+          "flex min-w-0 flex-wrap items-center justify-end gap-1",
           rightClassName,
         )}
       >

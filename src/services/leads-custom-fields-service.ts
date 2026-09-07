@@ -1,8 +1,20 @@
 import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
 
-/** The five custom-column field types (LEAD-05.1), mirroring the backend enum. */
+/** The six custom-field types (LEAD-05.1 + ADR-0072), mirroring the backend enum. */
 export type LeadCustomFieldType =
-  "TEXT" | "TEXTBOX" | "NUMBER" | "DATE" | "DATETIME";
+  | "TEXT"
+  | "TEXTBOX"
+  | "NUMBER"
+  | "DATE"
+  | "DATETIME"
+  | "DROP_DOWN";
+
+/** One selectable value of a DROP_DOWN field, in its configured order. */
+export interface LeadCustomFieldOption {
+  id: string;
+  label: string;
+  position: number;
+}
 
 /**
  * A user-defined custom column (LEAD-05.1), mirroring the backend `LeadCustomFieldDto`.
@@ -15,6 +27,9 @@ export interface LeadCustomField {
   name: string;
   type: LeadCustomFieldType;
   position: number;
+  isActive: boolean;
+  /** Always present; empty for every type but DROP_DOWN. */
+  options: LeadCustomFieldOption[];
 }
 
 /** The active custom columns in display order (`GET /api/lead-custom-fields`). */

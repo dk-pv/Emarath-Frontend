@@ -72,7 +72,10 @@ function AssignedAgents({
  */
 // `left-10` = the checkbox column's 40px, which the Leads list pins at `left-0` with the same
 // classes (`selection.cellClassName`), so checkbox + name freeze as one block.
-const STICKY_FIRST = "sticky left-10 z-10 bg-surface group-hover:bg-canvas";
+// The `border-r` is the 1px rule the reference draws down the frozen column's right
+// edge (x=505 in the capture), header included.
+const STICKY_FIRST =
+  "sticky left-10 z-10 border-r border-hairline bg-surface group-hover:bg-canvas";
 
 /**
  * The Leads list columns in Workpex's full left-to-right order (LEAD-02.2), built

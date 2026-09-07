@@ -40,7 +40,7 @@ export function CustomerNameLink({
       href={from ? `/leads/${leadId}?from=${from}` : `/leads/${leadId}`}
       target={newTab ? "_blank" : undefined}
       rel={newTab ? "noopener" : undefined}
-      className="font-medium text-ink underline decoration-1 underline-offset-2 hover:text-ink-muted focus-ring rounded-sm transition-colors duration-(--duration-shell) ease-shell"
+      className="text-ink-soft underline decoration-1 underline-offset-2 hover:text-ink focus-ring rounded-sm transition-colors duration-(--duration-shell) ease-shell"
     >
       {name}
     </Link>

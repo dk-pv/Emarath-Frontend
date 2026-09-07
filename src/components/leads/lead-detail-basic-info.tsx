@@ -205,7 +205,6 @@ export function LeadDetailBasicInfo({
           initials={initialsOf(lead.name)}
           shape="square"
           size="lg"
-          className="size-16"
         />
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="truncate font-semibold text-ink">{lead.name}</span>

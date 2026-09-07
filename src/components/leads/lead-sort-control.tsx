@@ -54,7 +54,7 @@ export function LeadSortControl({
   };
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative flex">
       <div className={cn(TOOLBAR_BUTTON_CLASS, "gap-1.5")}>
         <button
           type="button"
@@ -63,7 +63,7 @@ export function LeadSortControl({
           onClick={toggle}
           className="focus-ring-inset flex items-center gap-1.5 rounded-control"
         >
-          <IconArrowsSort size={18} stroke={1.75} />
+          <IconArrowsSort size={16} stroke={1.75} />
           Sort
         </button>
         {isActive && (

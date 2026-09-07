@@ -81,7 +81,7 @@ export function LeadExportMenu({ onExport }: LeadExportMenuProps) {
   useDismissable(root, isOpen, close);
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative flex">
       <button
         type="button"
         aria-haspopup="menu"
@@ -89,7 +89,7 @@ export function LeadExportMenu({ onExport }: LeadExportMenuProps) {
         onClick={toggle}
         className={TOOLBAR_BUTTON_CLASS}
       >
-        <IconFileExport size={18} stroke={1.75} />
+        <IconFileExport size={16} stroke={1.75} />
         Export
       </button>
 

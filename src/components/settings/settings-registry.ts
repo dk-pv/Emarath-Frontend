@@ -207,7 +207,13 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
       "Customize fields, forms, and data imports to structure system information.",
     icon: IconDatabase,
     accent: "fuchsia",
-    items: [{ label: "Custom Field" }, { label: "Form Customization" }],
+    items: [
+      { label: "Custom Field", href: "/settings/data-schema/custom-field" },
+      {
+        label: "Form Customization",
+        href: "/settings/data-schema/form-customization",
+      },
+    ],
   },
   {
     key: "application-controls",
@@ -217,8 +223,14 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: IconSettings,
     accent: "green",
     items: [
-      { label: "Application General Settings" },
-      { label: "Dashboard Settings" },
+      {
+        label: "Application General Settings",
+        href: "/settings/application-controls/application-general-settings",
+      },
+      {
+        label: "Dashboard Settings",
+        href: "/settings/application-controls/dashboard-settings",
+      },
     ],
   },
 ];

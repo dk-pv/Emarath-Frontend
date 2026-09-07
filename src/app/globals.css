@@ -8,6 +8,12 @@
  * screenshot pixel equals one CSS pixel). Odd values such as 61.2px and 20.4px are
  * the measurement, not a rounding mistake — do not "tidy" them.
  *
+ * DENSITY (ADR-0076): the owner compares Emarath against Workpex viewed at 90% browser
+ * zoom and chose that as the product's density. The shell and small-control tokens
+ * below are therefore the 1:1 measurements × 0.9, rounded to whole pixels — a real
+ * dimension in every case, never a transform. The 1:1 values are kept in the comments
+ * so the factor can be removed in one pass.
+ *
  * Nothing in the shell may hardcode a raw pixel value: add a token here instead.
  */
 @theme {
@@ -23,6 +29,10 @@
   --color-ink: #1b1b1b;
   --color-ink-muted: #6b7280;
   --color-ink-subtle: #9ca3af;
+  /* Table body, name links and toolbar labels — sampled from
+     leads-list-default-scroll-left-….png. Lighter than --color-ink, which Workpex keeps
+     for the page title, the column headers and the footer's row count. */
+  --color-ink-soft: #505050;
   --color-badge: #fb8585;
   --color-toggle-glyph: #eef8ef;
   --color-surface: #ffffff;
@@ -55,16 +65,22 @@
      which is the radio. Workpex draws a square box — see the header and row checkboxes in
      leads-list-all-rows-selected-bulk-action-bar.png. */
   --radius-check: 4px;
-  --spacing-control-sm: 32px;
+  /* 32px at 1:1; 28 at the chosen density. The height of every toolbar-row control
+     (pills, tabs, switchers, the New Lead button) and the list's Assigned avatar. */
+  --spacing-control-sm: 28px;
   --spacing-control-md: 40px;
   --spacing-control-lg: 48px;
   --spacing-field-x: 12px;
   --spacing-badge-dot: 18px;
+  /* The Lead Status pill is a FIXED width in Workpex — every badge is the same 113px
+     box and a long status truncates inside it ("READY TO DISP.."), measured from
+     leads-list-default-scroll-left-….png. */
+  --spacing-status-badge: 102px; /* 113 at 1:1 */
 
   /* Shell frame */
-  --spacing-sidebar: 230px;
-  --spacing-sidebar-collapsed: 88px;
-  --spacing-navbar: 53px;
+  --spacing-sidebar: 207px; /* 230 at 1:1 */
+  --spacing-sidebar-collapsed: 79px; /* 88 */
+  --spacing-navbar: 48px; /* 53 */
 
   /* Sidebar internals. --spacing-nav-item is the FIXED row height, measured from the active
      "Leads" row in leads-list-default-scroll-left-…png (60px; the Dashboard→Leads centre pitch
@@ -72,32 +88,32 @@
      it does NOT stretch them to fill the rail — so the rows must not flex-grow, or on a tall
      viewport each row balloons well past 60px and the sidebar reads bulkier than Workpex.
      Inset/gap are shared with the Navbar. */
-  --spacing-brand-block: 60px;
+  --spacing-brand-block: 54px; /* 60 */
   /* Left inset of the 36px brand tile, chosen so the tile's centre (inset + 18) sits on the
      nav-icon centre column (pl-nav-inset 32 + icon 20/2 = 42), aligning the logo with the rail. */
-  --spacing-brand-inset: 24px;
-  --spacing-nav-item: 60px;
-  --spacing-nav-inset: 32px;
-  --spacing-nav-gap: 14px;
-  --spacing-nav-icon: 20px;
+  --spacing-brand-inset: 22px; /* 24 */
+  --spacing-nav-item: 54px; /* 60 */
+  --spacing-nav-inset: 29px; /* 32 */
+  --spacing-nav-gap: 13px; /* 14 */
+  --spacing-nav-icon: 18px; /* 20 */
 
   /* Collapse handle */
-  --spacing-toggle-w: 12px;
-  --spacing-toggle-h: 202px;
-  --spacing-toggle-top: 203px;
+  --spacing-toggle-w: 11px; /* 12 */
+  --spacing-toggle-h: 182px; /* 202 */
+  --spacing-toggle-top: 183px; /* 203 */
 
   /* Navbar internals */
-  --spacing-navbar-inset: 28px;
-  --spacing-navbar-edge: 32px;
-  --spacing-navbar-gap: 19px;
-  --spacing-control: 36px;
-  --spacing-navbar-icon: 23px;
+  --spacing-navbar-inset: 25px; /* 28 */
+  --spacing-navbar-edge: 29px; /* 32 */
+  --spacing-navbar-gap: 17px; /* 19 */
+  --spacing-control: 32px; /* 36 */
+  --spacing-navbar-icon: 21px; /* 23 */
 
   /* Type */
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --text-nav: 14px;
-  --text-nav--line-height: 20px;
-  --text-title: 27px;
+  --text-nav: 13px; /* 14 */
+  --text-nav--line-height: 18px; /* 20 */
+  --text-title: 24px; /* 27 */
   --text-title--line-height: 1;
 
   /* Motion — Workpex timings are not measurable from stills. See ADR-0005. */

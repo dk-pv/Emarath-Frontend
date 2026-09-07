@@ -414,7 +414,7 @@ export function LeadFilterBuilder({
   );
 
   return (
-    <div className="relative">
+    <div className="relative flex">
       <button
         ref={triggerRef}
         type="button"
@@ -428,9 +428,9 @@ export function LeadFilterBuilder({
           open && "bg-brand-subtle",
         )}
       >
-        <IconFilter size={18} stroke={1.75} />
+        <IconFilter size={16} stroke={1.75} />
         Filter
-        <IconChevronDown size={16} stroke={1.75} className="text-ink-muted" />
+        <IconChevronDown size={14} stroke={1.75} className="text-ink-muted" />
         {activeCount > 0 && (
           <Badge tone="brand" aria-label={`${activeCount} active filters`}>
             {activeCount}

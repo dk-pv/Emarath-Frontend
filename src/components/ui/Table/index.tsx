@@ -77,8 +77,8 @@ const HEADER_ALIGN: Record<Align, string> = {
 
 /**
  * Cells never wrap, so the table grows past a narrow ResponsiveTableContainer and
- * scrolls. `py-1.5` keeps a row at Workpex's measured 44px pitch (the 32px assigned
- * avatar drives the height): 32 + 2×6 = 44, versus the 57px the old `py-3` produced.
+ * scrolls. `py-1.5` keeps a row at 41px — Workpex's measured 44px pitch at the chosen
+ * density (ADR-0076); the 28px assigned avatar drives the height: 28 + 2×6 + 1.
  */
 const CELL_CLASS = "px-4 py-1.5 whitespace-nowrap";
 
@@ -285,7 +285,7 @@ export function Table<TRow>({
   }
 
   return (
-    <table className="w-full border-collapse text-sm text-ink">
+    <table className="w-full border-collapse text-sm text-ink-soft">
       {/* Sticky header: when the table body scrolls inside a bounded container
           (TablePageLayout gives it one), the column headers stay pinned. `z-20`
           on the thead lifts the whole header — corner included — above the
@@ -326,12 +326,15 @@ export function Table<TRow>({
                 aria-sort={ariaSortFor(column, sort)}
                 className={cn(
                   // Title case, not uppercase: Workpex shows the column names as
-                  // configured (e.g. "Customer Name"), never transformed. `py-4`
-                  // keeps the header at Workpex's measured 47px — a touch taller
-                  // than the 44px body rows. `bg-canvas` makes the sticky header
-                  // opaque; a sticky first column's own bg-surface still wins here
-                  // (cn is tailwind-merge, last class wins).
-                  "bg-canvas px-4 py-4 text-xs font-medium whitespace-nowrap text-ink-muted",
+                  // configured (e.g. "Customer Name"), never transformed. The header
+                  // text is body-sized and ink-dark in the reference (4x crop of
+                  // leads-list-default-scroll-left-….png: 11.5px caps, #1b1b1b), and
+                  // `py-3` around its 20px line keeps the row at 44px — the measured
+                  // 48px at the chosen density (ADR-0076), a touch taller than the 41px
+                  // body rows. `bg-canvas` makes the
+                  // sticky header opaque; a sticky first column's own bg-surface still
+                  // wins here (cn is tailwind-merge, last class wins).
+                  "bg-canvas px-4 py-3 text-sm font-normal whitespace-nowrap text-ink",
                   CELL_ALIGN[align],
                   column.className,
                   column.headerClassName,
@@ -371,7 +374,12 @@ export function Table<TRow>({
                     )}
                   </button>
                 ) : (
-                  <span className={cn(column.headerAccessory && "inline-flex items-center gap-1.5")}>
+                  <span
+                    className={cn(
+                      column.headerAccessory &&
+                        "inline-flex items-center gap-1.5",
+                    )}
+                  >
                     {column.header}
                     {column.headerAccessory}
                     {column.subheader && (

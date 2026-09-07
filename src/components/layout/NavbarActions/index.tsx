@@ -38,14 +38,14 @@ export function NavbarActions() {
           aria-label={label}
           className={CONTROL_CLASS}
         >
-          <IconComponent size={23} stroke={1.75} />
+          <IconComponent size={21} stroke={1.75} />
         </button>
       ))}
 
       <NotificationMenu />
 
       <button type="button" aria-label="Help" className={CONTROL_CLASS}>
-        <IconHelpCircle size={23} stroke={1.75} />
+        <IconHelpCircle size={21} stroke={1.75} />
       </button>
 
       <UserMenu />

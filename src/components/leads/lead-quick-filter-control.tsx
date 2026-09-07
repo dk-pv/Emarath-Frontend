@@ -45,7 +45,7 @@ export function LeadQuickFilterControl({
   const isActive = activePreset !== undefined;
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative flex">
       <div
         className={cn(
           TOOLBAR_BUTTON_CLASS,
@@ -61,7 +61,7 @@ export function LeadQuickFilterControl({
           onClick={toggle}
           className="focus-ring-inset flex items-center gap-1.5 rounded-control"
         >
-          <IconFilter size={18} stroke={1.75} />
+          <IconFilter size={16} stroke={1.75} />
           {activePreset ? activePreset.label : "Quick Filter"}
         </button>
         {isActive && (

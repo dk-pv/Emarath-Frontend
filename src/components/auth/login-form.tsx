@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/components/auth/auth-context";
 import { ApiError } from "@/lib/api-client";
 import { EMAIL_PATTERN } from "@/lib/validation";
+import { fetchLoginPolicy } from "@/services/application-controls-service";
 
 /**
  * The sign-in form (AUTH-01.6). Validates client-side, then hands credentials to the
@@ -34,6 +35,35 @@ export function LoginForm() {
   );
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  /**
+   * Settings → Application Controls → "Enable Auto-save Password". Off (the shipped
+   * default) means the browser is not offered the credentials to remember, which is
+   * what `autoComplete="off"` on both fields asks for.
+   *
+   * Read from the one unauthenticated policy route, and deliberately fail-soft: an
+   * unreachable setting leaves the form exactly as it behaves today rather than
+   * standing between anyone and signing in.
+   */
+  const [autoSavePassword, setAutoSavePassword] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    fetchLoginPolicy(controller.signal)
+      .then((policy) => {
+        if (active) setAutoSavePassword(policy.autoSavePassword);
+      })
+      .catch(() => {
+        /* the default already stands */
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
 
   function validate(): boolean {
     const next: { email?: string; password?: string } = {};
@@ -90,7 +120,7 @@ export function LoginForm() {
               type="email"
               name="email"
               size="lg"
-              autoComplete="email"
+              autoComplete={autoSavePassword ? "email" : "off"}
               placeholder="you@company.com"
               className="pl-10"
               value={email}
@@ -118,7 +148,7 @@ export function LoginForm() {
               type={showPassword ? "text" : "password"}
               name="password"
               size="lg"
-              autoComplete="current-password"
+              autoComplete={autoSavePassword ? "current-password" : "off"}
               placeholder="Enter your password"
               className="pr-10 pl-10"
               value={password}

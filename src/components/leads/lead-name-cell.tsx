@@ -29,7 +29,7 @@ export function LeadNameCell({ lead }: { lead: LeadListItem }) {
       <button
         type="button"
         onClick={() => detail.onOpen(lead)}
-        className="focus-ring rounded-sm text-left font-medium text-ink underline decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:text-ink-muted"
+        className="focus-ring rounded-sm text-left text-ink-soft underline decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:text-ink"
       >
         {lead.name}
       </button>

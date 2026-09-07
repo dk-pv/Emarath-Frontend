@@ -57,7 +57,7 @@ export function ToolbarSearch({
         onClick={() => setOpen(true)}
         className={TOOLBAR_BUTTON_CLASS}
       >
-        <IconSearch size={18} stroke={1.75} />
+        <IconSearch size={16} stroke={1.75} />
         Search
       </button>
     );

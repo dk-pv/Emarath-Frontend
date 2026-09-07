@@ -51,9 +51,15 @@ export function LeadStatusProvider({
   return <StatusContext value={value}>{children}</StatusContext>;
 }
 
-/** Same pill geometry as Workpex — rounded-full, small, medium weight. */
+/**
+ * Same pill geometry as Workpex: a fixed 102x18 box with 6px corners (not a capsule) —
+ * the measured 113x21 at the chosen density (ADR-0076) —
+ * the label centred and truncated when it does not fit — the reference's "READY TO
+ * DISP..". A fixed width is what keeps the Lead Status column the same width whatever
+ * statuses a page happens to hold.
+ */
 const BADGE_CLASS =
-  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
+  "inline-flex h-4.5 w-status-badge max-w-full items-center justify-center rounded-md px-2 text-xs font-medium";
 
 export function LeadStatusBadge({ lead }: { lead: LeadListItem }) {
   const ctx = useContext(StatusContext);
@@ -62,7 +68,11 @@ export function LeadStatusBadge({ lead }: { lead: LeadListItem }) {
 
   // No provider (e.g. reused outside the list): a plain, non-interactive pill.
   if (!ctx) {
-    return <span className={cn(BADGE_CLASS, badgeCls)}>{lead.status}</span>;
+    return (
+      <span className={cn(BADGE_CLASS, badgeCls)}>
+        <span className="truncate">{lead.status}</span>
+      </span>
+    );
   }
 
   return <InteractiveStatusBadge lead={lead} ctx={ctx} badgeCls={badgeCls} />;
@@ -153,7 +163,7 @@ function InteractiveStatusBadge({
           pending && "opacity-60",
         )}
       >
-        {lead.status}
+        <span className="truncate">{lead.status}</span>
         {pending && (
           <IconLoader2 size={12} className="animate-spin" aria-hidden="true" />
         )}

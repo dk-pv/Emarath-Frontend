@@ -75,12 +75,17 @@ function summaryText(
   return `Showing ${formatCount(first)} to ${formatCount(last)} of ${formatCount(total)} rows`;
 }
 
+/**
+ * Measured from leads-list-default-scroll-left-….png: page numbers are plain ink text
+ * with no box, the current page alone sits in a 29px brand-green circle with white
+ * text, and the arrows are bare chevrons. 26px is that circle at the chosen density
+ * (ADR-0076).
+ */
 const PAGE_BUTTON =
-  "flex size-control-sm shrink-0 items-center justify-center rounded-control border border-hairline bg-surface text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring disabled:cursor-not-allowed disabled:text-ink-subtle disabled:hover:bg-surface";
+  "flex size-6.5 shrink-0 items-center justify-center rounded-full text-sm text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring disabled:cursor-not-allowed disabled:text-ink-subtle disabled:hover:bg-transparent";
 
-/** Brand green is too light for white text — the active page keeps ink for contrast. */
 const PAGE_BUTTON_ACTIVE =
-  "border-brand bg-brand font-medium text-ink hover:bg-brand-strong";
+  "bg-brand font-medium text-white hover:bg-brand-strong";
 
 export function Pagination({
   page,
@@ -104,12 +109,12 @@ export function Pagination({
           LEFT of the footer, with the page numbers alone on the right. */}
       <div className="flex flex-wrap items-center gap-3">
         {pageSize !== undefined && onPageSizeChange ? (
-          <label className="flex items-center gap-2 text-sm text-ink-muted">
+          <label className="flex items-center gap-2 text-sm text-ink">
             <span className="whitespace-nowrap">Rows per page</span>
             <select
               value={pageSize}
               onChange={(event) => onPageSizeChange(Number(event.target.value))}
-              className="h-control-sm rounded-control border border-hairline bg-surface px-2 text-sm text-ink focus-ring"
+              className="h-6.5 rounded-control border border-hairline bg-surface px-2 text-sm text-ink focus-ring"
             >
               {sizeOptions.map((option) => (
                 <option key={option} value={option}>
@@ -121,7 +126,7 @@ export function Pagination({
         ) : null}
 
         {total === undefined ? null : (
-          <p className="text-sm text-ink-muted">
+          <p className="text-sm text-ink">
             {summaryText(total, page, pageSize)}
           </p>
         )}
@@ -162,7 +167,7 @@ export function Pagination({
                 <li
                   key={item}
                   aria-hidden="true"
-                  className="flex size-control-sm shrink-0 items-center justify-center text-ink-subtle"
+                  className="flex size-6.5 shrink-0 items-center justify-center text-ink-subtle"
                 >
                   …
                 </li>

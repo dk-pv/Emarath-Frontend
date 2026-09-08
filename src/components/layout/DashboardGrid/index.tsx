@@ -10,7 +10,7 @@ export function DashboardGrid({ children, className }: DashboardGridProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-6 xl:grid-cols-3 [&>*]:min-w-0",
+        "grid grid-cols-1 gap-3 md:grid-cols-2 lg:gap-4 xl:grid-cols-3 [&>*]:min-w-0",
         className,
       )}
     >

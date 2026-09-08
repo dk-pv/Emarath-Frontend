@@ -138,7 +138,7 @@ function ReportHeader({
         aria-label="Back to reports"
         className="flex size-control-md shrink-0 items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring"
       >
-        <IconArrowLeft size={20} stroke={1.75} aria-hidden="true" />
+        <IconArrowLeft size={16} stroke={1.75} aria-hidden="true" />
       </Link>
 
       <Dropdown
@@ -158,7 +158,7 @@ function ReportHeader({
       />
 
       <IconChevronRight
-        size={20}
+        size={16}
         stroke={1.75}
         className="shrink-0 text-ink-subtle"
         aria-hidden="true"

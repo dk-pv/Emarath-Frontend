@@ -19,7 +19,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex size-full flex-col items-center justify-center gap-2 p-6 text-center",
+        "flex size-full flex-col items-center justify-center gap-2 p-5 text-center",
         className,
       )}
       {...props}
@@ -28,7 +28,7 @@ export function EmptyState({
         <IconComponent
           aria-hidden="true"
           stroke={1.5}
-          className="size-8 text-ink-subtle"
+          className="size-7 text-ink-subtle"
         />
       )}
       <p className="text-sm font-semibold text-ink">{title}</p>

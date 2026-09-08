@@ -16,7 +16,7 @@ export function PageHeader({
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         {breadcrumb ? <div className="mb-2">{breadcrumb}</div> : null}
-        <h2 className="truncate text-lg font-semibold text-ink">{title}</h2>
+        <h2 className="truncate text-base font-semibold text-ink">{title}</h2>
         {description ? (
           <p className="mt-1 text-sm text-ink-muted">{description}</p>
         ) : null}

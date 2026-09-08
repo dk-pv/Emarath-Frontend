@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-context";
 
 /**
- * Workpex renders in a geometric sans with a single-storey 'a'. Poppins matches that
- * skeleton, and its 0.70 cap-height ratio reproduces the measured cap heights (12px
- * at 17px nav text, 19px at 27px page titles) — but the licensed face itself has not
- * been supplied. See "Assets Required" for FND-02.2.
+ * Workpex's own face, identified from its stylesheet rather than inferred (2026-09-08):
+ * `app.workpex.com/build/assets/app-6jCTq0Gd.css` sets
+ * `body { font-family: Plus Jakarta Sans, sans-serif !important }` and imports
+ * `fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700`.
+ * Those are the four weights loaded here. (Its `--font-sans` names Instrument Sans —
+ * the Laravel starter default, which that `!important` body rule overrides.)
+ *
+ * This replaces Poppins, which was a guess at "a geometric sans with a single-storey a"
+ * and ran materially wider at the same cap height (ADR-0075, ADR-0077).
  */
-const poppins = Poppins({
-  variable: "--font-poppins",
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -26,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${poppins.variable} h-full antialiased`}>
+    <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
       <body className="font-sans">
         <AuthProvider>{children}</AuthProvider>
       </body>

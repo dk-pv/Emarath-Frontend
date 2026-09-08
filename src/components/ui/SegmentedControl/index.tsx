@@ -62,7 +62,7 @@ export function SegmentedControl<T extends string>({
                 : "text-ink-muted hover:bg-canvas hover:text-ink",
             )}
           >
-            {Glyph && <Glyph size={18} stroke={1.75} aria-hidden="true" />}
+            {Glyph && <Glyph size={16} stroke={1.75} aria-hidden="true" />}
             {iconOnly ? <span className="sr-only">{label}</span> : label}
           </button>
         );

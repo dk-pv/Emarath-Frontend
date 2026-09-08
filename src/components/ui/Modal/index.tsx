@@ -143,8 +143,8 @@ export function Modal({
           SIZE_CLASS[size],
         )}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-hairline p-5">
-          <h2 id={titleId} className="text-lg font-semibold text-ink">
+        <header className="flex items-start justify-between gap-3 border-b border-hairline p-4">
+          <h2 id={titleId} className="text-base font-semibold text-ink">
             {title}
           </h2>
           <button
@@ -157,12 +157,12 @@ export function Modal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 text-sm text-ink scrollbar-slim">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 text-sm text-ink scrollbar-slim">
           {children}
         </div>
 
         {footer && (
-          <footer className="flex items-center justify-end gap-3 border-t border-hairline p-5">
+          <footer className="flex items-center justify-end gap-3 border-t border-hairline p-4">
             {footer}
           </footer>
         )}

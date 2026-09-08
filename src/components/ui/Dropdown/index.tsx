@@ -114,7 +114,7 @@ export function Dropdown({
                   )}
                 >
                   {ItemIcon && (
-                    <ItemIcon size={20} stroke={1.75} className="shrink-0" />
+                    <ItemIcon size={16} stroke={1.75} className="shrink-0" />
                   )}
                   {item.label}
                 </div>
@@ -144,7 +144,7 @@ export function Dropdown({
               >
                 <span className="flex min-w-0 items-center gap-3">
                   {ItemIcon && (
-                    <ItemIcon size={20} stroke={1.75} className="shrink-0" />
+                    <ItemIcon size={16} stroke={1.75} className="shrink-0" />
                   )}
                   {item.label}
                   {item.selected && (
@@ -153,7 +153,7 @@ export function Dropdown({
                 </span>
                 {item.selected && (
                   <IconCheck
-                    size={18}
+                    size={16}
                     stroke={2}
                     className="shrink-0 text-brand-strong"
                     aria-hidden="true"

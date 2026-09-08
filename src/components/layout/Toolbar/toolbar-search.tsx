@@ -193,7 +193,7 @@ function ScopeSelect({ scope }: { scope: ToolbarSearchScope }) {
                     close();
                   }}
                   className={cn(
-                    "flex w-full items-center px-5 py-2 text-left text-base whitespace-nowrap text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring-inset",
+                    "flex w-full items-center px-4 py-2 text-left text-sm whitespace-nowrap text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring-inset",
                     selected && "font-semibold",
                   )}
                 >

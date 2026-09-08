@@ -47,9 +47,9 @@ export function PipelinesView() {
   const [reloadToken, setReloadToken] = useState(0);
 
   /** Non-null while the wizard is open: the pipeline being edited, or null to create. */
-  const [wizard, setWizard] = useState<{ pipeline: PipelineNode | null } | null>(
-    null,
-  );
+  const [wizard, setWizard] = useState<{
+    pipeline: PipelineNode | null;
+  } | null>(null);
   const [deleting, setDeleting] = useState<PipelineNode | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,126 +126,128 @@ export function PipelinesView() {
   };
 
   const columns: TableColumn<PipelineNode>[] = [
-      {
-        key: "name",
-        header: "Name",
-        render: (row) => (
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-ink">{row.name}</span>
-            {row.isDefault && (
-              <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
-                Default
-              </span>
-            )}
+    {
+      key: "name",
+      header: "Name",
+      render: (row) => (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-ink">{row.name}</span>
+          {row.isDefault && (
+            <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+              Default
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "leads",
+      header: "Leads",
+      render: (row) => (
+        <span className="text-ink">{row.leadCount.toLocaleString()}</span>
+      ),
+    },
+    {
+      key: "createdBy",
+      header: "Created By",
+      render: (row) => (
+        <span className="flex min-w-0 items-center gap-2">
+          {/* The reference shows the product mark beside each author's name. */}
+          <span
+            aria-hidden="true"
+            className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-[10px] font-bold text-brand-strong"
+          >
+            E
           </span>
-        ),
+          <span className="truncate text-ink">
+            {row.createdByName ?? "System"}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: "createdAt",
+      header: "Date and Time",
+      render: (row) => {
+        const stamp = formatPipelineStamp(row.createdAt);
+        return (
+          <span className="flex flex-col leading-tight">
+            <span className="text-ink">{stamp.date}</span>
+            <span className="text-ink-muted">{stamp.time}</span>
+          </span>
+        );
       },
-      {
-        key: "leads",
-        header: "Leads",
-        render: (row) => (
-          <span className="text-ink">{row.leadCount.toLocaleString()}</span>
-        ),
-      },
-      {
-        key: "createdBy",
-        header: "Created By",
-        render: (row) => (
-          <span className="flex min-w-0 items-center gap-2">
-            {/* The reference shows the product mark beside each author's name. */}
-            <span
-              aria-hidden="true"
-              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-[10px] font-bold text-brand-strong"
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      className: "w-36",
+      render: (row) => (
+        <span className="flex items-center gap-1">
+          <Tooltip content="Edit">
+            <button
+              type="button"
+              aria-label={`Edit ${row.name}`}
+              onClick={() => setWizard({ pipeline: row })}
+              className="focus-ring flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink"
             >
-              E
-            </span>
-            <span className="truncate text-ink">
-              {row.createdByName ?? "System"}
-            </span>
-          </span>
-        ),
-      },
-      {
-        key: "createdAt",
-        header: "Date and Time",
-        render: (row) => {
-          const stamp = formatPipelineStamp(row.createdAt);
-          return (
-            <span className="flex flex-col leading-tight">
-              <span className="text-ink">{stamp.date}</span>
-              <span className="text-ink-muted">{stamp.time}</span>
-            </span>
-          );
-        },
-      },
-      {
-        key: "actions",
-        header: "Actions",
-        className: "w-36",
-        render: (row) => (
-          <span className="flex items-center gap-1">
-            <Tooltip content="Edit">
-              <button
-                type="button"
-                aria-label={`Edit ${row.name}`}
-                onClick={() => setWizard({ pipeline: row })}
-                className="focus-ring flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink"
-              >
-                <IconPencil size={16} stroke={1.75} aria-hidden="true" />
-              </button>
-            </Tooltip>
+              <IconPencil size={16} stroke={1.75} aria-hidden="true" />
+            </button>
+          </Tooltip>
 
-            {/*
+          {/*
               The reference shows a filled green check on the default row and a hollow one
               elsewhere, whose tooltip reads "Make Default". The default's own control is
               inert — it already is the default — so it is disabled rather than clickable.
             */}
-            <Tooltip content={row.isDefault ? "Default pipeline" : "Make Default"}>
-              <button
-                type="button"
-                aria-label={
-                  row.isDefault
-                    ? `${row.name} is the default pipeline`
-                    : `Make ${row.name} the default pipeline`
-                }
-                aria-pressed={row.isDefault}
-                disabled={row.isDefault || defaulting !== null}
-                onClick={() => void makeDefault(row)}
-                className="focus-ring flex size-7 items-center justify-center rounded-control transition-colors duration-(--duration-shell) ease-shell disabled:cursor-default enabled:hover:bg-canvas"
-              >
-                {row.isDefault ? (
-                  <IconCircleCheckFilled
-                    size={20}
-                    aria-hidden="true"
-                    className="text-green-500"
-                  />
-                ) : (
-                  <IconCircleCheck
-                    size={20}
-                    stroke={1.75}
-                    aria-hidden="true"
-                    className="text-ink-muted"
-                  />
-                )}
-              </button>
-            </Tooltip>
+          <Tooltip
+            content={row.isDefault ? "Default pipeline" : "Make Default"}
+          >
+            <button
+              type="button"
+              aria-label={
+                row.isDefault
+                  ? `${row.name} is the default pipeline`
+                  : `Make ${row.name} the default pipeline`
+              }
+              aria-pressed={row.isDefault}
+              disabled={row.isDefault || defaulting !== null}
+              onClick={() => void makeDefault(row)}
+              className="focus-ring flex size-7 items-center justify-center rounded-control transition-colors duration-(--duration-shell) ease-shell disabled:cursor-default enabled:hover:bg-canvas"
+            >
+              {row.isDefault ? (
+                <IconCircleCheckFilled
+                  size={16}
+                  aria-hidden="true"
+                  className="text-green-500"
+                />
+              ) : (
+                <IconCircleCheck
+                  size={16}
+                  stroke={1.75}
+                  aria-hidden="true"
+                  className="text-ink-muted"
+                />
+              )}
+            </button>
+          </Tooltip>
 
-            <Tooltip content="Delete">
-              <button
-                type="button"
-                aria-label={`Delete ${row.name}`}
-                onClick={() => {
-                  setDeleteError(null);
-                  setDeleting(row);
-                }}
-                className="focus-ring flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-danger"
-              >
-                <IconTrash size={16} stroke={1.75} aria-hidden="true" />
-              </button>
-            </Tooltip>
-          </span>
-        ),
-      },
+          <Tooltip content="Delete">
+            <button
+              type="button"
+              aria-label={`Delete ${row.name}`}
+              onClick={() => {
+                setDeleteError(null);
+                setDeleting(row);
+              }}
+              className="focus-ring flex size-7 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-danger"
+            >
+              <IconTrash size={16} stroke={1.75} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </span>
+      ),
+    },
   ];
 
   if (failed) {
@@ -336,7 +338,9 @@ export function PipelinesView() {
             </Button>
             <Button
               onClick={
-                blockedReason ? () => setDeleting(null) : () => void confirmDelete()
+                blockedReason
+                  ? () => setDeleting(null)
+                  : () => void confirmDelete()
               }
               isLoading={busy}
               aria-label={
@@ -356,8 +360,8 @@ export function PipelinesView() {
               <b className="font-semibold">{deleting?.name}</b>{" "}
               {blockedReason ?? (
                 <>
-                  will be permanently deleted, along with its stages. This cannot
-                  be undone.
+                  will be permanently deleted, along with its stages. This
+                  cannot be undone.
                 </>
               )}
             </p>

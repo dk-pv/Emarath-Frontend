@@ -29,7 +29,12 @@ export function DocumentBulkBar({
   busy = false,
 }: DocumentBulkBarProps) {
   const actions = [
-    { key: "access", label: "Manage Access", Icon: IconUsers, onClick: undefined },
+    {
+      key: "access",
+      label: "Manage Access",
+      Icon: IconUsers,
+      onClick: undefined,
+    },
     { key: "delete", label: "Delete", Icon: IconTrash, onClick: onDelete },
   ];
 
@@ -55,7 +60,7 @@ export function DocumentBulkBar({
             disabled={Boolean(onClick) && busy}
             className="flex flex-col items-center gap-1 rounded-control px-3 py-1.5 text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Icon size={22} stroke={1.6} aria-hidden="true" />
+            <Icon size={18} stroke={1.6} aria-hidden="true" />
             <span className="text-xs font-medium">{label}</span>
           </button>
         ))}

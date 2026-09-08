@@ -77,10 +77,11 @@ const HEADER_ALIGN: Record<Align, string> = {
 
 /**
  * Cells never wrap, so the table grows past a narrow ResponsiveTableContainer and
- * scrolls. `py-1.5` keeps a row at 41px — Workpex's measured 44px pitch at the chosen
- * density (ADR-0076); the 28px assigned avatar drives the height: 28 + 2×6 + 1.
+ * scrolls. `py-1.5` keeps a row at 39px — Workpex's measured 44px pitch at the chosen
+ * density (ADR-0076); the 26px assigned avatar drives the height: 26 + 2×6 + 1.
+ * `px-3.5` is the reference's 16px cell padding at that density.
  */
-const CELL_CLASS = "px-4 py-1.5 whitespace-nowrap";
+const CELL_CLASS = "px-3.5 py-1.5 whitespace-nowrap";
 
 /**
  * `w-px` collapses the checkbox column to its content — the data columns take the slack.
@@ -88,7 +89,7 @@ const CELL_CLASS = "px-4 py-1.5 whitespace-nowrap";
  * edge, so the table's left edge aligns with the page title the way Workpex does — its
  * checkbox sits at 257px against the 258px title, versus the 270px a full `px-4` produces.
  */
-const SELECT_CELL_CLASS = "w-px py-1.5 pr-4 pl-1";
+const SELECT_CELL_CLASS = "w-px py-1.5 pr-3.5 pl-1";
 
 const SKELETON_ROW_COUNT = 5;
 
@@ -329,12 +330,12 @@ export function Table<TRow>({
                   // configured (e.g. "Customer Name"), never transformed. The header
                   // text is body-sized and ink-dark in the reference (4x crop of
                   // leads-list-default-scroll-left-….png: 11.5px caps, #1b1b1b), and
-                  // `py-3` around its 20px line keeps the row at 44px — the measured
-                  // 48px at the chosen density (ADR-0076), a touch taller than the 41px
+                  // `py-2.75` around its 20px line keeps the row at 43px — the measured
+                  // 48px at the chosen density (ADR-0076), a touch taller than the 39px
                   // body rows. `bg-canvas` makes the
                   // sticky header opaque; a sticky first column's own bg-surface still
                   // wins here (cn is tailwind-merge, last class wins).
-                  "bg-canvas px-4 py-3 text-sm font-normal whitespace-nowrap text-ink",
+                  "bg-canvas px-3.5 py-2.75 text-sm font-normal whitespace-nowrap text-ink",
                   CELL_ALIGN[align],
                   column.className,
                   column.headerClassName,

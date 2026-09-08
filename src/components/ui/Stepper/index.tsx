@@ -34,7 +34,7 @@ export function Stepper({ steps, current }: StepperProps) {
               <span
                 aria-current={isActive ? "step" : undefined}
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-full text-sm font-medium",
+                  "flex size-7 items-center justify-center rounded-full text-sm font-medium",
                   isCompleted && "bg-brand text-white",
                   isActive && "bg-info text-white",
                   !isCompleted &&
@@ -46,7 +46,7 @@ export function Stepper({ steps, current }: StepperProps) {
               </span>
               <span
                 className={cn(
-                  "text-base font-medium whitespace-nowrap",
+                  "text-sm font-medium whitespace-nowrap",
                   isCompleted && "text-brand",
                   isActive && "text-info",
                   !isCompleted && !isActive && "text-ink-subtle",

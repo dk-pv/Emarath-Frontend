@@ -107,7 +107,7 @@ export type TabsProps = {
  * colour and white text (`ui-audit/activities.md` section 11) — not as an underlined strip.
  */
 const TAB_CLASS =
-  "focus-ring flex h-control-sm shrink-0 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink";
+  "focus-ring flex h-control-sm shrink-0 items-center rounded-full px-3 text-sm font-medium whitespace-nowrap text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink";
 
 const ACTIVE_TAB_CLASS = "bg-brand text-white hover:text-white";
 

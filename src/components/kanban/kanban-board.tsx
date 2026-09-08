@@ -370,9 +370,10 @@ function KanbanBoardView({
 /**
  * The horizontally scrolling column row — fills the remaining board height.
  *
- * `gap-[14px]` is Workpex's measured inter-column gap: in
- * `kanban-board-default-legend-tooltip-converted.png` the New column runs x257–526
- * and Initial Contact x540–809, so columns are 270px wide and 13–14px apart.
+ * `gap-[13px]` is Workpex's measured inter-column gap at the product's density: in
+ * `kanban-board-default-legend-tooltip-converted.png` the New column runs x259–526 and
+ * Initial Contact x542–809, so at 1:1 columns are 267px wide and 14–15px apart — 240
+ * and 13 once scaled to the density every other surface renders at (ADR-0076).
  *
  * `scrollbar-none` hides the track while wheel, shift+wheel, trackpad, drag and
  * keyboard scrolling stay live. Note this frees vertical, not horizontal, space —
@@ -380,7 +381,7 @@ function KanbanBoardView({
  */
 function ColumnRow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="scrollbar-none flex min-h-0 flex-1 gap-[14px] overflow-x-auto pb-2">
+    <div className="scrollbar-none flex min-h-0 flex-1 gap-[13px] overflow-x-auto pb-2">
       {children}
     </div>
   );
@@ -409,11 +410,11 @@ function RetryLink({ onClick }: { onClick: () => void }) {
 /** A column-shaped placeholder while the board loads (KAN-02.2 AC5). */
 function ColumnSkeleton() {
   return (
-    <section className="flex h-full w-[267px] shrink-0 flex-col">
-      <Skeleton className="h-10 w-full rounded-control" />
+    <section className="flex h-full w-[240px] shrink-0 flex-col">
+      <Skeleton className="h-[31px] w-full rounded-control" />
       <div className="mt-2 min-h-0 flex-1 space-y-3.5">
         {Array.from({ length: 3 }, (_, index) => (
-          <Skeleton key={index} className="h-[160px] w-full rounded-surface" />
+          <Skeleton key={index} className="h-[144px] w-full rounded-surface" />
         ))}
       </div>
     </section>

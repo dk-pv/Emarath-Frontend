@@ -91,7 +91,9 @@ export const KanbanColumn = memo(function KanbanColumn({
   return (
     <section
       className={cn(
-        "flex h-full w-[267px] shrink-0 flex-col",
+        // 267px is Workpex's measured column at 1:1; 240 is that at the product's
+        // density (ADR-0076), which is what every other surface already renders at.
+        "flex h-full w-[240px] shrink-0 flex-col",
         // Pinned = a frozen column (KAN-05.2): sticky at the board's left edge, over an
         // opaque canvas fill (matches the page, so scrolling cards pass invisibly
         // behind it), lifted above them with z, and set off by a right hairline.
@@ -120,7 +122,7 @@ export const KanbanColumn = memo(function KanbanColumn({
     >
       <header
         className={cn(
-          "flex items-center gap-2 rounded-control border px-3 py-2",
+          "flex items-center gap-2 rounded-control border px-2.5 py-1.5",
           colors.tint,
         )}
       >
@@ -128,8 +130,15 @@ export const KanbanColumn = memo(function KanbanColumn({
           className={cn("size-2.5 shrink-0 rounded-full", colors.swatch)}
           aria-hidden="true"
         />
-        <span className="truncate text-sm font-semibold text-ink">{stage}</span>
-        <span className="shrink-0 text-sm text-ink-muted">
+        {/* The column truncates a long stage name exactly as Workpex does ("Initial ..");
+            `title` keeps the full name reachable on hover. */}
+        <span
+          title={stage}
+          className="truncate text-[13px] font-semibold text-ink"
+        >
+          {stage}
+        </span>
+        <span className="shrink-0 text-[13px] text-ink-muted">
           | {formatAEDCompact(totalValue)}
         </span>
         <span className="ml-auto shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-ink-muted">
@@ -183,7 +192,7 @@ export const KanbanColumn = memo(function KanbanColumn({
           Array.from({ length: 3 }, (_, index) => (
             <Skeleton
               key={index}
-              className="h-[160px] w-full rounded-surface"
+              className="h-[144px] w-full rounded-surface"
             />
           ))
         ) : error ? (
@@ -207,7 +216,7 @@ export const KanbanColumn = memo(function KanbanColumn({
               rows.map((lead) => <KanbanCard key={lead.id} lead={lead} />)
             )}
             {loadingMore && (
-              <Skeleton className="h-[160px] w-full rounded-surface" />
+              <Skeleton className="h-[144px] w-full rounded-surface" />
             )}
 
             {/* Workpex closes every column with a dashed "+ Add Lead" row — measured
@@ -220,7 +229,7 @@ export const KanbanColumn = memo(function KanbanColumn({
               type="button"
               onClick={() => onAddLead(stage)}
               aria-label={`Add lead to ${stage}`}
-              className="focus-ring flex h-[30px] w-full shrink-0 items-center justify-center gap-1 rounded-control border border-dashed border-hairline text-xs text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:border-ink-subtle hover:text-ink"
+              className="focus-ring flex h-[27px] w-full shrink-0 items-center justify-center gap-1 rounded-control border border-dashed border-hairline text-xs text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:border-ink-subtle hover:text-ink"
             >
               <IconPlus size={14} stroke={2} aria-hidden="true" />
               Add Lead

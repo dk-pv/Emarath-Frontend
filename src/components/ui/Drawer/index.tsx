@@ -110,13 +110,13 @@ function DrawerPanel({
           aria-label="Close"
           className={CLOSE_CLASS}
         >
-          <IconX aria-hidden="true" stroke={2} className="size-5" />
+          <IconX aria-hidden="true" stroke={2} className="size-4.5" />
         </button>
 
         <div className="flex h-full w-full flex-col border-l border-hairline bg-surface shadow-xl">
           {header ?? (
-            <header className="p-5">
-              <h2 id={titleId} className="text-lg font-medium text-ink">
+            <header className="p-4">
+              <h2 id={titleId} className="text-base font-medium text-ink">
                 {title}
               </h2>
             </header>
@@ -126,7 +126,7 @@ function DrawerPanel({
             className={cn(
               "min-h-0 flex-1 text-sm text-ink",
               scrollBody
-                ? "overflow-y-auto px-5 pb-5 scrollbar-slim"
+                ? "overflow-y-auto px-4 pb-4 scrollbar-slim"
                 : "flex flex-col overflow-hidden",
             )}
           >
@@ -134,7 +134,7 @@ function DrawerPanel({
           </div>
 
           {footer && (
-            <footer className="flex items-center justify-end gap-3 border-t border-hairline p-5">
+            <footer className="flex items-center justify-end gap-3 border-t border-hairline p-4">
               {footer}
             </footer>
           )}

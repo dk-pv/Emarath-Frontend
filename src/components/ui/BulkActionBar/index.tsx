@@ -41,7 +41,7 @@ export function BulkActionBar({
     <div className="pointer-events-none sticky bottom-6 z-40 flex justify-center">
       <div className="pointer-events-auto relative flex items-center gap-1 rounded-3xl border border-hairline bg-surface py-2.5 pr-8 pl-3 shadow-lg">
         <div className="flex flex-col items-center px-4">
-          <span className="text-2xl leading-none font-bold text-ink">
+          <span className="text-xl leading-none font-bold text-ink">
             {count}
           </span>
           <span className="mt-1 text-sm font-semibold whitespace-nowrap text-ink">
@@ -60,7 +60,7 @@ export function BulkActionBar({
               disabled={Boolean(onClick) && busy}
               className="flex flex-col items-center gap-1 rounded-control px-3 py-1.5 text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <ActionIcon size={22} stroke={1.6} aria-hidden="true" />
+              <ActionIcon size={18} stroke={1.6} aria-hidden="true" />
               <span className="text-xs font-medium">{actionLabel}</span>
             </button>
           ),
@@ -70,9 +70,9 @@ export function BulkActionBar({
           type="button"
           aria-label="Clear selection"
           onClick={onClear}
-          className="focus-ring absolute top-1/2 right-0 flex size-9 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-brand text-surface shadow-md transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong"
+          className="focus-ring absolute top-1/2 right-0 flex size-8 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-brand text-surface shadow-md transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong"
         >
-          <IconX size={18} stroke={2.5} aria-hidden="true" />
+          <IconX size={16} stroke={2.5} aria-hidden="true" />
         </button>
       </div>
     </div>

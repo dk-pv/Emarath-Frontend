@@ -104,7 +104,7 @@ export const KanbanCard = memo(function KanbanCard({
         {/* The name is the most frequently clipped value on the card, so it names
             itself in full on hover (portalled, or the column's overflow would cut
             the panel off). */}
-        <p className="min-w-0 truncate text-sm font-medium">
+        <p className="min-w-0 truncate text-[13px] font-medium">
           <Tooltip content={lead.name} portal>
             <Link
               href={`/leads/${lead.id}`}
@@ -204,11 +204,15 @@ export const KanbanCard = memo(function KanbanCard({
         {lead.status}
       </span>
 
-      <p className="mt-1 text-base font-semibold text-ink">
+      {/* The card's headline. Workpex sets the amount well above every other value
+          on the card — a 15px cap against the phone's 9 on the 1:1 reference, i.e. ~21px
+          there and 19 at the product's density. It had been rendering at the same 14px
+          as the metadata, which flattened the card. */}
+      <p className="mt-1 text-[19px] leading-tight font-semibold text-ink">
         {formatAED(lead.actualAmount ?? 0, { digits: 0 })}
       </p>
 
-      <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted">
+      <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
         <IconPhone
           size={14}
           stroke={1.75}
@@ -229,7 +233,7 @@ export const KanbanCard = memo(function KanbanCard({
           the full text on hover. A lead with no address renders no row at all, so the
           card keeps its compact height. */}
       {location && (
-        <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted">
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
           <IconMapPin
             size={14}
             stroke={1.75}
@@ -251,7 +255,7 @@ export const KanbanCard = memo(function KanbanCard({
               name={agent.name}
               initials={initialsOf(agent.name)}
               size="sm"
-              className="size-5!"
+              className="size-4.5!"
             />
           </Tooltip>
         ) : (

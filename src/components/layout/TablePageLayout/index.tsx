@@ -104,7 +104,7 @@ export function TablePageLayout({
     // from the top of the content area — 10/10/97 at the chosen density (ADR-0076).
     // The bottom inset keeps the clearance the reference leaves between the card and
     // the viewport edge.
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2.5 px-4 pt-2.5 pb-4 lg:px-6 lg:pb-5">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3 px-4 pt-2.5 pb-4 lg:px-6 lg:pb-5">
       {hasPageHeader && (
         <PageHeader
           title={title}

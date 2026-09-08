@@ -8,7 +8,7 @@ const BASE_CLASS =
 const SIZE_CLASS: Record<Size, string> = {
   sm: "h-control-sm pl-field-x text-sm",
   md: "h-control-md pl-field-x text-sm",
-  lg: "h-control-lg pl-field-x text-base",
+  lg: "h-control-lg pl-field-x text-sm",
 };
 
 /** `size` is remapped from the native numeric attribute to the shared control scale. */

@@ -27,7 +27,7 @@ export function SettingsCard({ category }: { category: SettingsCategory }) {
             SETTINGS_ACCENTS[category.accent],
           )}
         >
-          <Glyph size={24} stroke={1.75} aria-hidden="true" />
+          <Glyph size={20} stroke={1.75} aria-hidden="true" />
         </span>
         <span className="rounded-control bg-gray-100 px-2.5 py-1 text-xs font-medium text-ink-muted">
           {category.items.length} Settings

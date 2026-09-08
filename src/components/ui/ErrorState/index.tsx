@@ -31,7 +31,7 @@ export function ErrorState({
       <IconAlertTriangle
         aria-hidden="true"
         stroke={1.5}
-        className="size-8 text-danger"
+        className="size-7 text-danger"
       />
       <p className="text-sm font-semibold text-ink">{title}</p>
       <p className="max-w-prose text-sm text-ink-muted">{description}</p>

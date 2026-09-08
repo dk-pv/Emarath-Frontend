@@ -21,7 +21,7 @@ export function Card({
 export function CardHeader({ className, ...props }: DivProps) {
   return (
     <div
-      className={cn("flex items-center justify-between gap-3 p-5", className)}
+      className={cn("flex items-center justify-between gap-3 p-4", className)}
       {...props}
     />
   );
@@ -33,7 +33,7 @@ export function CardTitle({
 }: React.ComponentPropsWithoutRef<"h3">) {
   return (
     <h3
-      className={cn("text-lg font-semibold text-ink", className)}
+      className={cn("text-base font-semibold text-ink", className)}
       {...props}
     />
   );

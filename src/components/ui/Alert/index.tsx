@@ -79,7 +79,7 @@ export function Alert({
       <IconComponent
         aria-hidden="true"
         stroke={1.75}
-        className={cn("mt-0.5 size-5 shrink-0", TONE_ICON_CLASS[tone])}
+        className={cn("mt-0.5 size-4.5 shrink-0", TONE_ICON_CLASS[tone])}
       />
       <div className="min-w-0 flex-1">
         {title && <p className="text-sm font-semibold text-ink">{title}</p>}

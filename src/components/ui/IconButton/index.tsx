@@ -6,13 +6,18 @@ export type IconButtonVariant = "ghost" | "outline";
 const BASE_CLASS =
   "inline-flex shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-(--duration-shell) ease-shell focus-ring hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-transparent disabled:hover:text-ink-muted";
 
-/** 20 / 24 / 28 / 32 / 36px — the icon-only control sizes measured across the Workpex references. */
+/**
+ * 20 / 24 / 28 / 32 / 36px measured across the Workpex references, at the chosen density
+ * (ADR-0076): 18 / 22 / 25 / 26 / 32. `lg` is `--spacing-control-sm` itself, so the rest
+ * of the ladder has to move with it — a 28px `md` was taller than a 26px `lg`. `md` is
+ * the Leads row-action button, and at 25px it no longer sets the body row's height.
+ */
 const SIZE_CLASS: Record<IconButtonSize, string> = {
-  xs: "size-5",
-  sm: "size-6",
-  md: "size-7",
+  xs: "size-4.5",
+  sm: "size-5.5",
+  md: "size-6.25",
   lg: "size-control-sm",
-  xl: "size-9",
+  xl: "size-8",
 };
 
 const VARIANT_CLASS: Record<IconButtonVariant, string> = {

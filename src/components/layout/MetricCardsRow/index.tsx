@@ -31,7 +31,7 @@ export function MetricCardsRow({
     <div
       ref={ref}
       className={cn(
-        "flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto [&>*]:shrink-0 [&>*]:snap-start",
+        "flex w-full min-w-0 snap-x snap-mandatory gap-3 overflow-x-auto [&>*]:shrink-0 [&>*]:snap-start",
         // `pb-2` only reserves the slim track; with the scrollbar hidden there is
         // no track to reserve, so the row keeps its natural height.
         hideScrollbar ? "scrollbar-none" : "scrollbar-slim pb-2",

@@ -53,15 +53,15 @@ const ICON_CLASS: Record<StatCardTone, string> = {
 export type StatCardVariant = "default" | "kpi" | "field";
 
 const SHELL_CLASS: Record<StatCardVariant, string> = {
-  default: "gap-2 p-4",
-  kpi: "gap-4 px-5 py-5",
-  field: "min-h-[8.25rem] gap-2 p-4",
+  default: "gap-1.5 p-3.5",
+  kpi: "gap-3 px-4 py-4",
+  field: "min-h-[7.5rem] gap-1.5 p-3.5",
 };
 
 const VALUE_CLASS: Record<StatCardVariant, string> = {
-  default: "text-3xl leading-none",
-  kpi: "text-[34px] leading-none",
-  field: "text-[32px] leading-none",
+  default: "text-2xl leading-none",
+  kpi: "text-[30px] leading-none",
+  field: "text-[28px] leading-none",
 };
 
 const BADGE_CLASS: Record<StatCardVariant, string> = {
@@ -132,7 +132,7 @@ export function StatCard({
       <p className={cn("font-semibold text-ink", VALUE_CLASS[variant])}>
         {value}
         {unit && (
-          <span className="ml-1 text-base font-medium text-ink-muted">
+          <span className="ml-1 text-sm font-medium text-ink-muted">
             {unit}
           </span>
         )}

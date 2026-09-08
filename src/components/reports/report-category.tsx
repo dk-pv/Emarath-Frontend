@@ -47,7 +47,7 @@ export function ReportCategory({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <IconChartHistogram
-              size={22}
+              size={20}
               stroke={1.75}
               className="text-ink"
               aria-hidden="true"

@@ -7,7 +7,7 @@ export const INPUT_BASE_CLASS =
 export const INPUT_SIZE_CLASS: Record<Size, string> = {
   sm: "h-control-sm px-field-x text-sm",
   md: "h-control-md px-field-x text-sm",
-  lg: "h-control-lg px-field-x text-base",
+  lg: "h-control-lg px-field-x text-sm",
 };
 
 /** `size` is remapped from the native numeric attribute to the shared control scale. */

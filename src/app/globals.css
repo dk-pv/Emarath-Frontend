@@ -65,12 +65,16 @@
      which is the radio. Workpex draws a square box — see the header and row checkboxes in
      leads-list-all-rows-selected-bulk-action-bar.png. */
   --radius-check: 4px;
-  /* 32px at 1:1; 28 at the chosen density. The height of every toolbar-row control
-     (pills, tabs, switchers, the New Lead button) and the list's Assigned avatar. */
-  --spacing-control-sm: 28px;
-  --spacing-control-md: 40px;
-  --spacing-control-lg: 48px;
-  --spacing-field-x: 12px;
+  /* 29px at 1:1 (the reference's toolbar pill and New Lead button); 26 at the chosen
+     density. The height of every toolbar-row control (pills, tabs, switchers, New Lead)
+     and of the list's Assigned avatar, which is what sets the body row's 39px. */
+  --spacing-control-sm: 26px;
+  /* 40 / 48 at 1:1; 36 / 43 at the chosen density (ADR-0076). The `sm` tier above was
+     scaled with the Leads pass and these were not, which is what left every form control,
+     drawer field and page-level button reading a size larger than the rest of the app. */
+  --spacing-control-md: 36px;
+  --spacing-control-lg: 43px;
+  --spacing-field-x: 11px; /* 12 at 1:1 */
   --spacing-badge-dot: 18px;
   /* The Lead Status pill is a FIXED width in Workpex — every badge is the same 113px
      box and a long status truncates inside it ("READY TO DISP.."), measured from
@@ -92,7 +96,9 @@
   /* Left inset of the 36px brand tile, chosen so the tile's centre (inset + 18) sits on the
      nav-icon centre column (pl-nav-inset 32 + icon 20/2 = 42), aligning the logo with the rail. */
   --spacing-brand-inset: 22px; /* 24 */
-  --spacing-nav-item: 54px; /* 60 */
+  /* 60 at 1:1 -> 54 at the chosen density; 56 by owner preference (2026-09-08), which
+     gives the sidebar rows the breathing the reference has without widening the rail. */
+  --spacing-nav-item: 56px;
   --spacing-nav-inset: 29px; /* 32 */
   --spacing-nav-gap: 13px; /* 14 */
   --spacing-nav-icon: 18px; /* 20 */
@@ -110,7 +116,7 @@
   --spacing-navbar-icon: 21px; /* 23 */
 
   /* Type */
-  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --text-nav: 13px; /* 14 */
   --text-nav--line-height: 18px; /* 20 */
   --text-title: 24px; /* 27 */

@@ -9,7 +9,7 @@ import type { Size } from "@/types";
 const SIZE_CLASS: Record<Size, string> = {
   sm: "size-control-sm text-xs",
   md: "size-control text-sm",
-  lg: "size-control-lg text-base",
+  lg: "size-control-lg text-sm",
 };
 
 const ROOT_CLASS =

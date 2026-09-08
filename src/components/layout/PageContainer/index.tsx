@@ -13,7 +13,7 @@ export function PageContainer({ children, className }: PageContainerProps) {
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-4 p-4 lg:gap-6 lg:p-6",
+        "flex min-w-0 flex-col gap-3 p-4 lg:gap-4 lg:p-5",
         className,
       )}
     >

@@ -22,6 +22,8 @@ export type ReportToolbarSelectProps = {
   searchable?: boolean;
   /** Single-select only: the row that clears the selection (e.g. "Any time"). */
   clearLabel?: string;
+  /** Overrides the trigger's size — the Dashboard control row runs one step larger. */
+  className?: string;
 };
 
 const OPTION_CLASS =
@@ -46,6 +48,7 @@ export function ReportToolbarSelect({
   multiple = false,
   searchable = false,
   clearLabel,
+  className,
 }: ReportToolbarSelectProps) {
   const [query, setQuery] = useState("");
 
@@ -75,7 +78,7 @@ export function ReportToolbarSelect({
       portal
       triggerClassName="rounded-control"
       trigger={
-        <span className={cn(TOOLBAR_BUTTON_CLASS, "relative")}>
+        <span className={cn(TOOLBAR_BUTTON_CLASS, "relative", className)}>
           <Glyph size={18} stroke={1.75} aria-hidden="true" />
           {label}
           <IconChevronDown size={16} stroke={1.75} className="text-ink-muted" />

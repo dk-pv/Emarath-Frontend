@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   IconBrandWhatsapp,
   IconCirclePlus,
@@ -16,13 +17,13 @@ import { UserMenu } from "../UserMenu";
  * ending 32px from the viewport edge.
  *
  * Only the quick-add and avatar menus are captured in ui-reference/; the search,
- * WhatsApp, settings and help panels are not, so their triggers are inert here.
+ * WhatsApp and help panels are not, so their triggers are inert here. Settings is the
+ * one that has a real destination in this product, so it navigates rather than sitting
+ * dead next to the others.
  */
 const ACTIONS: { label: string; icon: Icon }[] = [
   { label: "Search", icon: IconSearch },
   { label: "WhatsApp", icon: IconBrandWhatsapp },
-  { label: "Settings", icon: IconSettings },
-  { label: "Quick add", icon: IconCirclePlus },
 ];
 
 const CONTROL_CLASS =
@@ -41,6 +42,14 @@ export function NavbarActions() {
           <IconComponent size={21} stroke={1.75} />
         </button>
       ))}
+
+      <Link href="/settings" aria-label="Settings" className={CONTROL_CLASS}>
+        <IconSettings size={21} stroke={1.75} />
+      </Link>
+
+      <button type="button" aria-label="Quick add" className={CONTROL_CLASS}>
+        <IconCirclePlus size={21} stroke={1.75} />
+      </button>
 
       <NotificationMenu />
 

@@ -27,18 +27,33 @@ import {
  * This component is deliberately stateless about *which* period is applied: the
  * widget owns that, so two of these can never share a value.
  */
+/**
+ * Workpex draws this control at two sizes: the widget-header chip, and the larger one
+ * on the Dashboard's own control row. Measured on dashboard-home-default-top.png the
+ * page chip is 40px tall against the widget chip's ~31px — 36px at the product's
+ * density (ADR-0076). Its type is 14px in both: "This Month" occupies 79px on the 1:1
+ * reference, and Plus Jakarta Sans sets that string in 80px at 16px and 70px at 14px,
+ * so 16 at 1:1 is 14 here. The page chip is a taller control, not larger text.
+ */
+const SIZE_CLASS = {
+  sm: "h-control-sm border border-brand/40 bg-brand/10 text-sm",
+  lg: "h-control-md bg-brand/30 text-sm",
+} as const;
+
 export function WidgetPeriodFilter({
   value,
   onChange,
   /** What clearing (✕) falls back to. A widget's own sensible default (AC5). */
   clearTo = "all",
   label = "period",
+  size = "sm",
 }: {
   value: DashboardPeriodId;
   onChange: (next: DashboardPeriodId) => void;
   clearTo?: DashboardPeriodId;
   /** Names this control for assistive tech, e.g. "Overdue Follow-ups period". */
   label?: string;
+  size?: keyof typeof SIZE_CLASS;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
@@ -47,8 +62,18 @@ export function WidgetPeriodFilter({
 
   return (
     <div ref={root} className="relative shrink-0">
-      <span className="inline-flex h-control-sm items-center rounded-control border border-brand/40 bg-brand/10 text-sm text-ink">
-        <span className="inline-flex items-center gap-1.5 pr-1 pl-field-x">
+      <span
+        className={cn(
+          "inline-flex items-center rounded-control text-ink",
+          SIZE_CLASS[size],
+        )}
+      >
+        <span
+          className={cn(
+            "inline-flex items-center",
+            size === "lg" ? "gap-2 pr-1.5 pl-3" : "gap-1.5 pr-1 pl-field-x",
+          )}
+        >
           <IconFilter
             size={14}
             stroke={1.75}
@@ -73,9 +98,18 @@ export function WidgetPeriodFilter({
           aria-expanded={isOpen}
           aria-label={`Change ${label}`}
           onClick={toggle}
-          className="focus-ring inline-flex h-full items-center rounded-r-control border-l border-brand/40 px-1.5 text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink"
+          className={cn(
+            "focus-ring inline-flex h-full items-center rounded-r-control border-l text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink",
+            // The page chip's divider is a white hairline on the solid fill; the widget
+            // chip's is the same brand outline it is bordered with.
+            size === "lg" ? "border-surface px-3" : "border-brand/40 px-1.5",
+          )}
         >
-          <IconChevronDown size={16} stroke={2} aria-hidden="true" />
+          <IconChevronDown
+            size={size === "lg" ? 14 : 16}
+            stroke={2}
+            aria-hidden="true"
+          />
         </button>
       </span>
 

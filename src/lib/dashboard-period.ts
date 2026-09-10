@@ -36,6 +36,11 @@ export const DASHBOARD_PERIODS: { id: DashboardPeriodId; label: string }[] = [
  */
 export type PeriodRange = { from?: string; to?: string };
 
+/** Narrows a raw URL value — the Dashboard keeps its period in `?period=`. */
+export function isPeriodId(value: string | null): value is DashboardPeriodId {
+  return DASHBOARD_PERIODS.some((period) => period.id === value);
+}
+
 export function periodLabel(id: DashboardPeriodId): string {
   return DASHBOARD_PERIODS.find((p) => p.id === id)?.label ?? "All";
 }

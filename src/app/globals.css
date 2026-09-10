@@ -48,7 +48,110 @@
    */
   --color-accent-pink: #d53484;
   --color-accent-violet: #a459c0;
+
+  /*
+   * The Dashboard KPI carousel's accents (DASH-02.2). Workpex colours those cards by
+   * carousel *position*, not by metric: "Won Leads" is lime in slot 9 of
+   * dashboard-kpi-carousel-cards-9-13.png and blue in slot 3 of the owner's capture,
+   * while every slot the overlapping captures share carries the same hue. Each value
+   * below is the modal pixel of that slot's icon badge, which is also the card's
+   * border colour at full strength.
+   *
+   * Six of the nineteen slots are covered by accents that already exist (info,
+   * success, warning, danger, accent-pink, accent-violet) and are reused there; these
+   * are the hues the set has no member for. Like the pair above they carry no meaning
+   * beyond "this slot's accent" — a status must still use success/danger.
+   */
+  --color-accent-orange: #d56b1f;
+  --color-accent-yellow: #e6d51e;
+  --color-accent-lime: #d2f963;
+  --color-accent-cyan: #07c1d5;
+  --color-accent-forest: #3c9847;
+  --color-accent-indigo: #6060b9;
+  --color-accent-rust: #a5382c;
+  --color-accent-magenta: #da009e;
+  --color-accent-emerald: #0fd700;
+  --color-accent-teal: #34af82;
+  --color-accent-periwinkle: #7967f5;
+  --color-accent-rose: #ae3e67;
+  --color-accent-orchid: #d306d9;
   --color-scrollbar: #d1d5db;
+  /* The leaderboard's own scrollbar draws a visible track, unlike the slim one the
+     tables use — sampled from the reference's carousel rail. */
+  --color-scrollbar-track: #f2f2f2;
+  --color-scrollbar-thumb: #d8d8d8;
+
+  /*
+   * The three Sales Team Activity Board stat cards (DASH-03.2). Each is a soft
+   * vertical wash with one darker decorative wave sweeping the lower area — the
+   * wave carries no data, so these are illustration colours, not a chart scale.
+   *
+   * Conversion and Target are sampled from
+   * dashboard-leaderboard-call-activity-board-alerts-empty-state.png. The Team
+   * Revenue lavender is NOT in any ui-reference/ capture — it appears only in the
+   * owner's supplied screenshot — so it is matched by eye and should be re-sampled
+   * once that frame is added.
+   */
+  --color-stat-revenue-from: #eceafb;
+  --color-stat-revenue-to: #dcdcf6;
+  --color-stat-revenue-wave: #b9bce8;
+  --color-stat-conversion-from: #fffed9;
+  --color-stat-conversion-to: #f9f7cb;
+  --color-stat-conversion-wave: #fbe8bb;
+  --color-stat-target-from: #8ccc44;
+  --color-stat-target-to: #c5d8af;
+  --color-stat-target-wave: #8cac68;
+
+  /*
+   * The Dashboard drill-down stat cards: Leads – Need Attention
+   * (dashboard-avatar-user-menu-open.png) and the Activities tracker
+   * (dashboard-quick-add-plus-menu-open.png). Each widget is a set of buckets, one
+   * card each; the selected bucket takes a saturated `to bottom right` wash with
+   * white ink while the rest stay a pale tint. `-from`/`-to` are that wash's two
+   * corners, `-wave` its blob; `-tint`/`-tint-wave` are the unselected pair. As on
+   * the rail above, the wave is illustration, not a chart scale.
+   *
+   * Sampled at 1:1 — the two captures between them show five of the ten states:
+   * blue selected and green/peach/purple unselected in the Activities capture,
+   * green selected and blue/pink unselected in the Leads – Need Attention one.
+   *
+   * The two sampled washes disagree on how saturated "selected" is (blue is a 77%
+   * pastel, green a 60% mid-tone), so the three states no capture holds — peach,
+   * purple and pink SELECTED — are DERIVED, not sampled: each is its own tint's hue
+   * carried to the blue card's lightness and chroma, which is the pastel that holds
+   * up across warm and cool hues. Re-sample them the moment a capture of those cards
+   * selected exists, the way the lavender Team Revenue card above still needs to be.
+   *
+   * The measured wash is also not quite a corner gradient: 149deg on the 358px-wide
+   * Activities card, 157deg on the 287px-wide Leads one. `to bottom right` puts both
+   * cards' two anchor corners exactly on the sampled colours and splits the residual
+   * across the other two.
+   */
+  --color-stat-blue-from: #92b8f5;
+  --color-stat-blue-to: #fbfcff;
+  --color-stat-blue-wave: #9ec3fb;
+  --color-stat-blue-tint: #f6fbff;
+  --color-stat-blue-tint-wave: #e8f1ff;
+  --color-stat-green-from: #69cb7f;
+  --color-stat-green-to: #d6efdd;
+  --color-stat-green-wave: #7aca8b;
+  --color-stat-green-tint: #ebfff0;
+  --color-stat-green-tint-wave: #d1fada;
+  --color-stat-peach-from: #f5bb92; /* derived */
+  --color-stat-peach-to: #fdfbf9; /* derived */
+  --color-stat-peach-wave: #fbc59e; /* derived */
+  --color-stat-peach-tint: #fff6f0;
+  --color-stat-peach-tint-wave: #ffeadb;
+  --color-stat-purple-from: #d692f5; /* derived */
+  --color-stat-purple-to: #fcf9fd; /* derived */
+  --color-stat-purple-wave: #de9efb; /* derived */
+  --color-stat-purple-tint: #fdf8ff;
+  --color-stat-purple-tint-wave: #f8e9ff;
+  --color-stat-pink-from: #f59292; /* derived */
+  --color-stat-pink-to: #fdf9f9; /* derived */
+  --color-stat-pink-wave: #fb9e9e; /* derived */
+  --color-stat-pink-tint: #fff6f6;
+  --color-stat-pink-tint-wave: #ffe9e9;
 
   /*
    * The navbar notification count is smaller than the text-xs floor. Named "count",
@@ -133,6 +236,9 @@
  */
 :root {
   --duration-shell: 200ms;
+  /* A fully transparent white. A bare `transparent` keyword interpolates through
+     transparent *black*, which greys the edge of every KPI glow below. */
+  --kpi-glow-fade: color-mix(in srgb, var(--color-surface) 0%, transparent);
 }
 
 html,
@@ -170,6 +276,56 @@ body {
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/*
+ * The white highlights inside a Dashboard KPI card. The card's own tint
+ * (`bg-<accent>/12`) is its colour; these four soft washes are what make the reference
+ * read as a glow rather than a flat fill. Their centres are read off
+ * ui-reference/dashboard/dashboard-home-default-top.png: two tight blobs just below
+ * centre, a broad one behind the icon badge and one over the title.
+ */
+@utility kpi-glow {
+  background-image:
+    radial-gradient(
+      circle at 45% 60%,
+      var(--color-surface),
+      var(--kpi-glow-fade) 42%
+    ),
+    radial-gradient(
+      circle at 66% 52%,
+      var(--color-surface),
+      var(--kpi-glow-fade) 38%
+    ),
+    radial-gradient(
+      circle at 88% 24%,
+      var(--color-surface),
+      var(--kpi-glow-fade) 55%
+    ),
+    radial-gradient(
+      circle at 10% 22%,
+      var(--color-surface),
+      var(--kpi-glow-fade) 48%
+    );
+}
+
+/* The leaderboard rail draws a real track under the cards, which `scrollbar-slim`
+   deliberately does not — see the reference's carousel. */
+@utility scrollbar-rail {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: var(--color-scrollbar-track);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar-thumb);
+    border-radius: 9999px;
   }
 }
 

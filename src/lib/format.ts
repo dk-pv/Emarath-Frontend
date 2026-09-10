@@ -65,17 +65,34 @@ export function formatAED(
   return `${(digits === 0 ? AED_0DP : AED_2DP).format(amount)} ${AED_SIGN}`;
 }
 
-/** `1.4K د.إ` / `16K` / `2.5M`, whole numbers below a thousand — the Kanban column totals. */
-export function formatAEDCompact(value: string | number): string {
+/**
+ * `1.4K د.إ` / `16K` / `2.5M`, whole numbers below a thousand — the Kanban column totals.
+ *
+ * `digits` fixes the abbreviated part to that many decimals instead of the Kanban
+ * rule (1dp below ten, whole above). The Dashboard's Sales Team Activity Board needs
+ * it: the reference renders `25.20K` and `1.95K`, which the default would round to
+ * `25K` and `2K`. Omitting it leaves every existing caller's output unchanged.
+ */
+export function formatAEDCompact(
+  value: string | number,
+  { digits }: { digits?: number } = {},
+): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return `0 ${AED_SIGN}`;
-  if (n >= 1_000_000) return `${abbreviate(n, 1_000_000, "M")} ${AED_SIGN}`;
-  if (n >= 1000) return `${abbreviate(n, 1000, "K")} ${AED_SIGN}`;
-  return `${AED_0DP.format(n)} ${AED_SIGN}`;
+  if (n >= 1_000_000)
+    return `${abbreviate(n, 1_000_000, "M", digits)} ${AED_SIGN}`;
+  if (n >= 1000) return `${abbreviate(n, 1000, "K", digits)} ${AED_SIGN}`;
+  return `${digits === undefined ? AED_0DP.format(n) : n.toFixed(digits)} ${AED_SIGN}`;
 }
 
-function abbreviate(value: number, divisor: number, suffix: string): string {
+function abbreviate(
+  value: number,
+  divisor: number,
+  suffix: string,
+  digits?: number,
+): string {
   const scaled = value / divisor;
+  if (digits !== undefined) return `${scaled.toFixed(digits)}${suffix}`;
   return `${scaled >= 10 ? Math.round(scaled) : Number(scaled.toFixed(1))}${suffix}`;
 }
 

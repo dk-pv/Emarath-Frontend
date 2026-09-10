@@ -34,6 +34,12 @@ type DashboardWidgetProps<T> = {
   /** Omit to render a widget with no date filter of its own. */
   filterable?: boolean;
   /**
+   * Drops the card shell and the title row, leaving only the state machine. For a
+   * widget that is already inside a titled container and draws its own surfaces —
+   * the Team Revenue rail is three tinted cards, not one bordered panel.
+   */
+  chromeless?: boolean;
+  /**
    * Loads this widget's data for its own period. Called again whenever *this*
    * widget's period changes — never when a sibling's does.
    */
@@ -69,6 +75,7 @@ export function DashboardWidget<T>({
   title,
   defaultPeriod = "all",
   filterable = true,
+  chromeless = false,
   load,
   isEmpty,
   emptyTitle = "No data available",
@@ -119,6 +126,31 @@ export function DashboardWidget<T>({
   const data = loaded?.key === key ? loaded.data : null;
   const isError = failed === key;
 
+  const body = isError ? (
+    <div className="p-4">
+      <ErrorState
+        title={errorTitle}
+        description="Something went wrong loading this widget. Check your connection and try again."
+        onRetry={() => {
+          setFailed(null);
+          setReloadToken((token) => token + 1);
+        }}
+      />
+    </div>
+  ) : !data ? (
+    <div className={chromeless ? "" : "p-4"}>
+      <Skeleton className={`w-full rounded-surface ${skeletonClassName}`} />
+    </div>
+  ) : isEmpty?.(data) ? (
+    <EmptyState title={emptyTitle} description={emptyDescription} />
+  ) : (
+    children(data)
+  );
+
+  if (chromeless) {
+    return <section className={className}>{body}</section>;
+  }
+
   return (
     <Card as="section" className={className}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
@@ -132,27 +164,7 @@ export function DashboardWidget<T>({
           />
         )}
       </div>
-
-      {isError ? (
-        <div className="p-4">
-          <ErrorState
-            title={errorTitle}
-            description="Something went wrong loading this widget. Check your connection and try again."
-            onRetry={() => {
-              setFailed(null);
-              setReloadToken((token) => token + 1);
-            }}
-          />
-        </div>
-      ) : !data ? (
-        <div className="p-4">
-          <Skeleton className={`w-full rounded-surface ${skeletonClassName}`} />
-        </div>
-      ) : isEmpty?.(data) ? (
-        <EmptyState title={emptyTitle} description={emptyDescription} />
-      ) : (
-        children(data)
-      )}
+      {body}
     </Card>
   );
 }

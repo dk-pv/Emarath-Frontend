@@ -1,18 +1,27 @@
 "use client";
 
-import { Alert } from "@/components/ui/Alert";
-import { SectionHeader } from "@/components/ui/SectionHeader";
+import { Suspense } from "react";
+import { Card } from "@/components/ui/Card";
 import { ContentContainer } from "@/components/layout/ContentContainer";
 import { DashboardGrid } from "@/components/layout/DashboardGrid";
 import { useAuth } from "@/components/auth/auth-context";
 import { can } from "@/constants/permissions";
+import { DashboardToolbar } from "./dashboard-toolbar";
 import { DashboardWidget } from "./dashboard-widget";
+import { CallActivityBoard } from "./call-activity-board";
+import { DashboardAlerts } from "./dashboard-alerts";
 import { Leaderboard } from "./leaderboard";
 import { ConfiguredSummaryCards } from "./configured-summary-cards";
-import { SummaryCards } from "./summary-cards";
+import {
+  DashboardKpiCarousel,
+  DashboardKpiCarouselSkeleton,
+} from "./dashboard-kpi-carousel";
 import { TeamRevenue } from "./team-revenue";
-import type { DashboardData } from "@/services/dashboard-service";
-import type { LeaderboardRow } from "@/types";
+import {
+  fetchSalesLeaderboard,
+  fetchTeamRevenue,
+  type SalesLeaderboardEntry,
+} from "@/services/dashboard-service";
 
 /**
  * The Dashboard container (DASH-01.1): the default landing page after login, which
@@ -30,62 +39,90 @@ import type { LeaderboardRow } from "@/types";
  * `activityScopeWhere` / `callScopeWhere`, so an agent's own widgets return only
  * their own rows regardless of what the UI renders.
  *
- * The figures are still fixtures: no Dashboard API exists until DASH-02.1. Each
- * widget's `load` below is the seam that becomes a real fetch, with nothing else
- * changing — the loading, error and empty states around it are already live.
+ * Every widget on the page now reads real, role-scoped figures. Each one keeps its
+ * own period and its own loading / error / empty states, so a slow or failing widget
+ * leaves the rest of the page working.
  */
-export function DashboardView({ data }: { data: DashboardData }) {
+export function DashboardView() {
   const { user } = useAuth();
   const canViewTeamMetrics = can(user?.role, "viewTeamMetrics");
 
   return (
     <ContentContainer className="flex flex-col gap-4 p-4 lg:p-6">
-      <Alert tone="info" title="Sample dashboard — demo data only">
-        The layout, per-widget filters and widget states are live; the KPI and
-        team figures are still placeholders. The configured summary row below
-        them is real. Role-scoped counters arrive with DASH-02.2.
-      </Alert>
+      {/* Workpex's Dashboard control row sits directly under the application header,
+          right-aligned, above the cards. It reads its selections from the URL, so it
+          renders under Suspense rather than opting the whole page out of prerender. */}
+      <Suspense fallback={<div className="h-control-md" />}>
+        <DashboardToolbar />
+      </Suspense>
 
-      {/* The KPI counters keep their current placeholder form until DASH-02.2,
-          which rebuilds them as six independently-filtered cards. */}
-      <SummaryCards cards={data.summary} />
+      {/* The nineteen KPI cards, directly under the control row and above every
+          other widget — the order dashboard-home-default-top.png shows, with
+          nothing between the two. Reads the row's period from the URL, so it
+          renders under its own Suspense boundary rather than opting the whole
+          page out of prerender. */}
+      <Suspense fallback={<DashboardKpiCarouselSkeleton />}>
+        <DashboardKpiCarousel />
+      </Suspense>
 
       {/*
-        The cards Settings → Application Controls → Dashboard Settings configures, and
-        the only live figures on this page. Its own row rather than part of the carousel
-        above, because that carousel is still fixtures — the two merge into one when
-        DASH-02.2 replaces them with the real KPI counters.
+        The cards Settings → Application Controls → Dashboard Settings configures.
+        Its own row rather than part of the carousel above: these are chosen per
+        installation and vary in number, where the carousel above is Workpex's own
+        fixed nineteen.
       */}
       <ConfiguredSummaryCards />
 
       {canViewTeamMetrics && (
-        <section className="flex flex-col gap-4">
-          <SectionHeader title="Sales Team Activity Board" />
-          {/* Team Revenue is a fixed rail beside the leaderboard, which takes the rest. */}
-          <DashboardGrid className="md:grid-cols-1 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <Card as="section" className="flex flex-col gap-4 p-5">
+          {/* One outer container holding both halves, as the reference draws it —
+              the heading belongs to the board, not to either widget inside it. */}
+          <h2 className="text-lg font-semibold text-ink">
+            Sales Team Activity Board
+          </h2>
+
+          {/* The stat rail is a fixed 324px (reference 360 × 0.9); the leaderboard
+              takes the rest and scrolls inside its own track. */}
+          <DashboardGrid className="gap-4 md:grid-cols-1 lg:grid-cols-[minmax(0,324px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,324px)_minmax(0,1fr)]">
             <DashboardWidget
               title="Team Revenue"
               defaultPeriod="this-month"
-              skeletonClassName="h-56"
-              load={() => Promise.resolve(data.totals)}
+              filterable={false}
+              chromeless
+              skeletonClassName="h-[26rem]"
+              load={(range, signal) => fetchTeamRevenue(range, signal)}
             >
               {(totals) => <TeamRevenue totals={totals} />}
             </DashboardWidget>
 
-            <DashboardWidget<readonly LeaderboardRow[]>
+            <DashboardWidget<SalesLeaderboardEntry[]>
               title="Leaderboard"
               defaultPeriod="this-month"
-              skeletonClassName="h-72"
+              filterable={false}
+              skeletonClassName="h-[24rem]"
               emptyTitle="No agent activity yet"
               emptyDescription="Leaderboard standings appear once agents log leads and calls."
               isEmpty={(rows) => rows.length === 0}
-              load={() => Promise.resolve(data.leaderboard)}
+              load={(range, signal) => fetchSalesLeaderboard(range, signal)}
             >
-              {(rows) => <Leaderboard rows={rows} />}
+              {(rows) => (
+                <div className="p-4">
+                  <Leaderboard rows={rows} />
+                </div>
+              )}
             </DashboardWidget>
           </DashboardGrid>
-        </section>
+        </Card>
       )}
+
+      {/* Call Activity Board beside the alerts panel — the reference's 60/40 split
+          with a 28px gutter (measured 985/623 across a 1639px content width). */}
+      <DashboardGrid className="gap-7 md:grid-cols-1 lg:grid-cols-[minmax(0,60fr)_minmax(0,38fr)] lg:gap-7 xl:grid-cols-[minmax(0,60fr)_minmax(0,38fr)]">
+        {/* Owns its own period, paging and states — see the component. */}
+        <CallActivityBoard />
+
+        <DashboardAlerts />
+      </DashboardGrid>
     </ContentContainer>
   );
 }

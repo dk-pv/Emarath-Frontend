@@ -38,7 +38,7 @@ export function DashboardAlerts({
             things that may differ, and Settings already ships this screen's
             counterpart as "Emarath Alerts" — this follows that existing decision
             rather than making a new one. */}
-        <h3 className="text-base font-semibold text-ink">Emarath Alerts</h3>
+        <h3 className="text-xl font-semibold text-ink">Emarath Alerts</h3>
         <WidgetPeriodFilter
           value={period}
           onChange={setPeriod}

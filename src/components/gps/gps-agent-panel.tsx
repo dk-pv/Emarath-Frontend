@@ -105,7 +105,7 @@ export function GpsAgentPanel({
                   >
                     <Avatar name={agent.name} size="md" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium text-ink">
+                      <span className="block truncate text-[14px] font-medium text-ink">
                         {agent.name}
                       </span>
                       <span className="block truncate text-[13px] text-ink-muted">

@@ -3,12 +3,8 @@
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { Pagination } from "@/components/ui/Pagination";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Table } from "@/components/ui/Table";
-import { ResponsiveTableContainer } from "@/components/layout/ResponsiveTableContainer";
 import { DEFAULT_PAGE_SIZE } from "@/constants/table";
 import { isAbortError } from "@/lib/api-client";
 import { periodKey } from "@/lib/dashboard-period";
@@ -17,6 +13,7 @@ import {
   type CallActivityRow,
 } from "@/services/dashboard-service";
 import type { TableColumn } from "@/types";
+import { DashboardTable } from "./dashboard-table";
 import { useWidgetPeriod } from "./dashboard-widget";
 
 const COUNT = new Intl.NumberFormat("en-US");
@@ -157,9 +154,7 @@ export function CallActivityBoard() {
   return (
     <Card as="section">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-        <h3 className="text-base font-semibold text-ink">
-          Call Activity Board
-        </h3>
+        <h3 className="text-xl font-semibold text-ink">Call Activity Board</h3>
       </div>
 
       <div className="p-5">
@@ -175,41 +170,31 @@ export function CallActivityBoard() {
         ) : isLoading && loaded === null ? (
           <Skeleton className="h-80 w-full rounded-surface" />
         ) : (
-          <div className="flex flex-col gap-4">
-            <ResponsiveTableContainer
-              label="Call Activity Board"
-              className="rounded-surface border border-hairline"
-            >
-              <Table
-                columns={COLUMNS}
-                rows={rows}
-                getRowId={(row) => row.agentId}
-                isFetching={isLoading}
-                // 49px rows, not the list's default 39: the reference measures
-                // this board at a 54px pitch, 49 at the chosen density (ADR-0076).
-                rowClassName={() => "[&>td]:py-2.5"}
-                emptyState={
-                  <EmptyState
-                    title="No data available"
-                    description="There's currently no data to display here."
-                  />
-                }
-              />
-            </ResponsiveTableContainer>
-
-            <Pagination
-              page={page}
-              pageCount={pageCount}
-              onPageChange={setPage}
-              pageSize={pageSize}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(1);
-              }}
-              total={total}
-              hideNavWhenSingle
-            />
-          </div>
+          /* Height-capped so a hundred agents cannot stretch the card: the body
+             scrolls under the sticky header and the pagination footer stays put.
+             Measured 42px header + 8 rows of 47 = 423, the eight rows the
+             reference shows. The scroll/hidden-scrollbar/sticky behaviour is
+             `DashboardTable`'s, shared with the other three widgets. */
+          <DashboardTable
+            label="Call Activity Board"
+            columns={COLUMNS}
+            rows={rows}
+            getRowId={(row) => row.agentId}
+            isFetching={isLoading}
+            bodyClassName="max-h-[423px]"
+            // 49px rows, not the list's default 39: the reference measures this
+            // board at a 54px pitch, 49 at the chosen density (ADR-0076).
+            rowClassName={() => "[&>td]:py-2.5"}
+            page={page}
+            pageCount={pageCount}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            total={total}
+          />
         )}
       </div>
     </Card>

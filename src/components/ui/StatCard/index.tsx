@@ -73,7 +73,7 @@ const BADGE_CLASS: Record<StatCardVariant, string> = {
 const LABEL_CLASS: Record<StatCardVariant, string> = {
   default: "text-sm",
   kpi: "text-sm",
-  field: "min-w-0 truncate text-[15px]",
+  field: "min-w-0 truncate text-[14px]",
 };
 
 type StatCardProps = {

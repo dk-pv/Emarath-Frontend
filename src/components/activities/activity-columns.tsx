@@ -261,7 +261,7 @@ function CompletionControl({ row }: { row: ActivityListItem }) {
  * caller's scope, so a user can only act on rows they may already see (AC5). Delete
  * confirms first (AC3).
  */
-function ActivityRowActions({ row }: { row: ActivityListItem }) {
+export function ActivityRowActions({ row }: { row: ActivityListItem }) {
   const ctx = useContext(RowContext);
   if (!ctx) return null;
 

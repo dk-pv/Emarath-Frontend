@@ -14,7 +14,7 @@ export function Navbar() {
 
   return (
     <header className="flex h-navbar shrink-0 items-center gap-nav-gap border-b border-hairline bg-surface px-4 lg:pl-navbar-inset lg:pr-navbar-edge">
-      <h1 className="text-title min-w-0 flex-1 truncate font-medium text-ink">
+      <h1 className="text-title min-w-0 flex-1 truncate font-semibold text-ink">
         {title}
       </h1>
       <NavbarActions />

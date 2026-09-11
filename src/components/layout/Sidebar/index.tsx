@@ -23,7 +23,8 @@ type SidebarProps = {
 };
 
 /**
- * 230px expanded, 88px collapsed, #363937. A 60px brand block, then the nav: a flex column
+ * 230px expanded, 88px collapsed, #363937. A 92px brand block with the logo centred in
+ * it and a 9px gap below it, then the nav: a flex column
  * whose 12 rows (11 destinations + Logout) are each a FIXED 60px (--spacing-nav-item), the
  * height measured from Workpex's active nav row. Workpex keeps a constant row height and lets
  * the rail end with dead space below the last item rather than stretching rows to fill — so
@@ -78,9 +79,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <BrandMark collapsed={collapsed} />
       </div>
 
+      {/* `pt-brand-gap` is the 9px the reference leaves between the brand block and
+          the first nav row (8 at this density). Padding on the nav rather than a
+          margin so it scrolls away with the rows on a short viewport instead of
+          holding a gap above a scrolled list. */}
       <nav
         aria-label="Main"
-        className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none pb-4"
+        className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-none pt-brand-gap pb-4"
       >
         {items.map((item) => (
           <SidebarNavLink

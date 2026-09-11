@@ -94,7 +94,7 @@ export function ToolbarSearch({
           placeholder={placeholder}
           aria-label={placeholder}
           className={cn(
-            "h-full min-w-0 flex-1 bg-transparent px-2 text-sm text-ink outline-none placeholder:text-ink-subtle",
+            "h-full min-w-0 flex-1 bg-transparent px-2 text-sm text-ink outline-none placeholder:text-ink-placeholder",
             HIDE_NATIVE_SEARCH_CLEAR,
           )}
         />

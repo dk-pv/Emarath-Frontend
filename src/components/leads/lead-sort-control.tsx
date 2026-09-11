@@ -96,7 +96,7 @@ export function LeadSortControl({
                   key={field.label}
                   aria-disabled="true"
                   title={field.hint}
-                  className="flex cursor-not-allowed items-center gap-3 px-3 py-2 text-[15px] text-ink opacity-45"
+                  className="flex cursor-not-allowed items-center gap-3 px-3 py-2 text-[14px] text-ink-soft opacity-45"
                 >
                   <Icon size={18} stroke={1.75} className="shrink-0" />
                   <span className="min-w-0 flex-1 truncate">{field.label}</span>
@@ -118,10 +118,10 @@ export function LeadSortControl({
                 aria-current={active ? "true" : undefined}
                 onClick={() => select(field.key)}
                 className={cn(
-                  "focus-ring-inset flex items-center gap-3 px-3 py-2 text-left text-[15px] transition-colors duration-(--duration-shell) ease-shell",
+                  "focus-ring-inset flex items-center gap-3 px-3 py-2 text-left text-[14px] transition-colors duration-(--duration-shell) ease-shell",
                   active
                     ? "bg-brand-subtle text-brand-strong"
-                    : "text-ink hover:bg-canvas",
+                    : "text-ink-soft hover:bg-canvas",
                 )}
               >
                 <Icon

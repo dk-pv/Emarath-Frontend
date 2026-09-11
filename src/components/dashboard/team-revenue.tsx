@@ -31,7 +31,7 @@ function StatCard({
       )}
     >
       <StatWave className={wave} />
-      <h4 className="relative z-10 text-sm font-medium text-ink">{title}</h4>
+      <h4 className="relative z-10 text-base font-medium text-ink">{title}</h4>
       <div className="relative z-10">{children}</div>
     </section>
   );

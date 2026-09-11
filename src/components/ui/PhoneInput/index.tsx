@@ -61,12 +61,12 @@ export function PhoneInput({
   const { isOpen, close, toggle } = useDisclosure();
   const [query, setQuery] = useState("");
   const initial =
-    COUNTRIES.find((option) => option.iso2 === defaultCountry) ??
-    COUNTRIES[0];
+    COUNTRIES.find((option) => option.iso2 === defaultCountry) ?? COUNTRIES[0];
   const [picked, setPicked] = useState<Country>(initial);
   // The prop wins when given, so a stored country survives a reload; otherwise the
   // selection is this component's own, exactly as it was.
-  const selected = COUNTRIES.find((option) => option.iso2 === country) ?? picked;
+  const selected =
+    COUNTRIES.find((option) => option.iso2 === country) ?? picked;
 
   const choose = (next: Country) => {
     setPicked(next);
@@ -140,7 +140,7 @@ export function PhoneInput({
           value={localNumber}
           onChange={(event) => emit(selected, event.target.value)}
           placeholder={placeholder}
-          className="h-full min-w-0 flex-1 rounded-r-control bg-transparent px-3 text-sm text-ink placeholder:text-ink-subtle focus:outline-none"
+          className="h-full min-w-0 flex-1 rounded-r-control bg-transparent px-3 text-sm text-ink placeholder:text-ink-placeholder focus:outline-none"
         />
       </div>
 

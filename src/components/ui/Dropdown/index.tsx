@@ -40,7 +40,7 @@ const PANEL_CLASS =
   "absolute top-[calc(100%+8px)] z-50 min-w-56 rounded-surface border border-hairline bg-surface py-1 shadow-lg";
 
 const ITEM_CLASS =
-  "flex w-full items-center gap-3 px-4 py-2.5 text-left text-[15px] text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring-inset";
+  "flex w-full items-center gap-3 px-4 py-2.5 text-left text-[14px] text-ink-soft transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring-inset";
 
 export function Dropdown({
   trigger,

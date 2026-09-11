@@ -5,11 +5,17 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Popover } from "@/components/ui/Popover";
 
 /**
- * The bell's panel is not captured in ui-reference/, so this renders the measured
- * trigger (icon only) and an empty panel rather than inventing a feed. There is no
- * notifications backend yet, so no unread count is shown — a fabricated badge would
- * claim data that does not exist. The Notification Center is a separate, deferred
- * backlog task.
+ * The bell's panel.
+ *
+ * The reference's feed is an **activity** stream — "a new lead X was added by Y",
+ * "X was assigned to Y", "a lead has been won" — and this product has nothing that
+ * produces those. The one notification concept in the approved backlog is FND-05.1's
+ * alerts service, which is explicitly *system*-level (integration failures, quota
+ * warnings) and already surfaces on the Dashboard as the System Alerts panel. There
+ * is no per-user activity feed, no unread state and no endpoint behind this bell.
+ *
+ * So the panel stays an honest empty state and the bell carries no count: a badge
+ * here would have to invent a number, and rows would have to invent events.
  */
 export function NotificationMenu() {
   return (
@@ -28,7 +34,7 @@ export function NotificationMenu() {
         <EmptyState
           icon={IconBell}
           title="Notifications"
-          description="The notification panel is not part of this task."
+          description="You have no notifications."
         />
       </div>
     </Popover>

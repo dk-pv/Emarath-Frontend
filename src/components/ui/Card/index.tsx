@@ -33,7 +33,7 @@ export function CardTitle({
 }: React.ComponentPropsWithoutRef<"h3">) {
   return (
     <h3
-      className={cn("text-base font-semibold text-ink", className)}
+      className={cn("text-base font-medium text-ink", className)}
       {...props}
     />
   );

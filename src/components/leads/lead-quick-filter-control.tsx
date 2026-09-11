@@ -108,7 +108,7 @@ export function LeadQuickFilterControl({
                   aria-disabled="true"
                   title={DISABLED_PRESET_HINT}
                   className={cn(
-                    "flex cursor-not-allowed items-center px-4 text-[15px] text-ink opacity-45",
+                    "flex cursor-not-allowed items-center px-4 text-[14px] text-ink-soft opacity-45",
                     QUICK_MENU_ITEM_CLASS,
                   )}
                 >
@@ -129,11 +129,11 @@ export function LeadQuickFilterControl({
                   close();
                 }}
                 className={cn(
-                  "focus-ring-inset flex items-center px-4 text-left text-[15px] transition-colors duration-(--duration-shell) ease-shell",
+                  "focus-ring-inset flex items-center px-4 text-left text-[14px] transition-colors duration-(--duration-shell) ease-shell",
                   QUICK_MENU_ITEM_CLASS,
                   selected
                     ? "bg-brand-subtle font-medium text-brand-strong"
-                    : "text-ink hover:bg-canvas",
+                    : "text-ink-soft hover:bg-canvas",
                 )}
               >
                 {preset.label}

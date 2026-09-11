@@ -154,7 +154,7 @@ export function DashboardWidget<T>({
   return (
     <Card as="section" className={className}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-        <h3 className="text-base font-semibold text-ink">{title}</h3>
+        <h3 className="text-base font-medium text-ink">{title}</h3>
         {filterable && (
           <WidgetPeriodFilter
             value={period}

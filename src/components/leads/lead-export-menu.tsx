@@ -109,7 +109,7 @@ export function LeadExportMenu({ onExport }: LeadExportMenuProps) {
                   onExport(option.format, option.scope);
                   close();
                 }}
-                className="focus-ring-inset flex items-center px-4 py-2.5 text-left text-[15px] text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-subtle"
+                className="focus-ring-inset flex items-center px-4 py-2.5 text-left text-[14px] text-ink-soft transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-subtle"
               >
                 {option.label}
               </button>
@@ -119,7 +119,7 @@ export function LeadExportMenu({ onExport }: LeadExportMenuProps) {
                 aria-disabled="true"
                 title={PDF_HINT}
                 className={cn(
-                  "flex cursor-not-allowed items-center px-4 py-2.5 text-[15px] text-ink opacity-45",
+                  "flex cursor-not-allowed items-center px-4 py-2.5 text-[14px] text-ink-soft opacity-45",
                 )}
               >
                 {option.label}

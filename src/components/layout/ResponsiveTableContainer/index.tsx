@@ -8,6 +8,16 @@ type ResponsiveTableContainerProps = {
    * (WCAG 2.1.1) — pass it whenever the table can overflow.
    */
   label?: string;
+  /**
+   * `none` scrolls with no visible track — the Dashboard's widget tables, whose
+   * bodies are height-capped so a hundred rows cannot stretch the card, and where
+   * the reference draws no scrollbar at all. It hides the bar, never the overflow:
+   * wheel, trackpad, touch and keyboard all still scroll.
+   *
+   * Defaults to the slim track every full-page list already shows, so no existing
+   * caller changes.
+   */
+  scrollbars?: "slim" | "none";
   className?: string;
 };
 
@@ -24,6 +34,7 @@ type ResponsiveTableContainerProps = {
 export function ResponsiveTableContainer({
   children,
   label,
+  scrollbars = "slim",
   className,
 }: ResponsiveTableContainerProps) {
   return (
@@ -32,7 +43,8 @@ export function ResponsiveTableContainer({
       aria-label={label}
       tabIndex={label ? 0 : undefined}
       className={cn(
-        "scrollbar-slim focus-ring w-full min-w-0 overflow-auto",
+        "focus-ring w-full min-w-0 overflow-auto",
+        scrollbars === "none" ? "scrollbar-none" : "scrollbar-slim",
         className,
       )}
     >

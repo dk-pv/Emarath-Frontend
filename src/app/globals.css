@@ -29,10 +29,57 @@
   --color-ink: #1b1b1b;
   --color-ink-muted: #6b7280;
   --color-ink-subtle: #9ca3af;
+  /* Field placeholders sit darker than --color-ink-subtle and carry no blue: the
+     empty Customer Name / First Name / Assigned fields in
+     leads-add-new-lead-drawer-scroll-1-top.png sample #818181, #818181 and #7f7f7f.
+     Its own token because --color-ink-subtle also colours icons and chevrons. */
+  --color-ink-placeholder: #808080;
   /* Table body, name links and toolbar labels — sampled from
      leads-list-default-scroll-left-….png. Lighter than --color-ink, which Workpex keeps
      for the page title, the column headers and the footer's row count. */
   --color-ink-soft: #505050;
+  /* Lead Source Summary heatmap (DASH-10.2). A lime accent, NOT the brand green:
+     sampled from dashboard-header-search-expanded-lead-source-summary-donut-tooltip.png,
+     where the toggle's green is #65ca7b — already `--color-brand` exactly — while the
+     matrix cells run lime. Two different accents in the same reference, so the cells
+     get their own tokens rather than a tint of the button colour. */
+  --color-heat-cell: #f8ffef;
+  --color-heat-cell-line: #daffaf;
+  --color-heat-cell-ink: #2d7a00;
+  --color-heat-total: #daffaf;
+  --color-heat-total-ink: #1a5c00;
+  /* Leads vs Conversion bars and the Sales Pipeline track (DASH-11/12). Sampled
+     from dashboard-sidebar-collapsed-leads-vs-conversion-sales-team-toggle.png.
+     Chart accents, not the brand: that green (#65ca7b) is already `--color-brand`
+     exactly, so these are Workpex's own separate series colours, not tints of it. */
+  --color-chart-lead: #65a3ca;
+  --color-chart-converted: #c8e4ff;
+  --color-chart-grid: #e7e9ec;
+  --color-pipeline-bar: #4bc9bd;
+  --color-pipeline-track: #f3f4f6;
+  /*
+   * Lead status pill fills (LEAD-11.1). Sampled from the Lead Status column of
+   * leads-list-default-scroll-left-assigned-avatar-tooltip.png, where each pill is a
+   * flat 114x21 block: WON #84cc16, New #b68de6, READY TO DISP.. #7dd3fc,
+   * NOT REACHEB.. #ce879e, NOT ANSWER #0befe9, DATE SHIPMENT #8246c4.
+   *
+   * Three of these match, to within a unit, the card-border colour already sampled for
+   * the same stage from the Kanban captures (violet #b78ee6, rose #ce889f, teal
+   * #0eefe9) — so Workpex fills the list pill with the stage's own full-strength
+   * colour. Tailwind v4's oklch shades sit visibly more saturated than these
+   * (rose-300 is #ffa1ad against the measured #ce879e), which is why they are pinned
+   * here rather than picked from the default scale.
+   *
+   * The ink over them is NOT a per-hue tint: every sampled pill reads a neutral dark
+   * (#404819 lime, #29222e violet, #1b1d1f rose — all #1b1b1b carrying colour bleed
+   * from the fill), except DATE SHIPMENT, whose fill is dark enough to take white.
+   */
+  --color-stage-lime: #84cc16;
+  --color-stage-violet: #b68de6;
+  --color-stage-sky: #7dd3fc;
+  --color-stage-rose: #ce879e;
+  --color-stage-teal: #0befe9;
+  --color-stage-purple: #8246c4;
   --color-badge: #fb8585;
   --color-toggle-glyph: #eef8ef;
   --color-surface: #ffffff;
@@ -154,6 +201,16 @@
   --color-stat-pink-tint-wave: #ffe9e9;
 
   /*
+   * The Hot Leads running-total card (DASH-08.2). A far bluer wash than
+   * --color-stat-blue-tint, which is the pale bucket surface — sampled from the
+   * TOTAL block in dashboard-avatar-user-menu-open.png (601x90 at 1:1).
+   */
+  --color-total-card: #c8e4ff;
+  --color-total-card-wave: #a7caea;
+  /* The amount and its label are navy on this card, not the page ink. */
+  --color-total-card-ink: #0f0e62;
+
+  /*
    * The navbar notification count is smaller than the text-xs floor. Named "count",
    * not "badge": `--color-badge` already exists and `text-badge` would resolve to the
    * colour utility instead of a font size.
@@ -195,7 +252,16 @@
      it does NOT stretch them to fill the rail — so the rows must not flex-grow, or on a tall
      viewport each row balloons well past 60px and the sidebar reads bulkier than Workpex.
      Inset/gap are shared with the Navbar. */
-  --spacing-brand-block: 54px; /* 60 */
+  /* The brand block is the logo's whole area, and the logo is centred in it. Measured
+     viewport-relative and identically across three captures
+     (dashboard-home-default-top / -quick-add-plus-menu-open /
+     -leads-vs-conversion-…-sales-pipeline): the wordmark's ink sits at 16..75 with its
+     centre on 46, and the first nav row begins at 101. A 92px block centres a 60px
+     wordmark at exactly 46, leaving a 9px gap to the nav — which is `--spacing-brand-gap`.
+     Was 54: the logo sat hard against the header and the rail read shifted upward. */
+  --spacing-brand-block: 83px; /* 92 */
+  /* Between the brand block and the first nav row. */
+  --spacing-brand-gap: 8px; /* 9 */
   /* Left inset of the 36px brand tile, chosen so the tile's centre (inset + 18) sits on the
      nav-icon centre column (pl-nav-inset 32 + icon 20/2 = 42), aligning the logo with the rail. */
   --spacing-brand-inset: 22px; /* 24 */
@@ -220,7 +286,31 @@
 
   /* Type */
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-  --text-nav: 13px; /* 14 */
+  /*
+   * Body and table text. Tailwind's `text-sm` default is 14px; the reference measures
+   * 13. Solved rather than eyeballed, against
+   * leads-list-default-scroll-left-assigned-avatar-tooltip.png: the header string
+   * "Customer Name" is 103px wide there and the Source cell "DoubleTick" is 71px, and
+   * Plus Jakarta Sans reproduces both at 13px (100.7 / 69.8 at w400) — at 14px they
+   * come out 107 and 72.5, ~4 % wide. Cap heights agree: 10px in the capture, 10px at
+   * 13px here.
+   *
+   * ADR-0076 §3 fixed this at 14px after measuring **Poppins**, which was replaced by
+   * Plus Jakarta Sans the next day (ADR-0077). Jakarta carries more width and x-height
+   * per em, so the 14px conclusion did not survive the face change.
+   *
+   * Line height stays 20px — Tailwind's `text-sm` pairing. Dropping it with the font
+   * size would shrink every table row, and the row geometry already matches.
+   */
+  --text-sm: 13px; /* Tailwind default 14 */
+  --text-sm--line-height: 20px;
+  /*
+   * Sidebar nav labels. ADR-0076 recorded the 1:1 measurement as 14 and applied the
+   * density factor to reach 13, but the capture reads ~15.7: "Dashboard" is 81 px of
+   * tight ink in leads-list-default-scroll-left-…png against 67 px here at 13 px. The
+   * factor's target is 81 x 0.9 = 72.9, which 14 px hits (72.2). Line height stays 18.
+   */
+  --text-nav: 14px; /* 15.7 measured x 0.9 */
   --text-nav--line-height: 18px; /* 20 */
   --text-title: 24px; /* 27 */
   --text-title--line-height: 1;

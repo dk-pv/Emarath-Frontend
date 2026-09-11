@@ -13,6 +13,20 @@ export function formatDate(value: string): string {
   return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()}`;
 }
 
+/**
+ * `Sep 01` — the Lead Source Summary's day-column caption.
+ *
+ * The API sends each column as the ISO instant of the caller's own local midnight,
+ * so this formats in the browser's zone, where that instant lands on the day the
+ * user means. A server-rendered caption would read the previous day wherever the
+ * server's offset is behind the client's.
+ */
+export function formatDayLabel(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+}
+
 export type TimeFormatOptions = {
   /** Include seconds — `11:39:05 AM` (Documents, Call log, GPS). */
   seconds?: boolean;

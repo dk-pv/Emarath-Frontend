@@ -55,7 +55,7 @@ const PANEL_CLASS =
   "absolute top-[calc(100%+8px)] left-0 z-50 max-h-64 w-full min-w-56 overflow-y-auto rounded-surface border border-hairline bg-surface py-1 shadow-lg scrollbar-slim";
 
 const OPTION_CLASS =
-  "flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-[15px] text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50";
+  "flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-[14px] text-ink-soft transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50";
 
 export function MultiSelect({
   options,

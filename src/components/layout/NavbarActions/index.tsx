@@ -1,61 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import {
-  IconBrandWhatsapp,
-  IconCirclePlus,
-  IconHelpCircle,
-  IconSearch,
-  IconSettings,
-  type Icon,
-} from "@tabler/icons-react";
+import { IconBrandWhatsapp, IconSettings } from "@tabler/icons-react";
+import { NavbarSearch } from "../NavbarSearch";
 import { NotificationMenu } from "../NotificationMenu";
+import { QuickAddMenu } from "../QuickAddMenu";
 import { UserMenu } from "../UserMenu";
 
 /**
- * The seven navbar controls, at the measured 55px pitch (36px control + 19px gap)
- * ending 32px from the viewport edge.
+ * The navbar controls, at the measured 55px pitch (36px control + 19px gap) ending
+ * 32px from the viewport edge.
  *
- * Only the quick-add and avatar menus are captured in ui-reference/; the search,
- * WhatsApp and help panels are not, so their triggers are inert here. Settings is the
- * one that has a real destination in this product, so it navigates rather than sitting
- * dead next to the others.
+ * Search expands in place, Settings navigates, the + and avatar open their menus.
+ * WhatsApp is the one the reference never opens, so its trigger stays inert rather
+ * than inventing a destination for it.
+ *
+ * **The help (?) control is deliberately absent, against the reference.** All three
+ * dashboard captures draw a ? between the bell and the avatar; the owner removed it
+ * from Emarath on 2026-09-11 after being shown that evidence. This is an intentional
+ * departure from parity, not an oversight — restore the button here if it is ever
+ * reinstated.
+ *
+ * Only one menu can be open at a time without any shared state here: each menu closes
+ * on an outside pointer-down (`useDismissable`), and a click on another trigger is
+ * exactly that.
  */
-const ACTIONS: { label: string; icon: Icon }[] = [
-  { label: "Search", icon: IconSearch },
-  { label: "WhatsApp", icon: IconBrandWhatsapp },
-];
-
 const CONTROL_CLASS =
   "flex size-control shrink-0 items-center justify-center rounded-full text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring";
 
 export function NavbarActions() {
   return (
     <div className="flex shrink-0 items-center gap-2 lg:gap-navbar-gap">
-      {ACTIONS.map(({ label, icon: IconComponent }) => (
-        <button
-          key={label}
-          type="button"
-          aria-label={label}
-          className={CONTROL_CLASS}
-        >
-          <IconComponent size={21} stroke={1.75} />
-        </button>
-      ))}
+      <NavbarSearch triggerClassName={CONTROL_CLASS} />
+
+      <button type="button" aria-label="WhatsApp" className={CONTROL_CLASS}>
+        <IconBrandWhatsapp size={21} stroke={1.75} />
+      </button>
 
       <Link href="/settings" aria-label="Settings" className={CONTROL_CLASS}>
         <IconSettings size={21} stroke={1.75} />
       </Link>
 
-      <button type="button" aria-label="Quick add" className={CONTROL_CLASS}>
-        <IconCirclePlus size={21} stroke={1.75} />
-      </button>
+      <QuickAddMenu triggerClassName={CONTROL_CLASS} />
 
       <NotificationMenu />
-
-      <button type="button" aria-label="Help" className={CONTROL_CLASS}>
-        <IconHelpCircle size={21} stroke={1.75} />
-      </button>
 
       <UserMenu />
     </div>

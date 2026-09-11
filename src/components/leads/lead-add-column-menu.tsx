@@ -121,7 +121,7 @@ export function LeadAddColumnMenu({
                 setType(fieldType);
                 setError(null);
               }}
-              className="focus-ring-inset flex w-full items-center gap-3 px-3 py-2 text-left text-[15px] text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas"
+              className="focus-ring-inset flex w-full items-center gap-3 px-3 py-2 text-left text-[14px] text-ink-soft transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas"
             >
               <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-brand-subtle text-brand-strong">
                 <Icon size={18} stroke={1.75} aria-hidden="true" />

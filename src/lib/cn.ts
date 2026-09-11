@@ -25,6 +25,7 @@ const twMerge = extendTailwindMerge({
         "sidebar-collapsed",
         "navbar",
         "brand-block",
+        "brand-gap",
         "brand-inset",
         "nav-item",
         "nav-inset",

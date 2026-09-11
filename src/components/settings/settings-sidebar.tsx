@@ -77,7 +77,7 @@ export function SettingsSidebar() {
                 onClick={() =>
                   setToggled((prev) => ({ ...prev, [category.key]: !open }))
                 }
-                className="focus-ring flex w-full items-center justify-between gap-3 rounded-control py-4 text-left text-[15px] font-medium text-ink transition-colors duration-(--duration-shell) ease-shell hover:text-brand-strong"
+                className="focus-ring flex w-full items-center justify-between gap-3 rounded-control py-4 text-left text-[14px] font-medium text-ink transition-colors duration-(--duration-shell) ease-shell hover:text-brand-strong"
               >
                 <span className="min-w-0 truncate">{category.title}</span>
                 <IconChevronDown

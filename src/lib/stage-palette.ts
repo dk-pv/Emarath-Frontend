@@ -8,8 +8,9 @@
  * their names, order and colour) now comes from the API, not from here. Colours are
  * the same design tokens the old per-stage config used, re-keyed by hue.
  *
- * A hue with a solid badge in Workpex (slate/purple/blue/lime) fills its badge and
- * takes light text; the rest use a light fill with dark text. Because a stage now
+ * The list pill takes the stage's full-strength fill with the page's dark ink, and
+ * white ink only where that fill is dark enough to need it (slate/purple/blue) — the
+ * rule every sampled pill in the Leads capture follows. Because a stage now
  * carries a single colour, two stages sharing a hue render identically (e.g. WON and
  * Converted are both `lime`) — the correct behaviour for a user-configurable palette.
  */
@@ -53,20 +54,22 @@ export interface StageColorClasses {
  * QC NOT APPROVED, WON or Converted column, so they follow the pattern the eleven
  * sampled hues share rather than a measurement. They need a screenshot to confirm.
  *
- * `badge` and `swatch` are deliberately untouched: the Leads status pill and dropdown
- * and three Reports charts render from them, and none of those is in this task's scope.
+ * `swatch` is deliberately untouched: the status dropdown and three Reports charts
+ * render from it. `badge` was re-pinned to the sampled pill fills above (see the
+ * `--color-stage-*` tokens); the Leads pill and the eight Reports status pills share it,
+ * so they move together.
  */
 const PALETTE: Record<string, StageColorClasses> = {
   violet: {
     arc: "text-violet-500",
-    badge: "bg-violet-400 text-violet-950",
+    badge: "bg-stage-violet text-ink",
     swatch: "bg-violet-500",
     tint: "bg-violet-200 border-violet-300",
     cardBorder: "border-violet-400",
   },
   cyan: {
     arc: "text-cyan-500",
-    badge: "bg-cyan-300 text-cyan-900",
+    badge: "bg-cyan-300 text-ink",
     swatch: "bg-cyan-500",
     tint: "bg-cyan-200 border-cyan-300",
     cardBorder: "border-cyan-400",
@@ -80,42 +83,42 @@ const PALETTE: Record<string, StageColorClasses> = {
   },
   amber: {
     arc: "text-amber-500",
-    badge: "bg-amber-300 text-amber-900",
+    badge: "bg-amber-300 text-ink",
     swatch: "bg-amber-500",
     tint: "bg-amber-100 border-amber-200",
     cardBorder: "border-amber-300",
   },
   sky: {
     arc: "text-sky-500",
-    badge: "bg-sky-300 text-sky-900",
+    badge: "bg-stage-sky text-ink",
     swatch: "bg-sky-500",
     tint: "bg-sky-100 border-sky-200",
     cardBorder: "border-sky-300",
   },
   yellow: {
     arc: "text-yellow-400",
-    badge: "bg-yellow-300 text-yellow-900",
+    badge: "bg-yellow-300 text-ink",
     swatch: "bg-yellow-400",
     tint: "bg-yellow-100 border-yellow-200",
     cardBorder: "border-yellow-200",
   },
   purple: {
     arc: "text-purple-600",
-    badge: "bg-purple-600 text-white",
+    badge: "bg-stage-purple text-white",
     swatch: "bg-purple-600",
     tint: "bg-purple-100 border-purple-200",
     cardBorder: "border-purple-400",
   },
   teal: {
     arc: "text-teal-400",
-    badge: "bg-teal-300 text-teal-900",
+    badge: "bg-stage-teal text-ink",
     swatch: "bg-teal-400",
     tint: "bg-teal-100 border-teal-200",
     cardBorder: "border-teal-400",
   },
   rose: {
     arc: "text-rose-400",
-    badge: "bg-rose-300 text-rose-900",
+    badge: "bg-stage-rose text-ink",
     swatch: "bg-rose-400",
     tint: "bg-rose-100 border-rose-200",
     cardBorder: "border-rose-300",
@@ -129,21 +132,21 @@ const PALETTE: Record<string, StageColorClasses> = {
   },
   red: {
     arc: "text-red-500",
-    badge: "bg-red-300 text-red-900",
+    badge: "bg-red-300 text-ink",
     swatch: "bg-red-500",
     tint: "bg-red-200 border-red-300",
     cardBorder: "border-red-400",
   },
   gray: {
     arc: "text-gray-400",
-    badge: "bg-gray-200 text-gray-700",
+    badge: "bg-gray-200 text-ink",
     swatch: "bg-gray-400",
     tint: "bg-gray-200 border-gray-300",
     cardBorder: "border-gray-400",
   },
   lime: {
     arc: "text-lime-500",
-    badge: "bg-lime-500 text-lime-950",
+    badge: "bg-stage-lime text-ink",
     swatch: "bg-lime-500",
     tint: "bg-lime-100 border-lime-200",
     cardBorder: "border-lime-400",

@@ -8,10 +8,15 @@ import { useAuth } from "@/components/auth/auth-context";
 import { can } from "@/constants/permissions";
 import { DashboardToolbar } from "./dashboard-toolbar";
 import { DashboardWidget } from "./dashboard-widget";
+import { ActivitiesTracker } from "./activities-tracker";
 import { CallActivityBoard } from "./call-activity-board";
 import { DashboardAlerts } from "./dashboard-alerts";
+import { HotLeads } from "./hot-leads";
+import { LeadSourceSummary } from "./lead-source-summary";
+import { LeadsConversion } from "./leads-conversion";
+import { LeadsNeedAttention } from "./leads-need-attention";
+import { SalesPipeline } from "./sales-pipeline";
 import { Leaderboard } from "./leaderboard";
-import { ConfiguredSummaryCards } from "./configured-summary-cards";
 import {
   DashboardKpiCarousel,
   DashboardKpiCarouselSkeleton,
@@ -65,19 +70,11 @@ export function DashboardView() {
         <DashboardKpiCarousel />
       </Suspense>
 
-      {/*
-        The cards Settings → Application Controls → Dashboard Settings configures.
-        Its own row rather than part of the carousel above: these are chosen per
-        installation and vary in number, where the carousel above is Workpex's own
-        fixed nineteen.
-      */}
-      <ConfiguredSummaryCards />
-
       {canViewTeamMetrics && (
         <Card as="section" className="flex flex-col gap-4 p-5">
           {/* One outer container holding both halves, as the reference draws it —
               the heading belongs to the board, not to either widget inside it. */}
-          <h2 className="text-lg font-semibold text-ink">
+          <h2 className="text-xl font-semibold text-ink">
             Sales Team Activity Board
           </h2>
 
@@ -122,6 +119,34 @@ export function DashboardView() {
         <CallActivityBoard />
 
         <DashboardAlerts />
+      </DashboardGrid>
+
+      {/* Leads – Need Attention beside Hot Leads — measured 966/641 across a
+          1639px content width with a 32px gutter, the same 60/38 split as the
+          Call Activity row above. */}
+      <DashboardGrid className="gap-7 md:grid-cols-1 lg:grid-cols-[minmax(0,60fr)_minmax(0,38fr)] lg:gap-7 xl:grid-cols-[minmax(0,60fr)_minmax(0,38fr)]">
+        <LeadsNeedAttention />
+        <HotLeads />
+      </DashboardGrid>
+
+      {/* The Activities tracker spans the full content width below that row, as
+          dashboard-quick-add-plus-menu-open.png draws it: a four-card rail on the
+          left and its table filling the rest. */}
+      <ActivitiesTracker />
+
+      {/* Lead Source Summary spans the full content width, its grid on the left and
+          the donut on the right — one coherent row, as
+          dashboard-header-search-expanded-lead-source-summary-donut-tooltip.png
+          draws it. */}
+      <LeadSourceSummary />
+
+      {/* The last row: Leads vs Conversion beside the Sales Pipeline, the even
+          split the reference measures (830 / 33 gutter / 799 across the content
+          width) in
+          dashboard-leads-vs-conversion-lead-source-toggle-sales-pipeline.png. */}
+      <DashboardGrid className="gap-7 md:grid-cols-1 lg:grid-cols-2 lg:gap-7 xl:grid-cols-2">
+        <LeadsConversion />
+        <SalesPipeline />
       </DashboardGrid>
     </ContentContainer>
   );

@@ -144,7 +144,7 @@ export function Modal({
         )}
       >
         <header className="flex items-start justify-between gap-3 border-b border-hairline p-4">
-          <h2 id={titleId} className="text-base font-semibold text-ink">
+          <h2 id={titleId} className="text-base font-medium text-ink">
             {title}
           </h2>
           <button

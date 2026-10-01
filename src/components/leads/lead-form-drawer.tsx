@@ -43,7 +43,10 @@ type LeadFormDrawerProps = {
    * Create mode, unchanged.
    */
   lead?: LeadEditData;
-  /** The active custom-column definitions (LEAD-05.1) to render as extra inputs. */
+  /**
+   * The active custom-column definitions (LEAD-05.1) to render as extra inputs.
+   * Absent → no custom inputs, and an edit leaves the lead's custom values as they are.
+   */
   customFields?: LeadCustomField[];
   /**
    * Create mode only: seed Lead Status and its pipeline. The Kanban stage-header "+"
@@ -217,7 +220,7 @@ export function LeadFormDrawer({
   open,
   onClose,
   lead,
-  customFields = [],
+  customFields,
   defaultStatus,
   defaultPipeline,
   onSaved,
@@ -236,7 +239,7 @@ export function LeadFormDrawer({
     configuration — so this only drops what the form hides.
   */
   const orderedCustomFields = useMemo(
-    () => customFields.filter((field) => layout.shows(field.key)),
+    () => (customFields ?? []).filter((field) => layout.shows(field.key)),
     [customFields, layout],
   );
   // Assigned defaults to the current user on create (verified Workpex behaviour); on edit it
@@ -357,7 +360,7 @@ export function LeadFormDrawer({
     // Custom NUMBER fields must parse if filled (DATE/DATETIME are constrained by
     // their native inputs; the backend re-validates every custom value by type).
     const nextCustom: Record<string, string> = {};
-    for (const field of customFields) {
+    for (const field of customFields ?? []) {
       const value = (customValues[field.key] ?? "").trim();
       if (field.type === "NUMBER" && value && !isNumeric(value)) {
         nextCustom[field.key] = `${field.name} must be a number`;
@@ -412,9 +415,10 @@ export function LeadFormDrawer({
         forecastedAmount: form.forecastedAmount.trim() || undefined,
         paymentMethod: form.paymentMethod ?? undefined,
         // Only non-blank values are sent; on update the backend full-replaces, so a
-        // field the user cleared is dropped (LEAD-05.1).
+        // field the user cleared is dropped (LEAD-05.1). Without definitions the key is
+        // omitted, which the backend reads as "leave the custom values alone".
         customFields: customFields
-          .map((field) => ({
+          ?.map((field) => ({
             fieldId: field.id,
             value: (customValues[field.key] ?? "").trim(),
           }))

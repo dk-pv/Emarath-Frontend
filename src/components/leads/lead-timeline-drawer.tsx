@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { IconHistory, IconLoader2 } from "@tabler/icons-react";
 import { Drawer } from "@/components/ui/Drawer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { TabStrip } from "@/components/ui/Tabs";
+import { CustomerJourney } from "@/components/leads/customer-journey";
 import { LeadTimeline } from "@/components/leads/lead-timeline";
 import type { LeadTimelineEvent } from "@/services/leads-service";
 
@@ -11,11 +14,22 @@ export type LeadTimelineDrawerProps = {
   open: boolean;
   onClose: () => void;
   leadName: string;
+  /** The lead whose audited journey the Journey tab reads (ADR-0083). */
+  leadId: string;
   /** The lead's timeline, or null while it is still loading. */
   events: LeadTimelineEvent[] | null;
   errored?: boolean;
   onRetry?: () => void;
 };
+
+/**
+ * Timeline first, as the reference opens it; Journey is the audited history of the same lead
+ * (the client specification's audit trail), which has no Workpex equivalent.
+ */
+const TABS = [
+  { id: "timeline", label: "Timeline" },
+  { id: "journey", label: "Journey" },
+] as const;
 
 /**
  * The lead's activity timeline, opened from the Basic Info header's Timeline control.
@@ -24,15 +38,21 @@ export type LeadTimelineDrawerProps = {
  * same component the Leads-list detail drawer renders, so the two can never drift. The
  * feed is `GET /leads/:id/timeline` — the lead's creation, assignments, notes and calls —
  * which the page has already fetched, so opening this costs no extra request.
+ *
+ * The Journey tab mounts only when chosen, so its own read (`GET /audit/events`) is made only
+ * when someone asks for it.
  */
 export function LeadTimelineDrawer({
   open,
   onClose,
   leadName,
+  leadId,
   events,
   errored = false,
   onRetry,
 }: LeadTimelineDrawerProps) {
+  const [tab, setTab] = useState<string>("timeline");
+
   return (
     <Drawer
       open={open}
@@ -47,10 +67,18 @@ export function LeadTimelineDrawer({
               {leadName}
             </span>
           </h2>
+          <TabStrip
+            className="mt-3"
+            tabs={TABS}
+            value={tab}
+            onValueChange={setTab}
+          />
         </header>
       }
     >
-      {errored ? (
+      {tab === "journey" ? (
+        <CustomerJourney leadId={leadId} />
+      ) : errored ? (
         <ErrorState
           title="Couldn’t load the timeline"
           description="Something went wrong. Check your connection and try again."

@@ -67,7 +67,7 @@ function MetricRow({
  */
 function LeaderboardCard({ entry }: { entry: SalesLeaderboardEntry }) {
   return (
-    <article className="flex w-[14.875rem] flex-col overflow-hidden rounded-surface border border-hairline bg-surface">
+    <article className="flex w-[14.875rem] flex-col overflow-hidden rounded-surface border border-brand bg-surface">
       {/* Workpex's no-photo placeholder is the same grey silhouette the rest of the
           product uses for a member without an avatar — not a stock image. */}
       <div className="flex h-[10.9375rem] w-full items-center justify-center bg-gray-300">

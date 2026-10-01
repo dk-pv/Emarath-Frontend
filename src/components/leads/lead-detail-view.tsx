@@ -29,7 +29,10 @@ import {
   customFieldEntries,
   type LeadDetailField,
 } from "@/components/leads/lead-detail-fields";
-import { fetchLeadCustomFields } from "@/services/leads-custom-fields-service";
+import {
+  fetchLeadCustomFields,
+  type LeadCustomField,
+} from "@/services/leads-custom-fields-service";
 import {
   fetchColumnLayout,
   reconcileLayout,
@@ -186,7 +189,10 @@ export function LeadDetailView({
   const [waOpen, setWaOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
-  const [editData, setEditData] = useState<LeadEditData | null>(null);
+  const [editData, setEditData] = useState<{
+    lead: LeadEditData;
+    customFields: LeadCustomField[];
+  } | null>(null);
   const [editPending, setEditPending] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -410,8 +416,13 @@ export function LeadDetailView({
   const openEdit = async () => {
     setEditPending(true);
     try {
-      const data = await fetchLeadForEdit(lead.id);
-      setEditData(data);
+      // The definitions load with the lead, so the form shows and resubmits the
+      // lead's custom values instead of saving without them.
+      const [data, customFields] = await Promise.all([
+        fetchLeadForEdit(lead.id),
+        fetchLeadCustomFields(),
+      ]);
+      setEditData({ lead: data, customFields });
     } catch (error) {
       const gone = error instanceof ApiError && error.status === 404;
       toast({
@@ -728,6 +739,7 @@ export function LeadDetailView({
         <LeadTimelineDrawer
           open
           leadName={lead.name}
+          leadId={lead.id}
           events={notesEvents}
           errored={notesErrored}
           onRetry={() => {
@@ -763,7 +775,8 @@ export function LeadDetailView({
       {editData && (
         <LeadFormDrawer
           open
-          lead={editData}
+          lead={editData.lead}
+          customFields={editData.customFields}
           onClose={() => setEditData(null)}
           onSaved={(updated) => {
             setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });

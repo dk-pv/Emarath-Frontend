@@ -50,6 +50,9 @@ const ROLE_OPTIONS: { label: string; value: string }[] = [
       "SALES_AGENT",
       "CUSTOMER_SERVICE_AGENT",
       "MARKETING_ANALYST",
+      "LOGISTICS_MANAGER",
+      "LOGISTICS_EXECUTIVE",
+      "ACCOUNTS_EXECUTIVE",
     ] as UserRole[]
   ).map((role) => ({ label: userRoleLabel(role), value: role })),
 ];

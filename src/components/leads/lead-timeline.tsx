@@ -32,7 +32,8 @@ function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
-function dayLabel(date: Date, today: Date): string {
+/** "Today", "Yesterday" or "6 Jul 2026" — shared with the Journey tab so both read alike. */
+export function dayLabel(date: Date, today: Date): string {
   if (dayKey(date) === dayKey(today)) return "Today";
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);

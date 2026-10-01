@@ -25,13 +25,13 @@ function StatCard({
   return (
     <section
       className={cn(
-        "relative isolate flex min-h-34 flex-col overflow-hidden rounded-surface p-4",
+        "relative isolate flex min-h-34 flex-col overflow-hidden rounded-surface p-4 text-ink",
         surface,
         className,
       )}
     >
       <StatWave className={wave} />
-      <h4 className="relative z-10 text-base font-medium text-ink">{title}</h4>
+      <h4 className="relative z-10 text-base font-medium">{title}</h4>
       <div className="relative z-10">{children}</div>
     </section>
   );
@@ -48,27 +48,29 @@ function StatCard({
  */
 export function TeamRevenue({ totals }: { totals: TeamRevenueData }) {
   return (
-    <div className="flex flex-col gap-4">
+    // Fills the board's row: the reference's rail is as tall as the leaderboard
+    // beside it, and it is the Team Revenue card that takes up the difference.
+    <div className="flex flex-1 flex-col gap-4">
       <StatCard
         title="Team Revenue"
         surface="bg-linear-to-b from-stat-revenue-from to-stat-revenue-to"
         wave="fill-stat-revenue-wave"
         // Two figures rather than one, so this card is taller — enough that the
         // wave stays clear of the numbers, as it does in the reference.
-        className="min-h-39"
+        className="min-h-39 flex-1"
       >
         {/* The one card with two figures side by side, under a hairline rule. */}
         <div className="mt-3 border-t border-ink/10 pt-3">
           <dl className="flex gap-10">
             <div>
               <dt className="text-xs text-ink-muted">Total Leads</dt>
-              <dd className="mt-1 text-[26px] leading-none font-semibold text-ink">
+              <dd className="mt-1 text-[34px] leading-none font-semibold">
                 {COUNT.format(totals.totalLeads)}
               </dd>
             </div>
             <div>
               <dt className="text-xs text-ink-muted">Total Calls</dt>
-              <dd className="mt-1 text-[26px] leading-none font-semibold text-ink">
+              <dd className="mt-1 text-[34px] leading-none font-semibold">
                 {COUNT.format(totals.totalCalls)}
               </dd>
             </div>
@@ -81,7 +83,7 @@ export function TeamRevenue({ totals }: { totals: TeamRevenueData }) {
         surface="bg-linear-to-b from-stat-conversion-from to-stat-conversion-to"
         wave="fill-stat-conversion-wave"
       >
-        <p className="mt-5 text-[26px] leading-none font-semibold text-ink">
+        <p className="mt-5 text-[34px] leading-none font-semibold">
           {/* The reference abbreviates to 3 decimals here — 203.234K — where the
               Kanban totals round to one. */}
           {formatAEDCompact(totals.totalConversion, { digits: 3 })}
@@ -92,8 +94,11 @@ export function TeamRevenue({ totals }: { totals: TeamRevenueData }) {
         title="Total % Revenue Target Achieved"
         surface="bg-linear-to-b from-stat-target-from to-stat-target-to"
         wave="fill-stat-target-wave"
+        // White on this card only, as the reference draws it; its figure is also
+        // the largest on the rail (32px cap-height against the others' 28 at 1:1).
+        className="text-white"
       >
-        <p className="mt-5 text-[26px] leading-none font-semibold text-ink">
+        <p className="mt-5 text-[39px] leading-none font-semibold">
           {totals.pctRevenueTargetAchieved === null
             ? "NA"
             : `${PCT.format(Math.round(totals.pctRevenueTargetAchieved))} %`}

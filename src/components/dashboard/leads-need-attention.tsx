@@ -63,7 +63,9 @@ const COLUMNS: readonly TableColumn<AttentionRow>[] = [
                 src={agent.avatarUrl ?? undefined}
                 size="sm"
               />
-              <span className="truncate text-ink">{agent.agentName}</span>
+              {/* The table's own #505050, not heading ink: the reference's names
+                  sample exactly that grey. */}
+              <span className="truncate">{agent.agentName}</span>
             </span>
           ))}
         </span>

@@ -7,13 +7,16 @@ import {
 } from "@/lib/api-client";
 import type { ListQuery, ListResult } from "@/types";
 
-/** The seeded auth-role set (AUTH-01.1). Mirrors the backend `UserRole` enum. */
+/** The auth-role set (AUTH-01.1, ADR-0084). Mirrors the backend `UserRole` enum. */
 export type UserRole =
   | "SUPERADMIN"
   | "SALES_MANAGER"
   | "SALES_AGENT"
   | "CUSTOMER_SERVICE_AGENT"
-  | "MARKETING_ANALYST";
+  | "MARKETING_ANALYST"
+  | "LOGISTICS_MANAGER"
+  | "LOGISTICS_EXECUTIVE"
+  | "ACCOUNTS_EXECUTIVE";
 
 /** Enum value → fallback label, for accounts that predate the named-role table. */
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
@@ -22,6 +25,9 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   SALES_AGENT: "Sales Agent",
   CUSTOMER_SERVICE_AGENT: "Customer Service",
   MARKETING_ANALYST: "Marketing Analyst",
+  LOGISTICS_MANAGER: "Logistics Manager",
+  LOGISTICS_EXECUTIVE: "Logistics Executive",
+  ACCOUNTS_EXECUTIVE: "Accounts Executive",
 };
 
 export function userRoleLabel(role: string): string {

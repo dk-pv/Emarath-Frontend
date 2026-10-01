@@ -34,8 +34,11 @@ type AuthContextValue = {
   /** The signed-in user, or null while loading and when signed out. */
   user: AuthUser | null;
   status: AuthStatus;
-  /** Verify credentials and start a session. Rejects with `ApiError` so a form can show why. */
-  login: (email: string, password: string) => Promise<void>;
+  /**
+   * Verify credentials and start a session; resolves the signed-in user. Rejects with
+   * `ApiError` so a form can show why.
+   */
+  login: (email: string, password: string) => Promise<AuthUser>;
   /** End the session; clears local state even if the network call fails. */
   logout: () => Promise<void>;
   /** Re-check the session from the refresh cookie; resolves true if a session now exists. */
@@ -71,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const current = await loginRequest({ email, password });
     setUser(current);
     setStatus("authenticated");
+    return current;
   }, []);
 
   const logout = useCallback(async () => {

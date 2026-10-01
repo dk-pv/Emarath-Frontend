@@ -85,8 +85,8 @@ export function DashboardKpiCarouselSkeleton() {
  *
  * **Scoping is the API's.** Every counter is scoped in the query by role, so an agent's
  * figures can only ever be their own; nothing is filtered here. The row's Sales Agent
- * selection is *not* applied — the KPI endpoint takes no owner argument, and filtering
- * by agent in the browser would be exactly the client-side scoping the project forbids.
+ * selection (`?agent=`) is sent to the API, which ANDs it inside that scope — it narrows
+ * the cards and can never widen them.
  */
 export function DashboardKpiCarousel() {
   const params = useSearchParams();
@@ -95,7 +95,8 @@ export function DashboardKpiCarousel() {
   const periodParam = params.get("period");
   const period = isPeriodId(periodParam) ? periodParam : "this-month";
   const range = useMemo(() => resolvePeriodRange(period), [period]);
-  const key = periodKey(period, range);
+  const agents = params.get("agent") ?? "";
+  const key = `${periodKey(period, range)}|${agents}`;
 
   const [retryToken, setRetryToken] = useState(0);
   const [loaded, setLoaded] = useState<{
@@ -111,7 +112,7 @@ export function DashboardKpiCarousel() {
     const controller = new AbortController();
     let active = true;
 
-    fetchDashboardKpis(range, controller.signal)
+    fetchDashboardKpis(range, agents, controller.signal)
       .then((kpis) => {
         if (!active) return;
         setLoaded({ key, kpis });
@@ -129,7 +130,7 @@ export function DashboardKpiCarousel() {
       active = false;
       controller.abort();
     };
-  }, [key, range, retryToken]);
+  }, [key, range, agents, retryToken]);
 
   const kpis = loaded?.key === key ? loaded.kpis : null;
   const isError = failed === key;

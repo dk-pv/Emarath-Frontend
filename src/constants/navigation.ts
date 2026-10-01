@@ -16,11 +16,14 @@ import {
   IconReportAnalytics,
   IconRun,
   IconTrendingUp,
+  IconTruck,
+  IconTruckFilled,
   IconUser,
   IconUserFilled,
   type Icon,
 } from "@tabler/icons-react";
-import type { Capability } from "@/constants/permissions";
+import { can, type Capability } from "@/constants/permissions";
+import type { UserRole } from "@/constants/roles";
 
 export type NavItem = {
   /** Sidebar label. */
@@ -36,8 +39,8 @@ export type NavItem = {
   activeIcon: Icon;
   /**
    * Capability required to see this item (AUTH-02.2); absent ⇒ visible to every role.
-   * No item is gated yet — the role→menu matrix beyond the backlog's two confirmed rules
-   * awaits a Product Owner decision, so every item stays unrestricted for now.
+   * Only the sales modules are gated, and only away from the post-sale roles (ADR-0084);
+   * every sales role still sees the full menu.
    */
   requires?: Capability;
 };
@@ -55,6 +58,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/dashboard",
     icon: IconLayoutGrid,
     activeIcon: IconLayoutGridFilled,
+    requires: "useSalesModules",
   },
   {
     label: "Leads",
@@ -62,6 +66,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/leads",
     icon: IconUser,
     activeIcon: IconUserFilled,
+    requires: "useSalesModules",
   },
   {
     label: "Kanban Board",
@@ -69,6 +74,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/leads/kanban",
     icon: IconFilter,
     activeIcon: IconFilterFilled,
+    requires: "useSalesModules",
   },
   {
     label: "Activities",
@@ -76,6 +82,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/activities",
     icon: IconRun,
     activeIcon: IconRun,
+    requires: "useSalesModules",
   },
   {
     label: "Call Dashboard",
@@ -83,6 +90,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/calls",
     icon: IconPhoneCall,
     activeIcon: IconPhoneFilled,
+    requires: "useSalesModules",
   },
   {
     label: "Documents",
@@ -97,6 +105,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/map",
     icon: IconFocus2,
     activeIcon: IconFocusCentered,
+    requires: "useSalesModules",
   },
   {
     label: "Reports",
@@ -104,6 +113,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/reports",
     icon: IconReportAnalytics,
     activeIcon: IconReportAnalytics,
+    requires: "useSalesModules",
   },
   {
     label: "Analytics",
@@ -111,6 +121,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/analytics",
     icon: IconTrendingUp,
     activeIcon: IconTrendingUp,
+    requires: "useSalesModules",
   },
   {
     label: "Integrations",
@@ -118,6 +129,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/integrations",
     icon: IconPuzzle,
     activeIcon: IconPuzzleFilled,
+    requires: "useSalesModules",
+  },
+  // The client workflow's order queue (ADR-0085). No Workpex screen exists for it, so it sits
+  // after the Workpex items, leaving their order exactly as the reference shows it.
+  {
+    label: "Logistics",
+    title: "Logistics",
+    href: "/logistics",
+    icon: IconTruck,
+    activeIcon: IconTruckFilled,
+    requires: "useLogistics",
   },
   {
     label: "Settings",
@@ -127,6 +149,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     activeIcon: IconAdjustmentsFilled,
   },
 ];
+
+/**
+ * Where a signed-in user lands: the Dashboard for the sales roles; for a post-sale role, which
+ * holds no sales module (ADR-0084), its own queue — Logistics — or, until Accounts has a
+ * screen of its own, Documents.
+ */
+export function homePath(role: UserRole | null | undefined): string {
+  if (!role || can(role, "useSalesModules")) return "/dashboard";
+  return can(role, "useLogistics") ? "/logistics" : "/documents";
+}
 
 /**
  * Longest matching href wins.

@@ -12,7 +12,6 @@ import {
   type SalesPipelineOverview as Overview,
 } from "@/services/dashboard-service";
 import { useWidgetPeriod } from "./dashboard-widget";
-import { WidgetPeriodFilter } from "./widget-period-filter";
 
 const COUNT = new Intl.NumberFormat("en-US");
 
@@ -42,6 +41,11 @@ const BAR_H = "h-[17px]";
  */
 const LIST_HEIGHT = "max-h-[441px]";
 
+/** Half the tooltip's width — the most its centre may come to a card edge. */
+const TIP_HALF = 90;
+
+type Hover = { label: string; count: number; x: number; y: number } | null;
+
 /**
  * Sales Pipeline Overview (DASH-12.2).
  *
@@ -50,11 +54,17 @@ const LIST_HEIGHT = "max-h-[441px]";
  * their counts all come from the API — the configured `position` order and the
  * Kanban board's own rollup — so nothing about the pipeline's shape is decided here.
  *
- * The widget owns its own period (DASH-01.2), so changing it here cannot touch a
- * sibling widget.
+ * Hovering a bar shows the reference's tooltip — the stage, then its lead count —
+ * over the bar, where the cursor is.
  */
 export function SalesPipeline() {
-  const { period, setPeriod, range } = useWidgetPeriod("this-month");
+  /**
+   * The period is kept but no longer exposed: neither reference draws a date
+   * control on this widget, so the chip is gone — as it already is on Leads vs
+   * Conversion beside it — and the widget stays on its established default.
+   */
+  const { period, range } = useWidgetPeriod("this-month");
+  const [hover, setHover] = useState<Hover>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   const [loaded, setLoaded] = useState<{ key: string; data: Overview } | null>(
@@ -101,16 +111,8 @@ export function SalesPipeline() {
   const max = stages.reduce((top, stage) => Math.max(top, stage.count), 0);
 
   return (
-    <Card as="section" className="flex flex-col gap-4 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-ink">Sales Pipeline</h2>
-        <WidgetPeriodFilter
-          value={period}
-          onChange={setPeriod}
-          clearTo="this-month"
-          label="Sales Pipeline period"
-        />
-      </div>
+    <Card as="section" className="relative flex flex-col gap-4 p-5">
+      <h2 className="text-xl font-semibold text-ink">Sales Pipeline</h2>
 
       {isError ? (
         <ErrorState
@@ -143,6 +145,7 @@ export function SalesPipeline() {
           role="region"
           aria-label="Sales pipeline stages"
           tabIndex={0}
+          onScroll={() => setHover(null)}
           className={`focus-ring scrollbar-slim flex flex-col gap-8 overflow-y-auto pr-1 ${LIST_HEIGHT}`}
         >
           {stages.map((stage) => (
@@ -156,9 +159,25 @@ export function SalesPipeline() {
               </span>
               <span
                 className={`relative flex-1 self-center overflow-hidden rounded-full bg-pipeline-track ${BAR_H}`}
-                // The count reaches assistive tech and the native tooltip; the
-                // reference shows it on hover only.
-                title={`${stage.label}: ${COUNT.format(stage.count)}`}
+                // The count reaches assistive tech here; the reference shows it
+                // to the pointer only, in the tooltip below.
+                onMouseMove={(event) => {
+                  const card = event.currentTarget
+                    .closest("section")
+                    ?.getBoundingClientRect();
+                  if (!card) return;
+                  const bar = event.currentTarget.getBoundingClientRect();
+                  setHover({
+                    label: stage.label,
+                    count: stage.count,
+                    x: Math.min(
+                      Math.max(event.clientX - card.left, TIP_HALF),
+                      card.width - TIP_HALF,
+                    ),
+                    y: bar.top - card.top,
+                  });
+                }}
+                onMouseLeave={() => setHover(null)}
                 role="img"
                 aria-label={`${stage.label}, lead count ${COUNT.format(stage.count)}`}
               >
@@ -173,6 +192,29 @@ export function SalesPipeline() {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* The reference's tooltip (sidebar-collapsed capture): heading ink, the
+          stage in bold, a dot in the bar's colour, then the count. Its foot sits
+          11px into the hovered bar, as the reference's 12 does at 1:1. */}
+      {hover && (
+        <div
+          role="status"
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-control bg-ink px-3 py-2 whitespace-nowrap shadow-lg"
+          style={{ left: hover.x, top: hover.y + 11 }}
+        >
+          <p className="text-sm font-semibold text-white">{hover.label}</p>
+          <p className="mt-1 flex items-center gap-2 text-sm text-white">
+            <span
+              aria-hidden="true"
+              className="size-3 shrink-0 rounded-full bg-pipeline-bar"
+            />
+            <span>
+              Lead count:{" "}
+              <span className="font-semibold">{COUNT.format(hover.count)}</span>
+            </span>
+          </p>
         </div>
       )}
     </Card>

@@ -6,6 +6,8 @@ import { NavbarSearch } from "../NavbarSearch";
 import { NotificationMenu } from "../NotificationMenu";
 import { QuickAddMenu } from "../QuickAddMenu";
 import { UserMenu } from "../UserMenu";
+import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
 
 /**
  * The navbar controls, at the measured 55px pitch (36px control + 19px gap) ending
@@ -29,6 +31,7 @@ const CONTROL_CLASS =
   "flex size-control shrink-0 items-center justify-center rounded-full text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring";
 
 export function NavbarActions() {
+  const { user } = useAuth();
   return (
     <div className="flex shrink-0 items-center gap-2 lg:gap-navbar-gap">
       <NavbarSearch triggerClassName={CONTROL_CLASS} />
@@ -41,7 +44,10 @@ export function NavbarActions() {
         <IconSettings size={21} stroke={1.75} />
       </Link>
 
-      <QuickAddMenu triggerClassName={CONTROL_CLASS} />
+      {/* New Lead / New Follow-up are sales actions the post-sale roles cannot take (ADR-0084). */}
+      {can(user?.role, "useSalesModules") && (
+        <QuickAddMenu triggerClassName={CONTROL_CLASS} />
+      )}
 
       <NotificationMenu />
 

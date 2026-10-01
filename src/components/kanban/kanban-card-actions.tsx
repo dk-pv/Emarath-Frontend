@@ -15,6 +15,10 @@ import {
   type LeadListItem,
 } from "@/services/leads-service";
 import {
+  fetchLeadCustomFields,
+  type LeadCustomField,
+} from "@/services/leads-custom-fields-service";
+import {
   archiveLead,
   deleteLead,
   pinLead,
@@ -93,7 +97,10 @@ export function KanbanCardActionsProvider({
   const [pipelineTarget, setPipelineTarget] = useState<LeadListItem | null>(null);
   const [convertTarget, setConvertTarget] = useState<LeadListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LeadListItem | null>(null);
-  const [editLead, setEditLead] = useState<LeadEditData | null>(null);
+  const [editLead, setEditLead] = useState<{
+    lead: LeadEditData;
+    customFields: LeadCustomField[];
+  } | null>(null);
   const [pendingEditId, setPendingEditId] = useState<string | null>(null);
   const [convertBusy, setConvertBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -136,8 +143,13 @@ export function KanbanCardActionsProvider({
   const openEdit = async (lead: LeadListItem) => {
     setPendingEditId(lead.id);
     try {
-      const data = await fetchLeadForEdit(lead.id);
-      setEditLead(data);
+      // The definitions load with the lead, so the form shows and resubmits the
+      // lead's custom values instead of saving without them.
+      const [data, customFields] = await Promise.all([
+        fetchLeadForEdit(lead.id),
+        fetchLeadCustomFields(),
+      ]);
+      setEditLead({ lead: data, customFields });
     } catch (error) {
       const gone = error instanceof ApiError && error.status === 404;
       if (gone) onBoardChanged();
@@ -262,7 +274,8 @@ export function KanbanCardActionsProvider({
       {editLead && (
         <LeadFormDrawer
           open
-          lead={editLead}
+          lead={editLead.lead}
+          customFields={editLead.customFields}
           onClose={() => setEditLead(null)}
           onSaved={(updated) => {
             setEditLead(null);

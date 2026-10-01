@@ -46,7 +46,9 @@ const COLUMNS: readonly TableColumn<HotLeadRow>[] = [
                 src={agent.avatarUrl ?? undefined}
                 size="sm"
               />
-              <span className="truncate text-ink">{agent.agentName}</span>
+              {/* The table's own #505050, not heading ink: the reference's names
+                  sample exactly that grey. */}
+              <span className="truncate">{agent.agentName}</span>
             </span>
           ))}
         </span>
@@ -184,12 +186,12 @@ export function HotLeads() {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <Card as="section">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-        <h3 className="text-xl font-semibold text-ink">Hot Leads</h3>
-      </div>
+    // The title sits in the card's own padding with no rule beneath it, as the
+    // reference draws it and as the Call Activity Board above already does.
+    <Card as="section" className="flex flex-col gap-4 p-5">
+      <h3 className="text-xl font-semibold text-ink">Hot Leads</h3>
 
-      <div className="p-5">
+      <div>
         {isError ? (
           <ErrorState
             title="Couldn’t load Hot Leads"

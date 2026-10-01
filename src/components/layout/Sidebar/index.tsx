@@ -63,8 +63,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   // Role-driven visibility (AUTH-02.2): an item shows unless it declares a capability the
-  // caller lacks. No item is gated today, so every role sees the full menu until the
-  // Product Owner confirms the role→menu matrix.
+  // caller lacks. Only the sales modules are gated, away from the post-sale roles
+  // (ADR-0084); every sales role still sees the full menu.
   const items = NAV_ITEMS.filter(
     (item) => !item.requires || can(user?.role, item.requires),
   );

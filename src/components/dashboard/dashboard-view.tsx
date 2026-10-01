@@ -86,6 +86,7 @@ export function DashboardView() {
               defaultPeriod="this-month"
               filterable={false}
               chromeless
+              className="flex flex-col"
               skeletonClassName="h-[26rem]"
               load={(range, signal) => fetchTeamRevenue(range, signal)}
             >

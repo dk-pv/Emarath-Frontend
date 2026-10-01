@@ -39,6 +39,8 @@ export type DashboardKpis = Record<string, DashboardKpiCounter | undefined>;
  */
 export function fetchDashboardKpis(
   range: PeriodRange,
+  /** The control row's Sales Agent selection, as the URL carries it (`a,b`); empty is everyone. */
+  agents: string,
   signal?: AbortSignal,
 ): Promise<DashboardKpis> {
   const params = new URLSearchParams({
@@ -46,6 +48,7 @@ export function fetchDashboardKpis(
   });
   if (range.from) params.set("from", range.from);
   if (range.to) params.set("to", range.to);
+  if (agents) params.set("agent", agents);
   return apiGet<DashboardKpis>("/dashboard/kpis", params, signal);
 }
 

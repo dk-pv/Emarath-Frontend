@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/components/auth/auth-context";
+import { homePath } from "@/constants/navigation";
 import { ApiError } from "@/lib/api-client";
 import { EMAIL_PATTERN } from "@/lib/validation";
 import { fetchLoginPolicy } from "@/services/application-controls-service";
@@ -85,10 +86,10 @@ export function LoginForm() {
 
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      const signedIn = await login(email.trim(), password);
       // Session cookies are set; leave the loading state on through navigation so the
-      // controls stay disabled until the Dashboard takes over.
-      router.replace("/dashboard");
+      // controls stay disabled until the landing page takes over.
+      router.replace(homePath(signedIn.role));
     } catch (error: unknown) {
       const message =
         error instanceof ApiError

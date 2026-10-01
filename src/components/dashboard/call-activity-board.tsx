@@ -38,7 +38,9 @@ const COLUMNS: readonly TableColumn<CallActivityRow>[] = [
     key: "agentName",
     header: "Name",
     render: (row) => (
-      <span className="flex items-center gap-2.5">
+      // The reference leaves 15px clear between photo and name; 12px of gap plus
+      // the first letter's own bearing gives its 13.5 at the product's density.
+      <span className="flex items-center gap-3">
         {/* No initials fallback: the reference draws the neutral grey silhouette
             for a member without a photo, which is what Avatar renders when it is
             given neither a src nor initials. */}
@@ -47,7 +49,9 @@ const COLUMNS: readonly TableColumn<CallActivityRow>[] = [
           src={row.avatarUrl ?? undefined}
           size="sm"
         />
-        <span className="truncate text-ink">{row.agentName}</span>
+        {/* The table's own #505050, not heading ink: the reference's names sample
+            exactly that grey, the same as the figures beside them. */}
+        <span className="truncate">{row.agentName}</span>
       </span>
     ),
   },
@@ -152,51 +156,51 @@ export function CallActivityBoard() {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <Card as="section">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-        <h3 className="text-xl font-semibold text-ink">Call Activity Board</h3>
-      </div>
+    // The title sits in the card's own padding with no rule beneath it, as the
+    // reference draws it and as the Leads – Need Attention card below already does.
+    <Card as="section" className="flex flex-col gap-4 p-5">
+      <h3 className="text-xl font-semibold text-ink">Call Activity Board</h3>
 
-      <div className="p-5">
-        {isError ? (
-          <ErrorState
-            title="Couldn’t load the Call Activity Board"
-            description="Something went wrong loading this widget. Check your connection and try again."
-            onRetry={() => {
-              setFailed(null);
-              setReloadToken((token) => token + 1);
-            }}
-          />
-        ) : isLoading && loaded === null ? (
-          <Skeleton className="h-80 w-full rounded-surface" />
-        ) : (
-          /* Height-capped so a hundred agents cannot stretch the card: the body
-             scrolls under the sticky header and the pagination footer stays put.
-             Measured 42px header + 8 rows of 47 = 423, the eight rows the
-             reference shows. The scroll/hidden-scrollbar/sticky behaviour is
-             `DashboardTable`'s, shared with the other three widgets. */
-          <DashboardTable
-            label="Call Activity Board"
-            columns={COLUMNS}
-            rows={rows}
-            getRowId={(row) => row.agentId}
-            isFetching={isLoading}
-            bodyClassName="max-h-[423px]"
-            // 49px rows, not the list's default 39: the reference measures this
-            // board at a 54px pitch, 49 at the chosen density (ADR-0076).
-            rowClassName={() => "[&>td]:py-2.5"}
-            page={page}
-            pageCount={pageCount}
-            onPageChange={setPage}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            total={total}
-          />
-        )}
-      </div>
+      {isError ? (
+        <ErrorState
+          title="Couldn’t load the Call Activity Board"
+          description="Something went wrong loading this widget. Check your connection and try again."
+          onRetry={() => {
+            setFailed(null);
+            setReloadToken((token) => token + 1);
+          }}
+        />
+      ) : isLoading && loaded === null ? (
+        // The table's own capped height, so the card does not jump when it lands.
+        <Skeleton className="h-[437px] w-full rounded-surface" />
+      ) : (
+        /* Height-capped so a hundred agents cannot stretch the card: the body
+           scrolls under the sticky header and the pagination footer stays put.
+           43px header + 8 rows of 49 + the 2px frame = 437, the eight rows the
+           reference shows. The scroll/hidden-scrollbar/sticky behaviour is
+           `DashboardTable`'s, shared with the other three widgets. */
+        <DashboardTable
+          label="Call Activity Board"
+          columns={COLUMNS}
+          rows={rows}
+          getRowId={(row) => row.agentId}
+          isFetching={isLoading}
+          bodyClassName="max-h-[437px]"
+          // 49px rows, not the list's default 39: the reference measures this
+          // board at a 54px pitch, 49 at the chosen density (ADR-0076) — the
+          // 26px photo plus 11px above and below, plus the row rule.
+          rowClassName={() => "[&>td]:py-[11px]"}
+          page={page}
+          pageCount={pageCount}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          total={total}
+        />
+      )}
     </Card>
   );
 }

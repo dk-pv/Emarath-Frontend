@@ -104,8 +104,9 @@ function columnsFor(
                 `<td>` is advisory in an auto table layout, so without it the
                 column widens to the longest name list and pushes Actions off the
                 card. `max-w-50` is 200px ≈ the reference's 238px Assigned User
-                column at this density, less the avatar and its gap. */}
-            <span className="max-w-50 truncate text-ink">
+                column at this density, less the avatar and its gap. The colour is
+                the table's own #505050, which the reference's names sample. */}
+            <span className="max-w-50 truncate">
               {row.assignees.map((assignee) => assignee.name).join(", ")}
             </span>
           </span>

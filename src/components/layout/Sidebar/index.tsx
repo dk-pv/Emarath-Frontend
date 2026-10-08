@@ -23,9 +23,14 @@ type SidebarProps = {
 };
 
 /**
+<<<<<<< HEAD
  * 230px expanded, 88px collapsed, #363937. A 92px brand block with the logo centred in
  * it and a 9px gap below it, then the nav: a flex column
  * whose 12 rows (11 destinations + Logout) are each a FIXED 60px (--spacing-nav-item), the
+=======
+ * 230px expanded, 88px collapsed, #363937. A 60px brand block, then the nav: a flex column
+ * whose 11 rows (10 destinations + Logout) are each a FIXED 60px (--spacing-nav-item), the
+>>>>>>> d3f12c0 (feat(frontend): complete GPS module removal and update related UI flows)
  * height measured from Workpex's active nav row. Workpex keeps a constant row height and lets
  * the rail end with dead space below the last item rather than stretching rows to fill — so
  * Logout is the last row of that constant-height list, never bottom-pinned, and any leftover

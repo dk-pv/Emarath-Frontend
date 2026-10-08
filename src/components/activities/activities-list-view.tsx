@@ -323,25 +323,14 @@ export function ActivitiesListView() {
 
   /**
    * Completes the panel's Next Follow-up through the same `completeActivity` call the
-   * worklist's own circle uses, then refreshes both the list and the open panel. A 409 is
-   * the location gate (ACT-10.1 / GPS-09.1); its message says which check-in is missing.
+   * worklist's own circle uses, then refreshes both the list and the open panel.
    */
   const handleCompleteFollowUp = async (id: string) => {
     try {
       await completeActivity(id);
       setDetailRefresh((token) => token + 1);
       refetch();
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        toast({
-          title:
-            error.messages.join(" · ") ||
-            error.message ||
-            "Check in on site to complete this activity",
-          tone: "danger",
-        });
-        return;
-      }
+    } catch {
       toast({ title: "Couldn’t complete the follow-up", tone: "danger" });
     }
   };
@@ -539,9 +528,9 @@ export function ActivitiesListView() {
    * Bulk Mark as Complete / Delete from the selection bar.
    *
    * Reuses the per-activity APIs (ACT-04.1 / ACT-06.1) one call per row rather than
-   * adding a bulk endpoint: each call keeps its own scope check and its own
-   * location gate, so a row the caller may not complete still fails on its own and
-   * the rest succeed. `allSettled`, so one rejection cannot abandon the others.
+   * adding a bulk endpoint: each call keeps its own scope check, so a row the
+   * caller may not complete still fails on its own and the rest succeed.
+   * `allSettled`, so one rejection cannot abandon the others.
    */
   const runBulk = async (action: "complete" | "delete") => {
     const ids = [...selectedIds];
@@ -611,23 +600,9 @@ export function ActivitiesListView() {
       if (workflow?.general.autoPromptFollowUpOnCompletion) {
         setFollowUpTarget(target.lead);
       }
-    } catch (error) {
+    } catch {
       clearOverride(target.id);
-      // ACT-10.1 / GPS-09.1: the API returns 409 when the activity is location-tied
-      // and no valid on-site check-in exists. The server now distinguishes "you never
-      // checked in" from "your check-in was 182 m away", so show its message rather
-      // than a fixed string — otherwise the specific reason is thrown away.
-      if (error instanceof ApiError && error.status === 409) {
-        toast({
-          title:
-            error.messages.join(" · ") ||
-            error.message ||
-            "Check in on site to complete this activity",
-          tone: "danger",
-        });
-      } else {
-        toast({ title: "Couldn't complete the activity", tone: "danger" });
-      }
+      toast({ title: "Couldn't complete the activity", tone: "danger" });
     } finally {
       setPending(null);
     }
@@ -661,7 +636,7 @@ export function ActivitiesListView() {
         type: row.type,
         description: row.description,
         dueAt,
-        endAt: endAt ?? undefined,
+        endAt: row.endAt ?? undefined,
         locationId: row.locationId ?? undefined,
         assigneeIds: row.assignees.map((assignee) => assignee.id),
       });

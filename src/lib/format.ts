@@ -28,7 +28,7 @@ export function formatDayLabel(value: string): string {
 }
 
 export type TimeFormatOptions = {
-  /** Include seconds — `11:39:05 AM` (Documents, Call log, GPS). */
+  /** Include seconds — `11:39:05 AM` (Documents, Call log). */
   seconds?: boolean;
   /** Two-digit hour — `04:25 PM` rather than `4:25 PM` (the Next Follow-up card). */
   padHour?: boolean;

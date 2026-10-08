@@ -54,7 +54,7 @@ export const DISABLED_PRESET_HINT =
  * than growing to the full list. `py-1.5` against the 15px label is that 35px row.
  *
  * Quick-Filter-only on purpose: the shared Dropdown's own item padding is unchanged,
- * so the Sort, pipeline, user, reports, documents and GPS menus keep their spacing.
+ * so the Sort, pipeline, user, reports and documents menus keep their spacing.
  */
 export const QUICK_MENU_PANEL_CLASS =
   "scrollbar-slim max-h-[245px] overflow-y-auto";

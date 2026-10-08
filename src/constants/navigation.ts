@@ -5,8 +5,6 @@ import {
   IconFiles,
   IconFilter,
   IconFilterFilled,
-  IconFocus2,
-  IconFocusCentered,
   IconLayoutGrid,
   IconLayoutGridFilled,
   IconPhoneCall,
@@ -30,7 +28,7 @@ export type NavItem = {
   label: string;
   /**
    * Navbar title. Differs from `label` where Workpex's page heading is not the sidebar
-   * word: /leads/kanban is titled "Kanban" (sidebar "Kanban Board") and /map "GPS Map".
+   * word: /leads/kanban is titled "Kanban" (sidebar "Kanban Board").
    */
   title: string;
   href: string;
@@ -48,9 +46,9 @@ export type NavItem = {
 
 /**
  * Order, labels and hrefs come from ui-reference/ — the hrefs are read from each
- * screenshot's address bar rather than inferred. Three would be wrong if guessed
- * from the label: Call Dashboard is /calls, GPS/Map is /map, and Kanban Board is
- * nested at /leads/kanban.
+ * screenshot's address bar rather than inferred. Two would be wrong if guessed
+ * from the label: Call Dashboard is /calls, and Kanban Board is nested at
+ * /leads/kanban.
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   {
@@ -106,7 +104,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/map",
     icon: IconFocus2,
     activeIcon: IconFocusCentered,
-    requires: "useSalesModules",
   },
   {
     label: "Reports",

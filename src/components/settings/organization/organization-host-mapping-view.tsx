@@ -326,7 +326,7 @@ export function OrganizationHostMappingView() {
             {/*
               The cells never wrap, so below roughly 560px the four columns are wider than
               the card. The shared container scrolls them instead of clipping — the same
-              treatment the Calls, GPS and Dashboard tables use.
+              treatment the Calls and Dashboard tables use.
             */}
             <ResponsiveTableContainer label="Mapped domains">
               <Table

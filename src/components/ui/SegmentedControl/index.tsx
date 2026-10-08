@@ -14,24 +14,16 @@ export type SegmentedControlProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   "aria-label": string;
-  /** `brand` fills the active segment green (view toggles); `subtle` lifts it on canvas (map base layer). */
-  variant?: "brand" | "subtle";
   /** Icon-only segments: the label becomes the tooltip and the screen-reader name. */
   iconOnly?: boolean;
   className?: string;
 };
-
-const ACTIVE_CLASS = {
-  brand: "bg-brand text-white",
-  subtle: "bg-canvas font-medium text-ink shadow-sm",
-} as const;
 
 /** A single-choice toggle of two or three segments in one bordered control (Workpex's view switchers). */
 export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
-  variant = "brand",
   iconOnly = false,
   className,
   "aria-label": ariaLabel,
@@ -58,7 +50,7 @@ export function SegmentedControl<T extends string>({
               "focus-ring flex h-control-sm items-center justify-center gap-1.5 rounded-[calc(var(--radius-control)-2px)] transition-colors duration-(--duration-shell) ease-shell",
               iconOnly ? "w-control-sm" : "px-3 text-sm",
               active
-                ? ACTIVE_CLASS[variant]
+                ? "bg-brand text-white"
                 : "text-ink-muted hover:bg-canvas hover:text-ink",
             )}
           >

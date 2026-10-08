@@ -40,7 +40,6 @@ export interface ActivityListItem {
   dueAt: string;
   endAt: string | null;
   completedAt: string | null;
-  locationId: string | null;
   assignees: { id: string; name: string }[];
   lead: LeadListItem;
 }
@@ -133,8 +132,8 @@ export async function fetchActivities(
 
 /**
  * The Add New Follow-up payload (ACT-03.2), mirroring the backend `CreateActivityDto`.
- * `leadId` is the lead the drawer was opened on; a Call carries no `endAt`/`locationId`
- * (the service rejects them). The client composes Due Date + Start Time into `dueAt`.
+ * `leadId` is the lead the drawer was opened on; a Call carries no `endAt` (the service
+ * rejects it). The client composes Due Date + Start Time into `dueAt`.
  */
 export interface CreateActivityInput {
   type: ActivityType;
@@ -142,7 +141,6 @@ export interface CreateActivityInput {
   description: string;
   dueAt: string;
   endAt?: string;
-  locationId?: string;
   assigneeIds: string[];
 }
 
@@ -175,7 +173,6 @@ export interface UpdateActivityInput {
   description: string;
   dueAt: string;
   endAt?: string;
-  locationId?: string;
   assigneeIds: string[];
 }
 

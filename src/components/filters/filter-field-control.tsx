@@ -24,7 +24,7 @@ export function FilterFieldControl({
         options={field.options}
         value={Array.isArray(value) ? value : []}
         onChange={onChange}
-        placeholder={field.emptyLabel ?? `Any ${field.label.toLowerCase()}`}
+        placeholder={`Any ${field.label.toLowerCase()}`}
       />
     );
   }
@@ -36,10 +36,7 @@ export function FilterFieldControl({
         value={typeof value === "string" ? value : ""}
         onChange={(event) => onChange(event.target.value || null)}
         options={[
-          {
-            label: field.emptyLabel ?? `Any ${field.label.toLowerCase()}`,
-            value: "",
-          },
+          { label: `Any ${field.label.toLowerCase()}`, value: "" },
           ...field.options,
         ]}
       />

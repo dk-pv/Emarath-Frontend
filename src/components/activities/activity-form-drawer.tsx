@@ -68,9 +68,6 @@ function initialForm(activity: ActivityListItem): FormState {
  * The Edit Follow-up drawer (ACT-05.1), prefilled from the row. Reuses the Add
  * New Lead drawer's form idiom (Drawer + FormField + shared inputs, validate →
  * submit → ApiError banner). The lead link is fixed, so there is no lead picker.
- * The Location field is a Meeting/Task option whose catalogue is the GPS module's
- * (not built): its value is preserved through the edit but not shown — no picker
- * is invented for a catalogue that does not exist yet.
  */
 export function ActivityFormDrawer({
   activity,
@@ -149,11 +146,8 @@ export function ActivityFormDrawer({
       showEnd && form.endHour && form.endMinute && form.endAmpm
         ? composeIso(form.date, form.endHour, form.endMinute, form.endAmpm)
         : undefined;
-    // A Call clears any preserved location; Meeting/Task keep the GPS-owned value,
-    // whether or not Settings shows them an End Time. Only an administrator may drop or
-    // move a location-tied follow-up's site — the server refuses anyone else.
-    const locationId =
-      form.type === "CALL" ? undefined : (activity.locationId ?? undefined);
+    // A Call clears any preserved location; Meeting/Task keep the GPS-owned value.
+    const locationId = showEnd ? (activity.locationId ?? undefined) : undefined;
 
     setSubmitting(true);
     try {
@@ -162,7 +156,6 @@ export function ActivityFormDrawer({
         description: form.description.trim(),
         dueAt,
         endAt,
-        locationId,
         assigneeIds: form.assigneeIds,
       });
       onSaved({
@@ -171,7 +164,6 @@ export function ActivityFormDrawer({
         description: form.description.trim(),
         dueAt,
         endAt: endAt ?? null,
-        locationId: locationId ?? null,
         assignees: form.assigneeIds.map((id) => ({ id, name: nameOf(id) })),
       });
     } catch (error) {

@@ -4,7 +4,6 @@ import {
   IconBellRinging,
   IconBuilding,
   IconDatabase,
-  IconMapPin,
   IconMessages,
   IconPhoneCall,
   IconSettings,
@@ -18,7 +17,7 @@ import {
  * shades are theme values, not raw hex).
  */
 export type SettingsAccent =
-  "orange" | "green" | "rose" | "teal" | "violet" | "pink" | "red" | "fuchsia";
+  "orange" | "green" | "rose" | "teal" | "violet" | "pink" | "fuchsia";
 
 export const SETTINGS_ACCENTS: Record<SettingsAccent, string> = {
   orange: "bg-orange-100 text-orange-500",
@@ -27,7 +26,6 @@ export const SETTINGS_ACCENTS: Record<SettingsAccent, string> = {
   teal: "bg-teal-100 text-teal-600",
   violet: "bg-violet-100 text-violet-600",
   pink: "bg-pink-100 text-pink-500",
-  red: "bg-red-100 text-red-500",
   fuchsia: "bg-fuchsia-100 text-fuchsia-500",
 };
 
@@ -190,15 +188,6 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
         href: "/settings/activity-reminders/follow-up-types",
       },
     ],
-  },
-  {
-    key: "gps-tracking",
-    title: "GPS Tracking",
-    description:
-      "Manage location tracking, check-ins, and field visit form configurations.",
-    icon: IconMapPin,
-    accent: "red",
-    items: [{ label: "General Settings" }, { label: "Location Check-in Form" }],
   },
   {
     key: "data-schema",

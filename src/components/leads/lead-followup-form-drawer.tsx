@@ -330,8 +330,8 @@ export function LeadFollowUpFormDrawer({
                     </FormField>
                   );
                 default:
-                  // LOCATION: configurable, but no follow-up form draws a location
-                  // picker yet, so there is nothing to render (ADR-0071).
+                  // LOCATION: configurable, but an activity stores no location,
+                  // so there is nothing to render (ADR-0071).
                   return null;
               }
             })}

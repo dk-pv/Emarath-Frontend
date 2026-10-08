@@ -24,8 +24,8 @@ export const TYPE_LABEL: Record<ActivityType, string> = {
 /**
  * The follow-up form's field order before anything is configured — the same sequence the
  * drawers have always rendered, so an unreachable settings row changes nothing.
- * `LOCATION` is absent because no follow-up form renders a location picker yet: the
- * builder can select it, and the field appears here once ACT-03.2 grows the control.
+ * `LOCATION` is absent because an activity stores no location: the builder can still
+ * select it (Workpex settings parity), but no follow-up form has a value to render.
  */
 const SHIPPED_FIELD_ORDER: FollowUpFieldKey[] = [
   "DESCRIPTION",

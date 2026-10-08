@@ -3,10 +3,10 @@ import { cn } from "@/lib/cn";
 import type { Tone } from "@/types";
 
 /**
- * Card accents. Wider than the app-wide `Tone` because the GPS Map KPI cards use two
- * colours the semantic set has no member for — sampled from
- * ui-reference/gps-map/GPS-MAP-overview.mp4. Kept local to StatCard rather than added
- * to `Tone`: they carry no status meaning, and widening `Tone` would force every
+ * Card accents. Wider than the app-wide `Tone` because the Dashboard KPI cards rotate
+ * through two colours the semantic set has no member for — sampled from Workpex KPI
+ * badges in ui-reference/gps-map/GPS-MAP-overview.mp4. Kept local to StatCard rather
+ * than added to `Tone`: they carry no status meaning, and widening `Tone` would force every
  * Alert/Badge/Chip/Tag/ConfirmDialog map to grow a branch none of them can use.
  */
 export type StatCardTone = Tone | "pink" | "violet";
@@ -41,18 +41,11 @@ const ICON_CLASS: Record<StatCardTone, string> = {
  * against the reference — its cards are ~370×144 where the default is ~260×136,
  * and it is that extra width, not the badge, that makes the badge read as small.
  * `default` is every other stat card in the product and is unchanged.
- *
- * `field` is the GPS Map treatment. It began at the reference's measured 374×162, but
- * the GPS screen is a single viewport-height workspace and the map is its point — so the
- * card was tightened to 132px tall to hand that height back to the map. Everything that
- * carries meaning is unchanged (colour, icon, label, value, caption, hierarchy); only the
- * padding, gaps and type steps came down. It keeps the caption row (unlike `kpi`) because
- * the GPS cards all carry one, and truncates its label as the reference's
- * "Follow-up Complet.." does.
  */
-export type StatCardVariant = "default" | "kpi" | "field";
+export type StatCardVariant = "default" | "kpi";
 
 const SHELL_CLASS: Record<StatCardVariant, string> = {
+<<<<<<< HEAD
   default: "gap-1.5 p-3.5",
   kpi: "gap-3 px-4 py-4",
   field: "min-h-[7.5rem] gap-1.5 p-3.5",
@@ -62,18 +55,29 @@ const VALUE_CLASS: Record<StatCardVariant, string> = {
   default: "text-2xl leading-none",
   kpi: "text-[30px] leading-none",
   field: "text-[28px] leading-none",
+=======
+  default: "gap-2 p-4",
+  kpi: "gap-4 px-5 py-5",
+};
+
+const VALUE_CLASS: Record<StatCardVariant, string> = {
+  default: "text-3xl leading-none",
+  kpi: "text-[34px] leading-none",
+>>>>>>> d3f12c0 (feat(frontend): complete GPS module removal and update related UI flows)
 };
 
 const BADGE_CLASS: Record<StatCardVariant, string> = {
   default: "size-control-sm",
   kpi: "size-7",
-  field: "size-9",
 };
 
 const LABEL_CLASS: Record<StatCardVariant, string> = {
   default: "text-sm",
   kpi: "text-sm",
+<<<<<<< HEAD
   field: "min-w-0 truncate text-[14px]",
+=======
+>>>>>>> d3f12c0 (feat(frontend): complete GPS module removal and update related UI flows)
 };
 
 type StatCardProps = {

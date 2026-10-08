@@ -24,20 +24,13 @@ type FilterPanelProps = {
    * keeps the untitled form every other module already uses.
    */
   title?: string;
-  /**
-   * `solid` is the GPS Map trigger (GPS-MAP-overview.mp4): the active count rides in
-   * the label as "Filter/1" and the pill fills brand while any filter is applied,
-   * instead of the default's neutral pill plus count badge. Opt-in, so the eight
-   * other consumers keep the trigger they were built against.
-   */
-  triggerVariant?: "default" | "solid";
 };
 
 /**
  * The shared filter control: a trigger carrying the active-filter count and a popover
  * of one control per module-supplied field (FND-03.2 AC2, AC3, AC5).
  *
- * Workpex opens filters in a popover on Leads/Reports/GPS and a drawer on Manage
+ * Workpex opens filters in a popover on Leads/Reports and a drawer on Manage
  * Columns; this is the popover form, matching leads-filters-popup-open.png.
  */
 export function FilterPanel({
@@ -48,10 +41,7 @@ export function FilterPanel({
   onClear,
   portal = false,
   title,
-  triggerVariant = "default",
 }: FilterPanelProps) {
-  const solid = triggerVariant === "solid";
-  const applied = solid && activeCount > 0;
   return (
     <Popover
       align="end"
@@ -66,28 +56,17 @@ export function FilterPanel({
             "relative border border-transparent",
             // Open state, per the reference: a green wash inside a green outline.
             "group-aria-expanded:border-brand group-aria-expanded:bg-brand/15 group-aria-expanded:text-ink",
-            applied &&
-              "border-brand bg-brand text-white group-aria-expanded:bg-brand group-aria-expanded:text-white",
           )}
         >
           <IconFilter size={18} stroke={1.75} />
-          {solid && activeCount > 0 ? (
-            <span aria-label={`${activeCount} active filters`}>
-              Filter/{activeCount}
-            </span>
-          ) : (
-            "Filter"
-          )}
+          Filter
           <IconChevronDown
             size={16}
             stroke={1.75}
             // The chevron points back at the button once the panel is open.
-            className={cn(
-              "transition-transform duration-(--duration-shell) ease-shell group-aria-expanded:rotate-180",
-              applied ? "text-white" : "text-ink-muted",
-            )}
+            className="transition-transform duration-(--duration-shell) ease-shell group-aria-expanded:rotate-180 text-ink-muted"
           />
-          {!solid && activeCount > 0 && (
+          {activeCount > 0 && (
             <Badge tone="brand" aria-label={`${activeCount} active filters`}>
               {activeCount}
             </Badge>

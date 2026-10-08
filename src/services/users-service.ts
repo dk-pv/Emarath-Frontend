@@ -110,8 +110,6 @@ export interface TeamMemberDetail extends TeamMember {
   leadFormId: string | null;
   pipelines: string[];
   appAccess: boolean;
-  trackCheckInOut: boolean;
-  trackMeetingLocation: boolean;
   includeInReporting: boolean;
   autoFollowUpPrompt: boolean;
   whatsappInboxAccess: WhatsappAccessLevel | null;
@@ -180,8 +178,6 @@ export type TeamMemberConfigInput = {
   pipelines?: string[];
   isActive?: boolean;
   appAccess?: boolean;
-  trackCheckInOut?: boolean;
-  trackMeetingLocation?: boolean;
   includeInReporting?: boolean;
   autoFollowUpPrompt?: boolean;
   whatsappInboxAccess?: WhatsappAccessLevel | null;

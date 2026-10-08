@@ -64,8 +64,6 @@ type WizardForm = {
   isActive: boolean;
   leadFormId: string | null;
   appAccess: boolean;
-  trackCheckInOut: boolean;
-  trackMeetingLocation: boolean;
   includeInReporting: boolean;
   autoFollowUpPrompt: boolean;
   whatsappInboxAccess: WhatsappAccessLevel | null;
@@ -89,8 +87,6 @@ const INITIAL_FORM: WizardForm = {
   isActive: true,
   leadFormId: null,
   appAccess: false,
-  trackCheckInOut: false,
-  trackMeetingLocation: false,
   includeInReporting: false,
   autoFollowUpPrompt: false,
   whatsappInboxAccess: null,
@@ -225,8 +221,6 @@ export function TeamMemberFormDrawer({
           isActive: detail.isActive,
           leadFormId: detail.leadFormId,
           appAccess: detail.appAccess,
-          trackCheckInOut: detail.trackCheckInOut,
-          trackMeetingLocation: detail.trackMeetingLocation,
           includeInReporting: detail.includeInReporting,
           autoFollowUpPrompt: detail.autoFollowUpPrompt,
           whatsappInboxAccess: detail.whatsappInboxAccess,
@@ -291,8 +285,6 @@ export function TeamMemberFormDrawer({
         pipelines: form.pipelines,
         isActive: form.isActive,
         appAccess: form.appAccess,
-        trackCheckInOut: form.trackCheckInOut,
-        trackMeetingLocation: form.trackMeetingLocation,
         includeInReporting: form.includeInReporting,
         autoFollowUpPrompt: form.autoFollowUpPrompt,
         whatsappInboxAccess: form.whatsappInboxAccess,
@@ -714,20 +706,6 @@ function StepPermission({
             hint="Whether this member may use the field app."
             checked={form.appAccess}
             onChange={(appAccess) => patch({ appAccess })}
-          />
-          <ToggleRow
-            id="tm-track-check"
-            label="Track the check in and check out"
-            hint="Record this member's check-ins and check-outs on the GPS map."
-            checked={form.trackCheckInOut}
-            onChange={(trackCheckInOut) => patch({ trackCheckInOut })}
-          />
-          <ToggleRow
-            id="tm-track-meetings"
-            label="Track the location of Meetings.."
-            hint="Record where this member's meetings take place."
-            checked={form.trackMeetingLocation}
-            onChange={(trackMeetingLocation) => patch({ trackMeetingLocation })}
           />
           <ToggleRow
             id="tm-reporting"

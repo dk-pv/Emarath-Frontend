@@ -99,13 +99,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     activeIcon: IconFileFilled,
   },
   {
-    label: "GPS/Map",
-    title: "GPS Map",
-    href: "/map",
-    icon: IconFocus2,
-    activeIcon: IconFocusCentered,
-  },
-  {
     label: "Reports",
     title: "Reports",
     href: "/reports",

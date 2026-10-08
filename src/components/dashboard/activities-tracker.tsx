@@ -326,7 +326,6 @@ export function ActivitiesTracker() {
         description: row.description,
         dueAt,
         endAt: row.endAt ?? undefined,
-        locationId: row.locationId ?? undefined,
         assigneeIds: row.assignees.map((assignee) => assignee.id),
       });
       refetch();

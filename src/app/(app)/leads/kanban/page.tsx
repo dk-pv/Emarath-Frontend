@@ -5,5 +5,9 @@ export const metadata = routeMetadata("/leads/kanban");
 
 /** The Kanban board (KAN-02.2): one colour-coded column per pipeline stage. */
 export default function KanbanBoardPage() {
-  return <KanbanBoard />;
+  return (
+    <div className="page-zoom h-full">
+      <KanbanBoard />
+    </div>
+  );
 }

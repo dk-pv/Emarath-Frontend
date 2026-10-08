@@ -15,8 +15,7 @@ import type { KpiSlotAccent } from "./dashboard-kpi-cards";
  * and gives its caption a full row; this one needs a full-strength border, the glow
  * (`kpi-glow`) and a description truncated to a single line the way the reference
  * truncates its own ("Total number of targets assigned to the .."). Keeping it separate
- * leaves the GPS, Call Dashboard and configured-summary rows that use `StatCard`
- * untouched.
+ * leaves the Call Dashboard and configured-summary rows that use `StatCard` untouched.
  *
  * The gap and the uneven padding are arithmetic, not taste. Content sums to 108px, so
  * `min-h-29` sets the card at the reference's 116px and `mt-auto` hands the 8px of

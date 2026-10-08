@@ -330,6 +330,18 @@
   /* A fully transparent white. A bare `transparent` keyword interpolates through
      transparent *black*, which greys the edge of every KPI glow below. */
   --kpi-glow-fade: color-mix(in srgb, var(--color-surface) 0%, transparent);
+  /* `page-zoom` factor; a zoomed wrapper filling the viewport divides `dvh` by it. */
+  --page-zoom: 0.9;
+}
+
+/*
+ * Dashboard, Kanban, Activities and Login render their content at 90 %, the owner's
+ * 90 % browser-zoom view (ADR-0087, overriding ADR-0076's no-zoom rule for these pages
+ * only). The shell and every portalled overlay (drawers, modals, tooltips, menus) sit
+ * outside the zoomed box, so they keep full size. Viewport units inside it are zoomed too.
+ */
+@utility page-zoom {
+  zoom: var(--page-zoom);
 }
 
 html,

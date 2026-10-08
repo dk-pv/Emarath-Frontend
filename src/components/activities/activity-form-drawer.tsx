@@ -146,8 +146,6 @@ export function ActivityFormDrawer({
       showEnd && form.endHour && form.endMinute && form.endAmpm
         ? composeIso(form.date, form.endHour, form.endMinute, form.endAmpm)
         : undefined;
-    // A Call clears any preserved location; Meeting/Task keep the GPS-owned value.
-    const locationId = showEnd ? (activity.locationId ?? undefined) : undefined;
 
     setSubmitting(true);
     try {

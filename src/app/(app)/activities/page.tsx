@@ -10,8 +10,10 @@ export const metadata = routeMetadata("/activities");
  */
 export default function ActivitiesPage() {
   return (
-    <Suspense>
-      <ActivitiesListView />
-    </Suspense>
+    <div className="page-zoom h-full">
+      <Suspense>
+        <ActivitiesListView />
+      </Suspense>
+    </div>
   );
 }

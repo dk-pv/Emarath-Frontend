@@ -45,25 +45,13 @@ const ICON_CLASS: Record<StatCardTone, string> = {
 export type StatCardVariant = "default" | "kpi";
 
 const SHELL_CLASS: Record<StatCardVariant, string> = {
-<<<<<<< HEAD
   default: "gap-1.5 p-3.5",
   kpi: "gap-3 px-4 py-4",
-  field: "min-h-[7.5rem] gap-1.5 p-3.5",
 };
 
 const VALUE_CLASS: Record<StatCardVariant, string> = {
   default: "text-2xl leading-none",
   kpi: "text-[30px] leading-none",
-  field: "text-[28px] leading-none",
-=======
-  default: "gap-2 p-4",
-  kpi: "gap-4 px-5 py-5",
-};
-
-const VALUE_CLASS: Record<StatCardVariant, string> = {
-  default: "text-3xl leading-none",
-  kpi: "text-[34px] leading-none",
->>>>>>> d3f12c0 (feat(frontend): complete GPS module removal and update related UI flows)
 };
 
 const BADGE_CLASS: Record<StatCardVariant, string> = {
@@ -74,10 +62,6 @@ const BADGE_CLASS: Record<StatCardVariant, string> = {
 const LABEL_CLASS: Record<StatCardVariant, string> = {
   default: "text-sm",
   kpi: "text-sm",
-<<<<<<< HEAD
-  field: "min-w-0 truncate text-[14px]",
-=======
->>>>>>> d3f12c0 (feat(frontend): complete GPS module removal and update related UI flows)
 };
 
 type StatCardProps = {

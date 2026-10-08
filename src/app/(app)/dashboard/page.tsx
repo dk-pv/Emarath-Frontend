@@ -4,5 +4,9 @@ import { DashboardView } from "@/components/dashboard/dashboard-view";
 export const metadata = routeMetadata("/dashboard");
 
 export default function DashboardPage() {
-  return <DashboardView />;
+  return (
+    <div className="page-zoom">
+      <DashboardView />
+    </div>
+  );
 }

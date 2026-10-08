@@ -162,19 +162,21 @@ export function SalesPipeline() {
                 // The count reaches assistive tech here; the reference shows it
                 // to the pointer only, in the tooltip below.
                 onMouseMove={(event) => {
-                  const card = event.currentTarget
-                    .closest("section")
-                    ?.getBoundingClientRect();
-                  if (!card) return;
+                  const section = event.currentTarget.closest("section");
+                  if (!section) return;
+                  const card = section.getBoundingClientRect();
+                  // Rects and the pointer are viewport pixels, but the tooltip is placed
+                  // in the card's own CSS pixels — fewer of them under `page-zoom`.
+                  const scale = card.width / section.offsetWidth || 1;
                   const bar = event.currentTarget.getBoundingClientRect();
                   setHover({
                     label: stage.label,
                     count: stage.count,
                     x: Math.min(
-                      Math.max(event.clientX - card.left, TIP_HALF),
-                      card.width - TIP_HALF,
+                      Math.max((event.clientX - card.left) / scale, TIP_HALF),
+                      section.offsetWidth - TIP_HALF,
                     ),
-                    y: bar.top - card.top,
+                    y: (bar.top - card.top) / scale,
                   });
                 }}
                 onMouseLeave={() => setHover(null)}

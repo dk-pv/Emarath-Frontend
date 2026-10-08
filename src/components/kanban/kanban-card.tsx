@@ -80,7 +80,7 @@ export const KanbanCard = memo(function KanbanCard({
       // `dataTransfer`; the text payload only satisfies browsers that require one to
       // start a drag. `lead.status` is always this column's stage (the board keeps
       // them in step), so it is the source stage.
-      draggable
+      draggable={dnd.canDrag}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", lead.id);
@@ -92,7 +92,8 @@ export const KanbanCard = memo(function KanbanCard({
         dnd.onDragEnd();
       }}
       className={cn(
-        "group cursor-grab rounded-surface border bg-surface p-2.5 shadow-sm active:cursor-grabbing",
+        "group rounded-surface border bg-surface p-2.5 shadow-sm",
+        dnd.canDrag && "cursor-grab active:cursor-grabbing",
         colors.cardBorder,
         dragging && "opacity-40",
       )}

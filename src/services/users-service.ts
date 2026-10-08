@@ -16,7 +16,8 @@ export type UserRole =
   | "MARKETING_ANALYST"
   | "LOGISTICS_MANAGER"
   | "LOGISTICS_EXECUTIVE"
-  | "ACCOUNTS_EXECUTIVE";
+  | "ACCOUNTS_EXECUTIVE"
+  | "QC";
 
 /** Enum value → fallback label, for accounts that predate the named-role table. */
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
@@ -28,6 +29,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   LOGISTICS_MANAGER: "Logistics Manager",
   LOGISTICS_EXECUTIVE: "Logistics Executive",
   ACCOUNTS_EXECUTIVE: "Accounts Executive",
+  QC: "QC",
 };
 
 export function userRoleLabel(role: string): string {

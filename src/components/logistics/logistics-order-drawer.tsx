@@ -46,10 +46,10 @@ function Section({ title, fields }: { title: string; fields: Field[] }) {
  * One order: what it is, who it is for, and — in the Journey tab — everything recorded about
  * it, through the same audit timeline the Lead Detail uses.
  *
- * Its actions are the backend's `allowedActions` for this caller, narrowed to the shipment steps
- * this screen implements (`LogisticsOrderActions`); a caller offered none gets no footer at all,
- * so the read-only panel is exactly what it was. The QC decisions and resubmit have no control
- * here: who takes them is still with the client, and the backend withholds them.
+ * Its actions are the backend's `allowedActions` for this caller (`LogisticsOrderActions`): QC's
+ * decisions, the Sales Manager's resubmit, the shipment steps and the Logistics Manager's two
+ * corrections. A caller offered none gets no footer at all, so the read-only panel is exactly
+ * what it was.
  *
  * The shipment, cancellation and return sections appear once the order has reached them, so
  * the panel grows with the order rather than showing empty stages it may never reach.
@@ -65,6 +65,9 @@ export function LogisticsOrderDrawer({
   onOrderChange: (order: LogisticsOrder) => void;
 }) {
   const [tab, setTab] = useState<string>("details");
+  // An action dialog sits above the drawer in a portal; while one is open, a press inside it —
+  // or its Escape — belongs to the dialog and must not close the drawer underneath.
+  const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const { user } = useAuth();
   // The lead is sales data: the Logistics roles cannot open it (ADR-0084), so for them the
   // name stays plain text rather than a link to a page that would refuse them.
@@ -77,7 +80,9 @@ export function LogisticsOrderDrawer({
   return (
     <Drawer
       open
-      onClose={onClose}
+      onClose={() => {
+        if (!actionDialogOpen) onClose();
+      }}
       title={title}
       width="max-w-xl"
       footer={
@@ -86,6 +91,7 @@ export function LogisticsOrderDrawer({
             order={order}
             actions={actions}
             onOrderChange={onOrderChange}
+            onDialogChange={setActionDialogOpen}
           />
         ) : undefined
       }
@@ -150,7 +156,7 @@ export function LogisticsOrderDrawer({
               ]}
             />
             <p className="text-xs text-ink-muted">
-              As recorded when the lead was won.
+              The order’s own copy, taken when the lead was won.
             </p>
           </div>
 
@@ -182,7 +188,7 @@ export function LogisticsOrderDrawer({
               title="QC"
               fields={[
                 { label: "Decided", value: when(order.qcDecidedAt) },
-                { label: "Latest Remarks", value: order.qcRemarks },
+                { label: "QC Remarks", value: order.qcRemarks },
               ]}
             />
           )}

@@ -46,6 +46,7 @@ import { SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useFilters } from "@/hooks/use-filters";
+import { useLocalDay } from "@/hooks/use-local-day";
 import { useListData } from "@/hooks/use-list-data";
 import { useListQuery } from "@/hooks/use-list-query";
 import {
@@ -178,9 +179,16 @@ export function LeadsListView({
   // Quick Filter preset (LEAD-04.1). One preset at a time; its conditions ride the
   // same list query as the field filters, so no new filter path exists. Kept in its
   // own state (not the panel's) so the active preset can be indicated and cleared
-  // independently.
+  // independently. Its date window is computed for the current local day, so "Today"
+  // and "Overdue Lead" move to the new day on a page left open past midnight.
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [presetFilters, setPresetFilters] = useState<FilterCondition[]>([]);
+  const day = useLocalDay();
+  const presetFilters = useMemo<FilterCondition[]>(
+    () => (activePreset ? presetConditions(activePreset) : []),
+    // `day` is what recomputes the window; the preset reads the clock itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activePreset, day],
+  );
 
   // The advanced filter (ADR-0039/0040/0052) — draft rows, the applied `conditions`
   // payload that drives the query, and the caller's saved presets. The same hook backs
@@ -238,7 +246,6 @@ export function LeadsListView({
   // Apply a preset (or clear with null); the menu resolves a re-select to null.
   const applyQuickFilter = (id: string | null) => {
     setActivePreset(id);
-    setPresetFilters(id ? presetConditions(id) : []);
     list.resetPage();
   };
 
@@ -250,7 +257,7 @@ export function LeadsListView({
   };
   const clearAllFilters = () => {
     setActivePreset(null);
-    setPresetFilters([]);
+    setSearchScope("lead");
     advancedFilter.clear();
     list.resetPage();
   };
@@ -280,6 +287,18 @@ export function LeadsListView({
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  // A selection belongs to the view it was made in: when the search, scope, quick or
+  // advanced filter changes, the rows it named may no longer be on screen, and a bulk
+  // delete must never act on leads the user can't see. Paging and sorting keep it.
+  const selectionView = JSON.stringify([
+    queryState,
+    advancedFilter.appliedConditions ?? "",
+  ]);
+  const [selectionViewSeen, setSelectionViewSeen] = useState(selectionView);
+  if (selectionViewSeen !== selectionView) {
+    setSelectionViewSeen(selectionView);
+    setSelectedIds(new Set());
+  }
 
   const toggleRow = (id: string) =>
     setSelectedIds((prev) => {
@@ -334,8 +353,12 @@ export function LeadsListView({
       const result = await reassignLeads([...selectedIds], agentId);
       reassignDrawer.close();
       reportBulk("reassigned", result);
-    } catch {
-      toast({ title: "Couldn’t reassign leads", tone: "danger" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t reassign leads",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setBulkBusy(false);
     }
@@ -347,8 +370,14 @@ export function LeadsListView({
     try {
       const result = await deleteLeads([...selectedIds]);
       reportBulk("deleted", result);
-    } catch {
-      toast({ title: "Couldn’t delete leads", tone: "danger" });
+    } catch (error) {
+      // e.g. a lead with calls or a Logistics order can't be deleted (ADR-0083) —
+      // say so, rather than a bare "couldn't".
+      toast({
+        title: "Couldn’t delete leads",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setBulkBusy(false);
     }
@@ -449,8 +478,12 @@ export function LeadsListView({
       syncDetail(lead.id, { ...updated, isPinned: lead.isPinned });
       setDetailRefresh((token) => token + 1);
       toast({ title: `${lead.name} reassigned`, tone: "success" });
-    } catch {
-      toast({ title: "Couldn’t reassign lead", tone: "danger" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t reassign lead",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setRowPending(null);
     }
@@ -466,9 +499,22 @@ export function LeadsListView({
       patchRow(lead.id, null);
       // A deleted lead has no record to show — close its Detail drawer if open.
       syncDetail(lead.id, null);
+      setSelectedIds((prev) => {
+        if (!prev.has(lead.id)) return prev;
+        const next = new Set(prev);
+        next.delete(lead.id);
+        return next;
+      });
       toast({ title: `${lead.name} deleted`, tone: "success" });
-    } catch {
-      toast({ title: "Couldn’t delete lead", tone: "danger" });
+      // The row is gone at once; the refetch brings the total, the paging and — when
+      // it was the last one — the empty state back in line with the server.
+      refetch();
+    } catch (error) {
+      toast({
+        title: "Couldn’t delete lead",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setRowPending(null);
     }
@@ -802,7 +848,14 @@ export function LeadsListView({
     const columnKeys = visibleColumns
       .map((column) => column.key)
       .filter((key) => key !== "actions");
-    downloadLeadsExport(format, scope, list.query, columnKeys);
+    downloadLeadsExport(format, scope, list.query, columnKeys).catch(
+      (error: unknown) =>
+        toast({
+          title: "Couldn’t export leads",
+          description: apiReason(error),
+          tone: "danger",
+        }),
+    );
   };
 
   // Three distinct empty states (not one generic "no data"): a search with no match, an
@@ -810,9 +863,13 @@ export function LeadsListView({
   // action. Search takes precedence when both a search and a filter are active. Only
   // rendered when the settled total is 0 (below); an out-of-range page is corrected, not
   // shown as empty.
-  const searchTerm = filters.state.search.trim();
+  // The search the shown result answers (the debounced, applied term) — not the live
+  // box, which runs ahead of the fetch and would name a term not yet searched.
+  const searchTerm = list.query.search ?? "";
   const hasActiveFilter =
-    activePreset !== null || advancedFilter.appliedCount > 0;
+    activePreset !== null ||
+    advancedFilter.appliedCount > 0 ||
+    searchScope !== "lead";
   const leadsEmptyState = searchTerm ? (
     <EmptyState
       icon={IconSearch}
@@ -919,7 +976,7 @@ export function LeadsListView({
         // or a genuinely empty result there is nothing to page, and a "0 results"
         // footer would read as a wrong answer rather than a pending one.
         pagination={
-          total > 0
+          total > 0 && !isError
             ? {
                 page: list.page,
                 pageCount,
@@ -954,7 +1011,9 @@ export function LeadsListView({
                   isFetching={isFetching}
                   // Only a genuinely empty result (total 0) is "empty"; an out-of-range
                   // page (rows empty but total > 0) is corrected above, not shown here.
-                  emptyState={total === 0 ? leadsEmptyState : undefined}
+                  emptyState={
+                    total === 0 && !isFetching ? leadsEmptyState : undefined
+                  }
                   errorState={
                     isError ? (
                       <ErrorState
@@ -1188,18 +1247,30 @@ export function LeadsListView({
           columns={manageableColumns}
           order={columnOrder}
           hidden={hiddenColumns}
+          defaultHidden={DEFAULT_HIDDEN_LEAD_COLUMNS}
           onClose={manageColumns.close}
           onApply={(order, hidden) => {
             setColumnOrder(order);
             setHiddenColumns(hidden);
             // Persist per user (AC3). Optimistic: the table already reflects the
-            // change, so a failed save only means it won't survive a reload.
-            void saveColumnLayout(LEADS_VIEW_KEY, { order, hidden }).catch(
-              () => {},
+            // change; a failed save is said, since the layout won't survive a reload.
+            saveColumnLayout(LEADS_VIEW_KEY, { order, hidden }).catch(() =>
+              toast({
+                title: "Couldn’t save your column layout",
+                description: "It applies now but won’t be kept after a reload.",
+                tone: "danger",
+              }),
             );
           }}
         />
       )}
     </>
   );
+}
+
+/** The server's reason for a refused request, when it gave one. */
+function apiReason(error: unknown): string | undefined {
+  return error instanceof ApiError
+    ? error.messages.join(" · ") || undefined
+    : undefined;
 }

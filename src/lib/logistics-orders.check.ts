@@ -1,5 +1,5 @@
 /**
- * Self-check for the Logistics queue model, its shipment actions and its menu capability. No
+ * Self-check for the Logistics queue model, its order actions and its menu capability. No
  * test runner is configured, so this is a plain assert script compiled with the repo's own
  * TypeScript (the `format.check.ts` rule), run from the repository root:
  *
@@ -16,16 +16,24 @@ import {
   LOGISTICS_ORDERS_PATH,
   LOGISTICS_STATUSES,
   LOGISTICS_STATUS_LABEL,
+  ORDER_ACTIONS,
+  ORDER_ACTION_LABEL,
+  ORDER_EDIT_FIELDS,
+  QC_REMARKS_MAX_LENGTH,
   REASON_MAX_LENGTH,
-  SHIPMENT_ACTIONS,
-  SHIPMENT_ACTION_LABEL,
   dispatchAwbError,
   logisticsOrdersParams,
   logisticsStatusLabel,
+  orderActionRequest,
+  orderEditChanges,
+  orderEditErrors,
+  orderEditValues,
   orderNumberLabel,
   refetchAfterFailure,
   renderableActions,
-  shipmentActionRequest,
+  requiredReasonError,
+  type OrderAction,
+  type OrderActionInput,
 } from "./logistics-orders";
 
 // The request: the existing endpoint, the page, and only the filters that narrow it.
@@ -82,7 +90,7 @@ assert.equal(
 );
 assert.equal(orderNumberLabel(1001), "#1001");
 
-// The menu follows the backend's readers: both Logistics roles and every sales role (their
+// The menu follows the backend's readers: both Logistics roles, QC and every sales role (their
 // own converted leads only — the API scopes it); Accounts is refused until its own phase.
 for (const role of [
   "SUPERADMIN",
@@ -92,6 +100,7 @@ for (const role of [
   "MARKETING_ANALYST",
   "LOGISTICS_MANAGER",
   "LOGISTICS_EXECUTIVE",
+  "QC",
 ] as const) {
   assert.equal(can(role, "useLogistics"), true, `${role} sees Logistics`);
 }
@@ -100,85 +109,206 @@ assert.equal(can(undefined, "useLogistics"), false, "no role, no menu");
 // The Logistics roles still hold no sales module (ADR-0084).
 assert.equal(can("LOGISTICS_MANAGER", "useSalesModules"), false);
 assert.equal(can("LOGISTICS_EXECUTIVE", "useSalesModules"), false);
+assert.equal(can("QC", "useSalesModules"), false, "QC holds no sales module");
 
 // ---------------------------------------------------------------------------------------------
-// Actions. The backend decides which apply (`allowedActions`); the screen renders only the
-// shipment steps it implements, in a fixed order, and ignores anything else it is sent.
+// Actions. The backend decides which apply (`allowedActions`); the screen renders every action it
+// implements, in a fixed order, and ignores anything else it is sent.
 const ORDER = "33333333-3333-4333-8333-333333333333";
 assert.deepEqual(
-  [...SHIPMENT_ACTIONS],
-  ["DISPATCH", "DELIVER", "CANCEL", "RTO"],
+  [...ORDER_ACTIONS],
+  [
+    "QC_REJECT",
+    "CANCEL",
+    "RTO",
+    "CORRECT_AWB",
+    "EDIT",
+    "RESUBMIT",
+    "QC_VERIFY",
+    "DELIVER",
+    "DISPATCH",
+  ],
+  "every action the backend can offer, in the footer's order: secondary first, forward last",
 );
 assert.deepEqual(renderableActions([]), [], "no allowed actions, no controls");
 assert.deepEqual(
-  renderableActions(["DELIVER", "CANCEL", "RTO"]),
-  ["DELIVER", "CANCEL", "RTO"],
-  "a dispatched order, as the backend offers it",
-);
-assert.deepEqual(
-  renderableActions(["RTO", "CANCEL", "DELIVER"]),
-  ["DELIVER", "CANCEL", "RTO"],
+  renderableActions(["DELIVER", "CANCEL", "RTO", "CORRECT_AWB"]),
+  ["CANCEL", "RTO", "CORRECT_AWB", "DELIVER"],
   "shown in the screen's order whatever the list's order",
 );
-for (const action of SHIPMENT_ACTIONS) {
+for (const action of ORDER_ACTIONS) {
   assert.deepEqual(renderableActions([action]), [action], `${action} alone`);
   assert.ok(
-    !renderableActions(SHIPMENT_ACTIONS.filter((a) => a !== action)).includes(
+    !renderableActions(ORDER_ACTIONS.filter((a) => a !== action)).includes(
       action,
     ),
     `${action} is never shown unless the backend offers it`,
   );
-  assert.ok(SHIPMENT_ACTION_LABEL[action], `${action} has a label`);
+  assert.ok(ORDER_ACTION_LABEL[action], `${action} has a label`);
 }
-// The withheld QC and resubmit steps — and anything a later backend adds — never become
-// controls here, even if a backend were to list them.
 assert.deepEqual(
-  renderableActions(["QC_VERIFY", "QC_REJECT", "RESUBMIT", "SOMETHING_NEW"]),
+  renderableActions(["SOMETHING_NEW"]),
   [],
+  "an action this build does not know is left alone",
 );
 
-// Each request is its backend DTO as it stands: the AWB required at dispatch, the courier and
-// the reasons optional (left out when blank, never sent empty), nothing for delivery.
+// Each request is its backend route and DTO as they stand — kebab-case routes, never the
+// action's own name.
+const at = (route: string) => `/logistics/orders/${ORDER}${route}`;
 assert.deepEqual(
-  shipmentActionRequest(ORDER, {
+  orderActionRequest(ORDER, { action: "QC_VERIFY", remarks: "  " }),
+  { method: "POST", path: at("/qc-verify"), body: {} },
+  "approval remarks are optional, left out when blank",
+);
+assert.deepEqual(
+  orderActionRequest(ORDER, { action: "QC_VERIFY", remarks: " OK " }).body,
+  { remarks: "OK" },
+);
+assert.deepEqual(
+  orderActionRequest(ORDER, {
+    action: "QC_REJECT",
+    remarks: " Wrong address ",
+  }),
+  {
+    method: "POST",
+    path: at("/qc-reject"),
+    body: { remarks: "Wrong address" },
+  },
+);
+assert.deepEqual(
+  orderActionRequest(ORDER, { action: "RESUBMIT", remarks: "" }),
+  { method: "POST", path: at("/resubmit"), body: {} },
+);
+assert.deepEqual(
+  orderActionRequest(ORDER, {
     action: "DISPATCH",
     awbNumber: "  AWB-1 ",
     courier: " ",
   }),
-  { path: `/logistics/orders/${ORDER}/dispatch`, body: { awbNumber: "AWB-1" } },
+  { method: "POST", path: at("/dispatch"), body: { awbNumber: "AWB-1" } },
 );
 assert.deepEqual(
-  shipmentActionRequest(ORDER, {
+  orderActionRequest(ORDER, {
     action: "DISPATCH",
     awbNumber: "AWB-1",
     courier: " Aramex ",
   }).body,
   { awbNumber: "AWB-1", courier: "Aramex" },
 );
-assert.deepEqual(shipmentActionRequest(ORDER, { action: "DELIVER" }), {
-  path: `/logistics/orders/${ORDER}/deliver`,
+assert.deepEqual(orderActionRequest(ORDER, { action: "DELIVER" }), {
+  method: "POST",
+  path: at("/deliver"),
   body: {},
 });
 for (const action of ["CANCEL", "RTO"] as const) {
-  const path = `/logistics/orders/${ORDER}/${action.toLowerCase()}`;
-  assert.deepEqual(shipmentActionRequest(ORDER, { action, reason: "  " }), {
-    path,
-    body: {},
-  });
   assert.deepEqual(
-    shipmentActionRequest(ORDER, { action, reason: " Refused " }).body,
-    { reason: "Refused" },
+    orderActionRequest(ORDER, { action, reason: " Refused " }),
+    {
+      method: "POST",
+      path: at(`/${action.toLowerCase()}`),
+      body: { reason: "Refused" },
+    },
+    `${action} always sends its mandatory reason`,
   );
 }
-// The backend DTOs' limits, which the form enforces.
+assert.deepEqual(
+  orderActionRequest(ORDER, { action: "CORRECT_AWB", awbNumber: " AWB-2 " }),
+  { method: "PATCH", path: at("/awb"), body: { awbNumber: "AWB-2" } },
+);
+assert.deepEqual(
+  orderActionRequest(ORDER, { action: "EDIT", changes: { city: "Abu Dhabi" } }),
+  { method: "PATCH", path: at(""), body: { city: "Abu Dhabi" } },
+);
+// The backend DTOs' limits, which the forms enforce.
 assert.equal(AWB_MAX_LENGTH, 64);
 assert.equal(COURIER_MAX_LENGTH, 64);
 assert.equal(REASON_MAX_LENGTH, 500);
+assert.equal(QC_REMARKS_MAX_LENGTH, 2000);
 
-// The one rule the form checks itself — the backend's: no dispatch without an AWB.
+// The rules the forms check themselves — the backend's: no blank AWB, no blank mandatory reason.
 assert.ok(dispatchAwbError(""));
 assert.ok(dispatchAwbError("   "));
 assert.equal(dispatchAwbError("AWB-1"), undefined);
+assert.ok(requiredReasonError(""));
+assert.ok(requiredReasonError("  "));
+assert.equal(requiredReasonError("Customer refused"), undefined);
+
+// The Manager's edit: the backend's fields, only what changed is sent, a field emptied is sent
+// blank (a clear), name and phone cannot be blanked, numbers must be numbers.
+assert.deepEqual(
+  ORDER_EDIT_FIELDS.map((field) => field.key),
+  [
+    "customerName",
+    "primaryPhone",
+    "secondaryPhone",
+    "email",
+    "street",
+    "city",
+    "state",
+    "country",
+    "nationalCode",
+    "product",
+    "productQty",
+    "product2",
+    "product2Qty",
+    "orderValue",
+    "paymentMethod",
+  ],
+);
+const initial = orderEditValues({
+  customerName: "Acme",
+  primaryPhone: "971500000000",
+  secondaryPhone: null,
+  email: null,
+  street: "Old Rd",
+  city: "Dubai",
+  state: null,
+  country: null,
+  nationalCode: null,
+  product: "Filter",
+  productQty: "2",
+  product2: null,
+  product2Qty: null,
+  orderValue: "250",
+  paymentMethod: null,
+});
+assert.equal(initial.secondaryPhone, "", "a missing value starts blank");
+assert.deepEqual(
+  orderEditChanges(initial, { ...initial }),
+  {},
+  "nothing changed",
+);
+assert.deepEqual(
+  orderEditChanges(initial, { ...initial, city: " Abu Dhabi ", street: "" }),
+  { city: "Abu Dhabi", street: "" },
+);
+assert.deepEqual(orderEditErrors(initial), {});
+assert.deepEqual(
+  Object.keys(
+    orderEditErrors({
+      ...initial,
+      customerName: " ",
+      primaryPhone: "",
+      orderValue: "lots",
+      productQty: "1.5",
+    }),
+  ),
+  ["customerName", "primaryPhone", "orderValue"],
+);
+// The backend's Decimal(12, 2) rule: ten integer digits, two decimals.
+for (const [value, ok] of [
+  ["250.55", true],
+  ["1234567890.99", true],
+  ["250.555", false],
+  ["12345678901", false],
+  ["1e5", false],
+] as const) {
+  assert.equal(
+    "orderValue" in orderEditErrors({ ...initial, orderValue: value }),
+    !ok,
+    `Order Value ${value} is ${ok ? "accepted" : "refused"}`,
+  );
+}
 
 // A refusal that says the order or the caller's rights moved on reads the order again; nothing
 // else does, and nothing is retried.
@@ -199,27 +329,42 @@ const files = [
 ];
 for (const file of files) {
   const source = readFileSync(file, "utf8");
-  // QC and resubmit are withheld until the client answers: no control, no call, no route.
-  // Word-bounded, because the statuses QC_VERIFIED and QC_REJECTED legitimately exist.
-  for (const withheld of [
-    /\bQC_VERIFY\b/,
-    /\bQC_REJECT\b/,
-    /\bRESUBMIT\b/,
-    /\/(qc-verify|qc-reject|resubmit)\b/,
-  ]) {
-    assert.ok(!withheld.test(source), `${file} must not mention ${withheld}`);
-  }
-  // Only reads and the four shipment POSTs: no PUT, PATCH, DELETE or upload anywhere.
-  for (const writer of ["apiPut", "apiPatch", "apiDelete", "apiPostForm"]) {
+  // Reads, the POST moves and the two PATCH corrections: no PUT, DELETE or upload anywhere.
+  for (const writer of ["apiPut", "apiDelete", "apiPostForm"]) {
     assert.ok(!source.includes(writer), `${file} must not use ${writer}`);
   }
   // Components go through the service, never straight to the API client.
   if (file.startsWith("src/components/")) {
     assert.ok(
-      !/\bapi(Get|Post)\b/.test(source),
+      !/\bapi(Get|Post|Patch)\b/.test(source),
       `${file} must use the service`,
     );
   }
+}
+// The action routes are kebab-case; a route built from the action's name would be refused.
+const lib = readFileSync("src/lib/logistics-orders.ts", "utf8");
+assert.ok(
+  !/action\.toLowerCase\(\)/.test(lib),
+  "no route built from an action name",
+);
+
+// Compile-time: the request shapes and the action list name exactly the same actions, so an
+// action added to one without the other fails the typecheck rather than drifting silently.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const inputsMatchActions: Same<OrderAction, OrderActionInput["action"]> = true;
+assert.equal(inputsMatchActions, true);
+
+// Every action the panel can render opens its own dialog: the open === "<ACTION>" chain in the
+// actions component is not exhaustive by construction, so it is checked here.
+const panel = readFileSync(
+  "src/components/logistics/logistics-order-actions.tsx",
+  "utf8",
+);
+for (const action of ORDER_ACTIONS) {
+  assert.ok(
+    panel.includes(`open === "${action}"`),
+    `the actions panel has a dialog for ${action}`,
+  );
 }
 
 console.log("logistics-orders.ts: all checks passed");

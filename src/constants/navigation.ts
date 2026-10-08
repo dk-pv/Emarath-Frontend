@@ -39,8 +39,9 @@ export type NavItem = {
   activeIcon: Icon;
   /**
    * Capability required to see this item (AUTH-02.2); absent ⇒ visible to every role.
-   * Only the sales modules are gated, and only away from the post-sale roles (ADR-0084);
-   * every sales role still sees the full menu.
+   * The sales modules are gated away from the post-sale roles (ADR-0084), and Logistics to
+   * its order readers (`useLogistics`, which leaves out Accounts); every sales role still sees
+   * the full menu.
    */
   requires?: Capability;
 };

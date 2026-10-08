@@ -79,7 +79,11 @@ export function useAnchoredPanel(maxWidth: number) {
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      // Escape closes the innermost popup first: while a select or date picker inside
+      // the panel is open, it is that control's Escape, not the panel's.
+      if (panelRef.current?.querySelector('[aria-expanded="true"]')) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);

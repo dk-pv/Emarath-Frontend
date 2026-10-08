@@ -149,8 +149,11 @@ export function ActivityFormDrawer({
       showEnd && form.endHour && form.endMinute && form.endAmpm
         ? composeIso(form.date, form.endHour, form.endMinute, form.endAmpm)
         : undefined;
-    // A Call clears any preserved location; Meeting/Task keep the GPS-owned value.
-    const locationId = showEnd ? (activity.locationId ?? undefined) : undefined;
+    // A Call clears any preserved location; Meeting/Task keep the GPS-owned value,
+    // whether or not Settings shows them an End Time. Only an administrator may drop or
+    // move a location-tied follow-up's site — the server refuses anyone else.
+    const locationId =
+      form.type === "CALL" ? undefined : (activity.locationId ?? undefined);
 
     setSubmitting(true);
     try {

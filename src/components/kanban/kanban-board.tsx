@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Toolbar } from "@/components/layout/Toolbar";
+import { useAuth } from "@/components/auth/auth-context";
 import { StagesProvider, useStages } from "@/components/stages/stages-context";
+import { can } from "@/constants/permissions";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { presetConditions } from "@/components/leads/lead-quick-filters";
 import { useAdvancedFilter } from "@/hooks/use-advanced-filter";
 import { SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useFilters } from "@/hooks/use-filters";
+import { useLocalDay } from "@/hooks/use-local-day";
 import { useListQuery } from "@/hooks/use-list-query";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { DEFAULT_PIPELINE } from "@/services/leads-board-service";
@@ -24,6 +27,7 @@ import { KanbanColumn } from "./kanban-column";
 import { KanbanDndProvider, type KanbanDnd } from "./kanban-dnd-context";
 import { KanbanToolbar } from "./kanban-toolbar";
 import { StageLegend } from "./stage-legend";
+import { AddStageControl } from "./stage-management/add-stage-control";
 import { type BoardQuery, useKanbanBoard } from "./use-kanban-board";
 import {
   CANCELLED,
@@ -67,6 +71,7 @@ function KanbanBoardShell({
   onPipelineChange: (pipeline: string) => void;
 }) {
   const { stages, status, reload } = useStages();
+  const { user } = useAuth();
 
   // Search state only: the board's field filtering is the advanced builder below, the
   // very one the Leads list uses (KAN-07.1 AC1/AC5), so no per-field catalogue is needed.
@@ -77,9 +82,16 @@ function KanbanBoardShell({
   const advancedFilter = useAdvancedFilter();
 
   // Quick Filter preset (LEAD-04.1) — one at a time, its conditions riding the same
-  // query as the field filters. Kept in its own state so it can be indicated/cleared.
+  // query as the field filters. Kept in its own state so it can be indicated/cleared;
+  // its date window follows the local day, as on the Leads list.
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [presetFilters, setPresetFilters] = useState<FilterCondition[]>([]);
+  const day = useLocalDay();
+  const presetFilters = useMemo<FilterCondition[]>(
+    () => (activePreset ? presetConditions(activePreset) : []),
+    // `day` is what recomputes the window; the preset reads the clock itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activePreset, day],
+  );
 
   // The box tracks the live value; only the value that drives the fetch waits.
   const debouncedSearch = useDebouncedValue(
@@ -98,10 +110,7 @@ function KanbanBoardShell({
   // state; the board paginates per column, so the page/size it also tracks go unused.
   const list = useListQuery({ filters: queryState });
 
-  const applyQuickFilter = (id: string | null) => {
-    setActivePreset(id);
-    setPresetFilters(id ? presetConditions(id) : []);
-  };
+  const applyQuickFilter = (id: string | null) => setActivePreset(id);
 
   // The one applied view the legend and the columns both load from — search +
   // filters + sort. Memoised so its identity only changes when the view does.
@@ -125,6 +134,10 @@ function KanbanBoardShell({
     null,
   );
   const [reloadKey, setReloadKey] = useState(0);
+  // Bumped when a card move is saved or the board is retried, so the legend recounts
+  // with the columns (a move changes two stages' counts without reloading the board).
+  const [legendKey, setLegendKey] = useState(0);
+  const bumpLegend = useCallback(() => setLegendKey((value) => value + 1), []);
 
   // Per-user stage pins (KAN-05.2): one pinned (sticky/frozen) stage per pipeline,
   // fetched once and kept as a map so switching pipelines reads its own pin without a
@@ -171,6 +184,7 @@ function KanbanBoardShell({
             pipeline={pipeline}
             query={boardQuery}
             reloadKey={reloadKey}
+            refreshKey={legendKey}
           />
         }
         right={
@@ -208,9 +222,19 @@ function KanbanBoardShell({
         ) : stages.length === 0 ? (
           <BoardCentered>
             <p className="text-ink-muted">This pipeline has no stages yet.</p>
+            {/* With no column there is no ⋮ menu, so the first stage is added here. */}
+            {can(user?.role, "manageStages") && (
+              <div className="mt-2 flex items-center justify-center gap-2 text-sm text-ink-muted">
+                <AddStageControl pipeline={pipeline} />
+                Add a stage
+              </div>
+            )}
           </BoardCentered>
         ) : (
+          // Keyed by pipeline so a switch starts the board from skeletons, never from
+          // the previous pipeline's columns and cards.
           <KanbanBoardView
+            key={pipeline}
             stages={stages}
             pipeline={pipeline}
             query={boardQuery}
@@ -218,18 +242,23 @@ function KanbanBoardShell({
             onAddLead={(stage) => setCreateTarget({ stage })}
             pinnedStage={pinnedStage}
             onTogglePin={togglePin}
+            onChanged={bumpLegend}
+            // Archived leads can't be moved (the API only moves live leads), so their
+            // cards don't drag rather than failing every drop.
+            readOnly={activePreset === "archived"}
           />
         )}
       </KanbanCardActionsProvider>
 
-      {/* Mounted only while open, so every create starts from a clean form. A stage
-          "+" pre-sets the drawer to that stage (defaultStatus); the global New Lead
-          opens with no stage. Either way a save reloads the board. */}
+      {/* Mounted only while open, so every create starts from a clean form. A new lead
+          belongs to the board it was created on: a stage "+" pre-sets that stage, the
+          global New Lead the pipeline's first stage. A pipeline with no stages yet keeps
+          the drawer's own defaults. Either way a save reloads the board. */}
       {createTarget && (
         <LeadFormDrawer
           open
-          defaultStatus={createTarget.stage}
-          defaultPipeline={createTarget.stage ? pipeline : undefined}
+          defaultStatus={createTarget.stage ?? stages[0]?.name}
+          defaultPipeline={stages.length > 0 ? pipeline : undefined}
           onClose={() => setCreateTarget(null)}
           onSaved={() => {
             setCreateTarget(null);
@@ -250,6 +279,8 @@ function KanbanBoardView({
   onAddLead,
   pinnedStage,
   onTogglePin,
+  onChanged,
+  readOnly,
 }: {
   stages: Stage[];
   pipeline: string;
@@ -258,6 +289,8 @@ function KanbanBoardView({
   onAddLead: (stage: string) => void;
   pinnedStage: string | null;
   onTogglePin: (stage: string) => void;
+  onChanged: () => void;
+  readOnly: boolean;
 }) {
   // Stable by content: a recolour (same names, same order) leaves this identical, so
   // the board doesn't refetch — only the colours re-render. A rename/reorder/add/
@@ -268,7 +301,7 @@ function KanbanBoardView({
     [stageSignature],
   );
   const { phase, columns, retryBoard, retryColumn, loadMore, moveCard } =
-    useKanbanBoard(pipeline, stageNames, query, reloadKey);
+    useKanbanBoard(pipeline, stageNames, query, reloadKey, onChanged);
 
   // The card being dragged: kept in a ref for the drop lookup (drop fires before
   // dragend), mirrored to state only as `activeDragFrom` so columns can light up.
@@ -296,7 +329,9 @@ function KanbanBoardView({
 
   const dnd = useMemo<KanbanDnd>(
     () => ({
+      canDrag: !readOnly,
       onDragStart: (leadId, fromStage) => {
+        if (readOnly) return;
         dragging.current = { id: leadId, from: fromStage };
         setActiveDragFrom(fromStage);
       },
@@ -322,7 +357,7 @@ function KanbanBoardView({
       },
       getDraggingFrom: () => dragging.current?.from ?? null,
     }),
-    [moveCard, askLostReason],
+    [moveCard, askLostReason, readOnly],
   );
 
   if (phase === "error") {

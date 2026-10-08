@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   IconChevronDown,
@@ -18,6 +18,7 @@ import { MultiSelect } from "@/components/ui/MultiSelect";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useToast } from "@/components/ui/Toast";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
+import { useStages } from "@/components/stages/stages-context";
 import { useAnchoredPanel } from "@/hooks/use-anchored-panel";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
@@ -92,6 +93,14 @@ export function LeadFilterBuilder({
   const [optionsByField, setOptionsByField] = useState<
     Record<string, SelectOption[]>
   >({});
+  // Lead Status offers the stages of the nearest catalogue: the board's own pipeline on
+  // Kanban, the default pipeline on the Leads list and the reports — so a board on
+  // another pipeline filters by its own stages, not Lead Pipeline's.
+  const { stages } = useStages();
+  const statusOptions = useMemo<SelectOption[]>(
+    () => stages.map((stage) => ({ value: stage.name, label: stage.name })),
+    [stages],
+  );
 
   // Value options: the enum lookups + the assignable agents + the tag catalogue, once.
   useEffect(() => {
@@ -241,7 +250,11 @@ export function LeadFilterBuilder({
             // One chip then "+N", so the row stays one control tall — Workpex renders
             // a four-user selection as "Ansar UAE +3", never a stack of four chips.
             maxVisibleChips={1}
-            options={optionsByField[def.key] ?? []}
+            options={
+              def.key === "status"
+                ? statusOptions
+                : (optionsByField[def.key] ?? [])
+            }
             value={row.values}
             onChange={(values) => setValues(row.id, values)}
             placeholder={
@@ -332,7 +345,7 @@ export function LeadFilterBuilder({
               <div className="min-w-0 flex-1">
                 <SearchableSelect
                   searchable={false}
-                  options={def ? operatorOptions(def.kind) : []}
+                  options={def ? operatorOptions(def) : []}
                   value={row.operator}
                   onChange={(value) =>
                     setOperator(row.id, value as LeadFilterOperator | null)

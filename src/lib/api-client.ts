@@ -220,6 +220,27 @@ export async function apiDelete<T>(
 }
 
 /**
+ * GET a file the API streams (the Leads export), as a Blob. It goes through the same
+ * session refresh as every other call and a refusal throws an `ApiError` with the
+ * server's reason, so neither an expired session nor a rejected request ever replaces
+ * the app with a raw error page — which a plain link to the URL did.
+ */
+export async function apiGetBlob(
+  path: string,
+  params: URLSearchParams,
+): Promise<Blob> {
+  const response = await fetchWithAuth(
+    `${env.apiBaseUrl}${path}?${params}`,
+    { method: "GET", credentials: "include" },
+    path,
+  );
+
+  if (!response.ok) await throwApiError(response, "GET", path);
+
+  return response.blob();
+}
+
+/**
  * Typed multipart POST for file uploads (LEAD-07.1 import).
  *
  * The Content-Type header is deliberately left unset: the browser must add it with

@@ -52,6 +52,8 @@ export interface ActivityListResult {
   rows: ActivityListItem[];
   total: number;
   counts: ActivityBucketCounts;
+  /** The instant before which the server called an open item overdue (Settings' rule). */
+  overdueBefore: string;
 }
 
 /**

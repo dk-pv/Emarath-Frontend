@@ -13,6 +13,7 @@ type Loaded = {
   rows: readonly ActivityListItem[];
   total: number;
   counts: ActivityBucketCounts;
+  overdueBefore: string;
 };
 
 /**
@@ -45,6 +46,7 @@ export function useActivitiesList(query: ActivitiesQuery) {
             rows: result.rows,
             total: result.total,
             counts: result.counts,
+            overdueBefore: result.overdueBefore,
           });
         }
       })
@@ -75,6 +77,7 @@ export function useActivitiesList(query: ActivitiesQuery) {
     total: isCurrent ? loaded.total : 0,
     // Last-known counts stay on the tabs through a page or bucket change.
     counts: loaded ? loaded.counts : null,
+    overdueBefore: loaded ? loaded.overdueBefore : null,
     isLoading,
     isError,
     refetch,

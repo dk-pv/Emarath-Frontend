@@ -27,16 +27,19 @@ import {
  * the board loads with is passed here, so the legend's proportions narrow with the
  * cards. It keys only on search + filters, never sort — sort reorders cards without
  * changing a stage's count, so the legend must not move for it. `reloadKey` lets a
- * New Lead refresh the bar.
+ * New Lead refresh the bar, `refreshKey` a saved card move or a board retry; a stage
+ * rename refetches too, since counts are looked up by the stage's current name.
  */
 export function StageLegend({
   pipeline,
   query,
   reloadKey = 0,
+  refreshKey = 0,
 }: {
   pipeline: string;
   query: BoardFilterQuery;
   reloadKey?: number;
+  refreshKey?: number;
 }) {
   const { stages } = useStages();
   const [loaded, setLoaded] = useState<{
@@ -55,6 +58,7 @@ export function StageLegend({
 
   // The view this legend is showing: pipeline + the filter that shaped it (+ a New
   // Lead refresh). A change makes the bar read as "loading" until its fetch lands.
+  const stageNames = stages.map((stage) => stage.name).join("\n");
   const key = useMemo(
     () =>
       JSON.stringify({
@@ -65,19 +69,32 @@ export function StageLegend({
         // filter changed — the legend must narrow with the cards (KAN-07.1 AC5).
         advancedConditions: query.advancedConditions ?? "",
         reloadKey,
+        refreshKey,
+        stageNames,
       }),
-    [pipeline, query, reloadKey],
+    [pipeline, query, reloadKey, refreshKey, stageNames],
   );
 
+  // Keyed on the serialised view only: the `query` object is rebuilt on a sort change,
+  // which must not refetch counts it cannot change. The request is read back from the key.
   useEffect(() => {
     const controller = new AbortController();
-    fetchBoard(pipeline, query, controller.signal)
+    const view = JSON.parse(key) as Required<BoardFilterQuery>;
+    fetchBoard(
+      pipeline,
+      {
+        search: view.search,
+        conditions: view.conditions,
+        advancedConditions: view.advancedConditions || undefined,
+      },
+      controller.signal,
+    )
       .then((summary) => setLoaded({ key, summary }))
       .catch(() => {
         // A legend miss leaves the placeholder; the board surfaces the real error.
       });
     return () => controller.abort();
-  }, [pipeline, query, key]);
+  }, [pipeline, key]);
 
   // Derived, not sequenced (no setState in the effect): a summary for a different
   // view reads as "loading" until the current one arrives.

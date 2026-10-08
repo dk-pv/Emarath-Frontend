@@ -26,7 +26,12 @@ import { LeadNameCell } from "@/components/leads/lead-name-cell";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagsCell } from "@/components/leads/lead-tags-cell";
 import { cn } from "@/lib/cn";
-import { formatAED, formatDateTime, initialsOf } from "@/lib/format";
+import {
+  formatAED,
+  formatDate,
+  formatDateTime,
+  initialsOf,
+} from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { ActivityListItem } from "@/services/activities-service";
 import type { TableColumn } from "@/types";
@@ -590,7 +595,7 @@ export const activityColumns: TableColumn<ActivityListItem>[] = [
     header: "Booking Date",
     render: (row) =>
       row.lead.bookingDate ? (
-        <Truncated text={row.lead.bookingDate} />
+        <Truncated text={formatDate(row.lead.bookingDate)} />
       ) : (
         orDash(null)
       ),

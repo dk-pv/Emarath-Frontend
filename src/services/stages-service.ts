@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
+import { announce, STAGES_CHANGED } from "@/lib/catalog-events";
 
 /**
  * The stage catalogue client (KAN-05.1 API → KAN-05.2 consumption + management).
@@ -62,11 +63,19 @@ export async function fetchStages(
   return apiGet<Stage[]>("/stages", params, signal);
 }
 
+/** Tells every cached stage reader to refresh once a write has succeeded. */
+function announced<T>(write: Promise<T>): Promise<T> {
+  return write.then((result) => {
+    announce(STAGES_CHANGED);
+    return result;
+  });
+}
+
 /** Adds a stage to a pipeline (KAN-05.2 AC1). Appended after the last stage. */
 export async function createStage(
   input: { pipeline: string; name: string; color: string } & StageWizardFields,
 ): Promise<Stage> {
-  return apiPost<Stage>("/stages", input);
+  return announced(apiPost<Stage>("/stages", input));
 }
 
 /** Renames and/or recolours a stage (KAN-05.2 AC2). */
@@ -74,7 +83,7 @@ export async function updateStage(
   id: string,
   input: { name?: string; color?: string } & StageWizardFields,
 ): Promise<Stage> {
-  return apiPatch<Stage>(`/stages/${id}`, input);
+  return announced(apiPatch<Stage>(`/stages/${id}`, input));
 }
 
 /** Persists a new stage order for a pipeline (KAN-05.2 AC2). */
@@ -82,10 +91,12 @@ export async function reorderStages(
   pipeline: string,
   orderedIds: string[],
 ): Promise<Stage[]> {
-  return apiPatch<Stage[]>("/stages/reorder", { pipeline, orderedIds });
+  return announced(
+    apiPatch<Stage[]>("/stages/reorder", { pipeline, orderedIds }),
+  );
 }
 
 /** Deletes a stage; the API refuses one that still holds leads (KAN-05.2 AC2). */
 export async function deleteStage(id: string): Promise<{ id: string }> {
-  return apiDelete<{ id: string }>(`/stages/${id}`);
+  return announced(apiDelete<{ id: string }>(`/stages/${id}`));
 }

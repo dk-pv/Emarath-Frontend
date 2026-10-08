@@ -17,8 +17,10 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { useAuth } from "@/components/auth/auth-context";
 import { useStages } from "@/components/stages/stages-context";
 import { useToast } from "@/components/ui/Toast";
+import { can } from "@/constants/permissions";
 import { ApiError } from "@/lib/api-client";
 import {
   createStage,
@@ -44,8 +46,9 @@ const TRIGGER_CLASS =
  * management surface, and the stage-pin semantics, are pending a product decision;
  * until then this stays the reachable home for stage management.
  *
- * AC5 (controls available only to permitted roles) is deferred to the auth layer
- * (AUTH-01.3): the gate is a one-line guard here once an auth context exists.
+ * AC5: only admins and sales managers see the stage CRUD (`manageStages`); everyone
+ * keeps Pin, which is personal. The backend refuses the writes to every other role, so
+ * hiding them here only spares a 403.
  */
 export function ColumnStageMenu({
   stage,
@@ -56,7 +59,9 @@ export function ColumnStageMenu({
   isPinned: boolean;
   onTogglePin: () => void;
 }) {
-  const { stages, refresh } = useStages();
+  const { stages } = useStages();
+  const { user } = useAuth();
+  const canManage = can(user?.role, "manageStages");
   const { toast } = useToast();
   const [mode, setMode] = useState<
     null | "add" | "rename" | "recolor" | "delete"
@@ -75,8 +80,9 @@ export function ColumnStageMenu({
 
   const run = (op: Promise<unknown>, okTitle: string, failTitle: string) => {
     setBusy(true);
+    // The stage client announces the change, so this board's catalogue — and every
+    // other reader of it — refreshes without an explicit call here.
     op.then(() => {
-      refresh();
       toast({ title: okTitle, tone: "success" });
       setMode(null);
     })
@@ -138,17 +144,17 @@ export function ColumnStageMenu({
     );
   };
 
-  const items: DropdownItem[] = [
+  const pin: DropdownItem = {
     // The Workpex-confirmed stage action (KAN-05.2): Pin toggles this stage as the
     // caller's sticky/frozen column. Unpin restores normal scrolling. The stage-CRUD
     // below is the interim home preserved until a management surface is decided.
-    {
-      type: "item",
-      id: "pin",
-      label: isPinned ? "Unpin" : "Pin",
-      icon: isPinned ? IconPinFilled : IconPin,
-      onSelect: onTogglePin,
-    },
+    type: "item",
+    id: "pin",
+    label: isPinned ? "Unpin" : "Pin",
+    icon: isPinned ? IconPinFilled : IconPin,
+    onSelect: onTogglePin,
+  };
+  const manage: DropdownItem[] = [
     { type: "separator", id: "sep-pin" },
     {
       type: "item",
@@ -208,6 +214,7 @@ export function ColumnStageMenu({
       onSelect: () => setMode("delete"),
     },
   ];
+  const items = canManage ? [pin, ...manage] : [pin];
 
   return (
     <>

@@ -15,6 +15,8 @@ import { createContext, useContext } from "react";
  * reuses the same coordinator.
  */
 export type KanbanDnd = {
+  /** False while the board shows cards that can't be moved (the Archived view). */
+  canDrag: boolean;
   /** A card started dragging out of `fromStage`. */
   onDragStart: (leadId: string, fromStage: string) => void;
   /** The drag ended (dropped anywhere, or cancelled). */

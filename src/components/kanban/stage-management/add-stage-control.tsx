@@ -6,23 +6,21 @@ import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { useStages } from "@/components/stages/stages-context";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError } from "@/lib/api-client";
 import { createStage } from "@/services/stages-service";
 import { StageSwatches } from "./stage-swatches";
 
 /**
- * The `+` stage control in a column header (KAN-05.2 AC1). The backlog says the `+`
- * adds a stage, and the reference shows a `+` on each column header — so it lives
- * there; a new stage is appended (the Stage API appends).
+ * The add-stage `+` (KAN-05.2 AC1) for a pipeline that has no stages yet, where there is
+ * no column ⋮ menu to add one from. A new stage is appended (the Stage API appends).
+ * Rendered only for roles that may manage stages.
  *
  * NO WORKPEX REFERENCE AVAILABLE for the add form itself (the popover/fields are not
  * captured) — this is a restrained design-system default: a small modal with a name
  * field and the colour picker. Isolated here for replacement when a recording exists.
  */
 export function AddStageControl({ pipeline }: { pipeline: string }) {
-  const { refresh } = useStages();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -41,8 +39,8 @@ export function AddStageControl({ pipeline }: { pipeline: string }) {
     if (!trimmed) return;
     setBusy(true);
     createStage({ pipeline, name: trimmed, color })
+      // The stage client announces the change, so the catalogue refreshes itself.
       .then(() => {
-        refresh();
         toast({ title: `Stage “${trimmed}” added`, tone: "success" });
         setOpen(false);
         setName("");

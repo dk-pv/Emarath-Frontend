@@ -27,6 +27,7 @@ import { useToast } from "@/components/ui/Toast";
 import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
+import { useLocalDay } from "@/hooks/use-local-day";
 import {
   activityColumns,
   ActivityRowProvider,
@@ -141,7 +142,12 @@ const BUCKET_LABEL: Record<ActivityBucket, string> = {
  * (ACT-08.1) are elsewhere.
  */
 export function ActivitiesListView() {
-  const boundaries = useMemo(() => dayBoundaries(), []);
+  // Recomputed when the local day changes, so a worklist left open past midnight moves
+  // its Today / Tomorrow tabs to the new day instead of keeping yesterday's.
+  const day = useLocalDay();
+  // `day` is what recomputes the boundaries; dayBoundaries reads the clock itself.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const boundaries = useMemo(() => dayBoundaries(), [day]);
 
   // A link may open the worklist on a particular tab and assignee — the Overdue Follow Ups
   // report's per-agent counts do exactly that, so the number opens the follow-ups it counted.
@@ -235,9 +241,13 @@ export function ActivitiesListView() {
     };
   }, [bucket, page, size, boundaries, debouncedSearch, activeFilters]);
 
-  const { rows, total, counts, isLoading, isError, refetch } =
+  const { rows, total, counts, overdueBefore, isLoading, isError, refetch } =
     useActivitiesList(query);
   const pageCount = Math.max(1, Math.ceil(total / size));
+  // Completing or deleting the last rows of the last page shrinks the result under
+  // the user; step back to the last real page rather than strand them on an empty
+  // one (the Leads list does the same). `total` is 0 while loading, so this can't loop.
+  if (!isLoading && total > 0 && page > pageCount) setPage(pageCount);
 
   const { toast } = useToast();
   const [completeTarget, setCompleteTarget] = useState<ActivityListItem | null>(
@@ -631,27 +641,42 @@ export function ActivitiesListView() {
    * sparse-patch variant. Optimistic, and reverted if the server rejects it.
    */
   const handleSaveDueDate = async (row: ActivityListItem, dueAt: string) => {
+    // A Meeting/Task's end time moves with its start, keeping its length — otherwise
+    // moving it to a later day would put the end before the start, which the API refuses.
+    const endAt = row.endAt
+      ? new Date(
+          Date.parse(row.endAt) + Date.parse(dueAt) - Date.parse(row.dueAt),
+        ).toISOString()
+      : null;
     if (row.description === null) {
       // The API requires a description on update, so a note-less row cannot be
-      // saved from here without inventing one — send the user to the drawer.
-      setEditTarget(row);
+      // saved from here without inventing one — send the user to the drawer, which
+      // opens on the date and time they just picked.
+      setEditTarget({ ...row, dueAt, endAt });
       return;
     }
-    applyOverride(row.id, { dueAt });
+    applyOverride(row.id, { dueAt, endAt });
     try {
       await updateActivity(row.id, {
         type: row.type,
         description: row.description,
         dueAt,
-        endAt: row.endAt ?? undefined,
+        endAt: endAt ?? undefined,
         locationId: row.locationId ?? undefined,
         assigneeIds: row.assignees.map((assignee) => assignee.id),
       });
       refetch();
       toast({ title: "Follow-up date updated", tone: "success" });
-    } catch {
+    } catch (error) {
       clearOverride(row.id);
-      toast({ title: "Couldn't update the date", tone: "danger" });
+      toast({
+        title: "Couldn't update the date",
+        description:
+          error instanceof ApiError
+            ? error.messages.join(" · ") || undefined
+            : undefined,
+        tone: "danger",
+      });
     }
   };
 
@@ -762,7 +787,9 @@ export function ActivitiesListView() {
         onRequestWhatsapp: setWhatsappTarget,
         onRequestTimeline: (row) => setTimelineLead(row.lead),
         onSaveDueDate: (row, dueAt) => void handleSaveDueDate(row, dueAt),
-        overdueBefore: boundaries.todayStart,
+        // The server's own overdue cutoff (Settings' rule), so a row in the Overdue tab
+        // always reads as overdue; midnight until the first page arrives.
+        overdueBefore: overdueBefore ?? boundaries.todayStart,
         pendingId: pending?.id ?? null,
         pendingAction: pending?.action ?? null,
       }}
@@ -1158,14 +1185,19 @@ export function ActivitiesListView() {
           columns={manageableColumns}
           order={columnOrder}
           hidden={hiddenColumns}
+          defaultHidden={defaultHidden}
           onClose={manageColumns.close}
           onApply={(order, hidden) => {
             setColumnOrder(order);
             setHiddenColumns(hidden);
             // Persist per user (AC4). Optimistic: the table already reflects the
-            // change, so a failed save only means it won't survive a reload.
-            void saveColumnLayout(ACTIVITIES_VIEW_KEY, { order, hidden }).catch(
-              () => {},
+            // change; a failed save is said, since the layout won't survive a reload.
+            saveColumnLayout(ACTIVITIES_VIEW_KEY, { order, hidden }).catch(() =>
+              toast({
+                title: "Couldn’t save your column layout",
+                description: "It applies now but won’t be kept after a reload.",
+                tone: "danger",
+              }),
             );
           }}
         />

@@ -30,6 +30,8 @@ type LeadManageColumnsDrawerProps = {
   lockedKeys?: readonly string[];
   /** The Leads table offers "Reset to default"; the field panel does not. */
   showReset?: boolean;
+  /** The columns the module hides until a user turns them on — what Reset restores. */
+  defaultHidden?: readonly string[];
 };
 
 /**
@@ -40,8 +42,8 @@ type LeadManageColumnsDrawerProps = {
  * row actions are the fixed identifier/action columns and are not listed, matching
  * Workpex.
  *
- * "Reset to default" (AC5) restores every column, in the module's default order, as a
- * draft the user then submits. Its exact Workpex placement is not in the captured
+ * "Reset to default" (AC5) restores the module's default layout — its default order,
+ * with only its default-hidden columns hidden — as a draft the user then submits. Its exact Workpex placement is not in the captured
  * screenshots, so it sits in the footer using the drawer's existing button pattern.
  */
 export function LeadManageColumnsDrawer({
@@ -55,6 +57,7 @@ export function LeadManageColumnsDrawer({
   searchPlaceholder = "Search columns",
   lockedKeys,
   showReset = true,
+  defaultHidden,
 }: LeadManageColumnsDrawerProps) {
   const locked = useMemo(() => new Set(lockedKeys ?? []), [lockedKeys]);
   const labelOf = useMemo(
@@ -86,12 +89,12 @@ export function LeadManageColumnsDrawer({
       return next;
     });
 
-  // Reset the draft to the default layout (LEAD-05.1 AC5): every column visible, in
-  // the module's declared order (`columns` arrives in that default order). Submit
-  // persists it, the same as any other edit — no separate reset endpoint needed.
+  // Reset the draft to the default layout (LEAD-05.1 AC5): the module's declared order
+  // (`columns` arrives in that default order) with its default-hidden columns hidden.
+  // Submit persists it, the same as any other edit — no separate reset endpoint needed.
   const resetToDefault = () => {
     setDraftOrder(columns.map((column) => column.key));
-    setDraftHidden(new Set());
+    setDraftHidden(new Set(defaultHidden ?? []));
   };
 
   const reorderOver = (overKey: string) => {

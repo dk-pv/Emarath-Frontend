@@ -39,6 +39,14 @@ export type LeadFilterFieldDef = {
   lookup?: LookupType;
   /** Shown in the field list but not yet filterable (no backing column). */
   queryable?: boolean;
+  /** A narrower operator set than the kind's — the backend whitelist's, exactly. */
+  operators?: LeadFilterOperator[];
+  /**
+   * A calendar-date column (no time): its days are sent as "YYYY-MM-DD", which the
+   * server binds as that date. A local-midnight instant would land on the previous UTC
+   * day for a user east of UTC, and the filter would answer for the wrong day.
+   */
+  dateOnly?: true;
 };
 
 /**
@@ -48,9 +56,16 @@ export type LeadFilterFieldDef = {
 export const LEAD_FILTER_FIELDS: readonly LeadFilterFieldDef[] = [
   { key: "actualAmount", label: "Actual Amount", kind: "numeric" },
   { key: "assignedDate", label: "Assigned Date", kind: "date" },
-  { key: "activity", label: "Activity", kind: "enum", lookup: "leadActivity" },
+  {
+    key: "activity",
+    label: "Activity",
+    kind: "enum",
+    lookup: "leadActivity",
+    // An engagement state, never empty — the server takes only Is / Isn't here.
+    operators: ["is", "isnt"],
+  },
   { key: "assignedAgent", label: "Assigned User", kind: "user" },
-  { key: "bookingDate", label: "BOOKING DATE", kind: "date" },
+  { key: "bookingDate", label: "BOOKING DATE", kind: "date", dateOnly: true },
   {
     key: "callStatus",
     label: "Call Status",
@@ -180,8 +195,15 @@ export function operatorsFor(kind: LeadFilterFieldKind): LeadFilterOperator[] {
   }
 }
 
-export function operatorOptions(kind: LeadFilterFieldKind): SelectOption[] {
-  return operatorsFor(kind).map((op) => ({
+/** The operators a field offers: its own set when it has one, else its kind's. */
+export function operatorsForField(
+  def: LeadFilterFieldDef,
+): LeadFilterOperator[] {
+  return def.operators ?? operatorsFor(def.kind);
+}
+
+export function operatorOptions(def: LeadFilterFieldDef): SelectOption[] {
+  return operatorsForField(def).map((op) => ({
     value: op,
     label: OPERATOR_LABEL[op],
   }));
@@ -247,12 +269,13 @@ export function emptyRow(): LeadFilterRow {
 export function rowIsComplete(row: LeadFilterRow): boolean {
   const def = fieldDef(row.field);
   if (!def || def.queryable === false || !row.operator) return false;
-  if (!operatorsFor(def.kind).includes(row.operator)) return false;
+  if (!operatorsForField(def).includes(row.operator)) return false;
   const control = valueControl(def.kind, row.operator);
   if (control === "none") return true;
   if (control === "numberRange" || control === "dateRange")
     return row.values.length === 2 && row.values.every(Boolean);
-  return row.values.length > 0 && Boolean(row.values[0]);
+  // A text value of only spaces is no value: the server trims it away and refuses it.
+  return row.values.length > 0 && Boolean(row.values[0]?.trim());
 }
 
 export function activeConditionCount(rows: readonly LeadFilterRow[]): number {
@@ -269,24 +292,52 @@ function nextDayIso(iso: string): string {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString();
 }
 
+/** The picked day (a local-midnight instant), `offset` days on, as "YYYY-MM-DD". */
+function calendarDay(iso: string, offset = 0): string {
+  const d = new Date(iso);
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+}
+
+const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A stored value back to the local-midnight instant the date picker shows. */
+function pickerInstant(value: string): string {
+  if (!CALENDAR_DAY.test(value)) return value;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day).toISOString();
+}
+
 type ConditionPayload = {
   field: string;
   operator: LeadFilterOperator;
   values: string[];
 };
 
-/** A date row's picked day(s) → the half-open instant boundaries the server expects. */
-function datePayloadValues(op: LeadFilterOperator, values: string[]): string[] {
+/**
+ * A date row's picked day(s) → the half-open boundaries the server expects: local
+ * midnight instants for a timestamp column, calendar days for a date-only one.
+ */
+function datePayloadValues(
+  op: LeadFilterOperator,
+  values: string[],
+  dateOnly: boolean,
+): string[] {
+  const start = (iso: string) =>
+    dateOnly ? calendarDay(iso) : startOfDayIso(iso);
+  const next = (iso: string) =>
+    dateOnly ? calendarDay(iso, 1) : nextDayIso(iso);
   switch (op) {
     case "on":
-      return [startOfDayIso(values[0]), nextDayIso(values[0])];
+      return [start(values[0]), next(values[0])];
     case "before":
-      return [startOfDayIso(values[0])];
+      return [start(values[0])];
     case "after":
-      return [nextDayIso(values[0])];
+      return [next(values[0])];
     case "between":
     case "notBetween":
-      return [startOfDayIso(values[0]), nextDayIso(values[1])];
+      return [start(values[0]), next(values[1])];
     default:
       return [];
   }
@@ -310,7 +361,16 @@ export function buildConditionsPayload(
       return {
         field: def.key,
         operator,
-        values: datePayloadValues(operator, row.values),
+        values: datePayloadValues(operator, row.values, def.dateOnly === true),
+      };
+    }
+    if (def.kind === "text") {
+      // The server trims text values; sending them trimmed keeps the panel, the badge
+      // and the request saying the same thing.
+      return {
+        field: def.key,
+        operator,
+        values: row.values.map((value) => value.trim()),
       };
     }
     return { field: def.key, operator, values: row.values };
@@ -324,17 +384,22 @@ function previousDayIso(iso: string): string {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toISOString();
 }
 
-/** A stored date row's boundary instants back to the day(s) the user picked. */
+/**
+ * A stored date row's boundaries back to the day(s) the user picked. Values may be
+ * instants or calendar days (a BOOKING DATE row, or a preset saved before either
+ * shape existed), so each is read back as the picker's local-midnight instant.
+ */
 function datePickedValues(op: LeadFilterOperator, values: string[]): string[] {
+  const picked = values.map(pickerInstant);
   switch (op) {
     case "on":
     case "before":
-      return values.slice(0, 1);
+      return picked.slice(0, 1);
     case "after":
-      return [previousDayIso(values[0])];
+      return [previousDayIso(picked[0])];
     case "between":
     case "notBetween":
-      return [values[0], previousDayIso(values[1])];
+      return [picked[0], previousDayIso(picked[1])];
     default:
       return [];
   }
@@ -370,7 +435,7 @@ export function rowsFromPayload(
 
     const def = fieldDef(field);
     const op = operator as LeadFilterOperator;
-    if (!def || !operatorsFor(def.kind).includes(op)) return [];
+    if (!def || !operatorsForField(def).includes(op)) return [];
 
     const raw = Array.isArray(values)
       ? values.filter((v): v is string => typeof v === "string")

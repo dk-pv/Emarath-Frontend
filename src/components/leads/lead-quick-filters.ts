@@ -101,7 +101,8 @@ const window = (from: Date, to: Date): FilterCondition[] => [
 /**
  * The list conditions a preset applies. Date windows are computed now, in the
  * caller's timezone, so "Today"/"This Week"/"Last Week" mean the user's calendar.
- * Called from an event handler, never during render.
+ * Callers recompute it when the local day changes (`useLocalDay`), so a page left
+ * open past midnight moves its window to the new day.
  */
 export function presetConditions(id: string): FilterCondition[] {
   const now = new Date();

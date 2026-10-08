@@ -10,6 +10,7 @@ import {
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
+import { SEARCH_MAX_LENGTH } from "@/constants/table";
 import type { SelectOption } from "@/types";
 
 /** The bar's leading "search in" selector — the Leads list's Lead / Duplicate Lead. */
@@ -33,18 +34,23 @@ export type ToolbarSearchScope = {
  * With `scope` (Leads) the expanded control is Workpex's full search bar: a
  * canvas-tinted scope segment ("Lead ˅") that opens a small caret menu, the input
  * filling the toolbar row, and the ✕ as a full-height segment at its right edge.
+ * Collapsing the bar returns the scope to its first option, so a scope can never keep
+ * narrowing the list once the bar that shows it is gone.
  */
 export function ToolbarSearch({
   value,
   onChange,
   placeholder = "Search",
   scope,
+  maxLength = SEARCH_MAX_LENGTH,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   /** Renders the full search bar with this selector at its left. */
   scope?: ToolbarSearchScope;
+  /** The API's own search length limit. */
+  maxLength?: number;
 }) {
   const [open, setOpen] = useState(false);
   const hasQuery = value.trim().length > 0;
@@ -65,12 +71,15 @@ export function ToolbarSearch({
 
   // A bare re-render never blurs a focused input, so the list loading won't
   // close it mid-type. Escape on an empty query collapses back to the button.
-  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape" && value === "") setOpen(false);
-  };
   const collapse = () => {
     onChange("");
+    if (scope && scope.value !== scope.options[0]?.value) {
+      scope.onChange(scope.options[0].value);
+    }
     setOpen(false);
+  };
+  const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape" && value === "") collapse();
   };
 
   if (scope) {
@@ -91,6 +100,7 @@ export function ToolbarSearch({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
+          maxLength={maxLength}
           placeholder={placeholder}
           aria-label={placeholder}
           className={cn(
@@ -123,6 +133,7 @@ export function ToolbarSearch({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
+        maxLength={maxLength}
         placeholder={placeholder}
         aria-label={placeholder}
         className={cn(

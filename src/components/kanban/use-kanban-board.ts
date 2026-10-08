@@ -55,17 +55,21 @@ export type StageColumn = {
 type BoardState = {
   phase: "loading" | "error" | "ready";
   columns: Record<string, StageColumn>;
+  /**
+   * Which board load the columns belong to. Every page, retry and move result carries
+   * the generation it was requested under, and one from a superseded view (a filter,
+   * search, sort or pipeline change, a New Lead reload) is dropped — otherwise a slow
+   * page 2 of the old view would be appended to the new view's column.
+   */
+  generation: number;
 };
 
-type Action =
-  | { type: "board-reset" }
-  | { type: "board-error" }
-  | { type: "board-loaded"; stages: BoardStageSummary[]; order: string[] }
+/** The results that answer a request, tagged with the board load that made it. */
+type Answer =
   | { type: "page-loading-more"; stage: string }
   | { type: "page-loaded"; stage: string; rows: LeadListItem[] }
   | { type: "page-error"; stage: string }
   | { type: "column-retry"; stage: string }
-  | { type: "move"; lead: LeadListItem; from: string; to: string }
   | { type: "move-confirm"; stages: BoardStageSummary[] }
   | {
       type: "move-rollback";
@@ -75,7 +79,19 @@ type Action =
       index: number;
     };
 
-const INITIAL: BoardState = { phase: "loading", columns: {} };
+type Action =
+  | { type: "board-reset" }
+  | { type: "board-error" }
+  | {
+      type: "board-loaded";
+      stages: BoardStageSummary[];
+      order: string[];
+      generation: number;
+    }
+  | { type: "move"; lead: LeadListItem; from: string; to: string }
+  | (Answer & { generation: number });
+
+const INITIAL: BoardState = { phase: "loading", columns: {}, generation: 0 };
 
 const amountOf = (lead: LeadListItem): number =>
   Number(lead.actualAmount ?? "0") || 0;
@@ -120,6 +136,13 @@ function pageQuery(
 }
 
 function reducer(state: BoardState, action: Action): BoardState {
+  if (
+    "generation" in action &&
+    action.type !== "board-loaded" &&
+    action.generation !== state.generation
+  ) {
+    return state;
+  }
   switch (action.type) {
     case "board-reset":
       return INITIAL;
@@ -147,7 +170,7 @@ function reducer(state: BoardState, action: Action): BoardState {
           nextPage: 1,
         };
       }
-      return { phase: "ready", columns };
+      return { phase: "ready", columns, generation: action.generation };
     }
 
     case "page-loading-more": {
@@ -319,10 +342,19 @@ export function useKanbanBoard(
   stageNames: string[],
   query: BoardQuery,
   reloadKey = 0,
+  /** Called after a move is saved or the board is retried, so the legend can recount. */
+  onChanged?: () => void,
 ) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [nonce, setNonce] = useState(0);
   const { toast } = useToast();
+
+  // The latest board load's generation (see BoardState.generation).
+  const generationRef = useRef(0);
+  const onChangedRef = useRef(onChanged);
+  useEffect(() => {
+    onChangedRef.current = onChanged;
+  }, [onChanged]);
 
   // Live mirror of state for the stable event-handler callbacks below; synced in an
   // effect (never written during render) so a handler always reads the latest cards.
@@ -355,14 +387,19 @@ export function useKanbanBoard(
   const inFlight = useRef<Set<string>>(new Set());
 
   const fetchFirstPage = useCallback(
-    (stage: string, signal?: AbortSignal) => {
+    (stage: string, generation: number, signal?: AbortSignal) => {
       fetchLeads(pageQuery(stage, pipeline, 1, queryRef.current), signal)
         .then((result) =>
-          dispatch({ type: "page-loaded", stage, rows: [...result.rows] }),
+          dispatch({
+            type: "page-loaded",
+            stage,
+            rows: [...result.rows],
+            generation,
+          }),
         )
         .catch((error: unknown) => {
           if (isAbort(error)) return;
-          dispatch({ type: "page-error", stage });
+          dispatch({ type: "page-error", stage, generation });
         });
     },
     [pipeline],
@@ -370,6 +407,7 @@ export function useKanbanBoard(
 
   useEffect(() => {
     const controller = new AbortController();
+    const generation = ++generationRef.current;
     const applied = queryRef.current;
     fetchBoard(
       pipeline,
@@ -385,9 +423,11 @@ export function useKanbanBoard(
           type: "board-loaded",
           stages: summary.stages,
           order: stageNames,
+          generation,
         });
         for (const s of summary.stages) {
-          if (s.count > 0) fetchFirstPage(s.stage, controller.signal);
+          if (s.count > 0)
+            fetchFirstPage(s.stage, generation, controller.signal);
         }
       })
       .catch((error: unknown) => {
@@ -402,12 +442,14 @@ export function useKanbanBoard(
   const retryBoard = useCallback(() => {
     dispatch({ type: "board-reset" });
     setNonce((value) => value + 1);
+    onChangedRef.current?.();
   }, []);
 
   const retryColumn = useCallback(
     (stage: string) => {
-      dispatch({ type: "column-retry", stage });
-      fetchFirstPage(stage);
+      const { generation } = stateRef.current;
+      dispatch({ type: "column-retry", stage, generation });
+      fetchFirstPage(stage, generation);
     },
     [fetchFirstPage],
   );
@@ -424,12 +466,18 @@ export function useKanbanBoard(
       ) {
         return;
       }
-      dispatch({ type: "page-loading-more", stage });
+      const { generation } = stateRef.current;
+      dispatch({ type: "page-loading-more", stage, generation });
       fetchLeads(pageQuery(stage, pipeline, col.nextPage, queryRef.current))
         .then((result) =>
-          dispatch({ type: "page-loaded", stage, rows: [...result.rows] }),
+          dispatch({
+            type: "page-loaded",
+            stage,
+            rows: [...result.rows],
+            generation,
+          }),
         )
-        .catch(() => dispatch({ type: "page-error", stage }));
+        .catch(() => dispatch({ type: "page-error", stage, generation }));
     },
     [pipeline],
   );
@@ -442,6 +490,11 @@ export function useKanbanBoard(
       const index = col.rows.findIndex((r) => r.id === leadId);
       if (index < 0 || inFlight.current.has(leadId)) return;
       const lead = col.rows[index];
+      const { generation } = stateRef.current;
+      // Pages are offsets, so a card leaving a column with unloaded pages shifts every
+      // later card up one place: the next "load more" would start one card late and
+      // that card would never show (KAN-02.2 AC3).
+      const sourceHadMore = !col.loadedAll;
 
       inFlight.current.add(leadId);
       dispatch({ type: "move", lead, from, to });
@@ -455,11 +508,28 @@ export function useKanbanBoard(
           if (isQueryActive(queryRef.current)) {
             setNonce((value) => value + 1);
           } else {
-            dispatch({ type: "move-confirm", stages: response.stages });
+            dispatch({
+              type: "move-confirm",
+              stages: response.stages,
+              generation,
+            });
+            // Re-page the source from the top, so its paging matches the server again.
+            if (sourceHadMore) {
+              dispatch({ type: "column-retry", stage: from, generation });
+              fetchFirstPage(from, generation);
+            }
           }
+          onChangedRef.current?.();
         })
         .catch((error: unknown) => {
-          dispatch({ type: "move-rollback", lead, from, to, index });
+          dispatch({
+            type: "move-rollback",
+            lead,
+            from,
+            to,
+            index,
+            generation,
+          });
           const description =
             error instanceof ApiError && error.status === 404
               ? "You can’t move this lead."
@@ -470,7 +540,7 @@ export function useKanbanBoard(
         })
         .finally(() => inFlight.current.delete(leadId));
     },
-    [toast],
+    [toast, fetchFirstPage],
   );
 
   return {

@@ -1,4 +1,9 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
+import {
+  announce,
+  PIPELINES_CHANGED,
+  STAGES_CHANGED,
+} from "@/lib/catalog-events";
 
 /** The wizard's access select; both options are visible in the reference. */
 export const PIPELINE_ACCESS_MODES = [
@@ -121,17 +126,29 @@ export function fetchPipelines(signal?: AbortSignal): Promise<PipelineNode[]> {
   return apiGet<PipelineNode[]>("/pipelines", undefined, signal);
 }
 
+/**
+ * A pipeline write changes the switcher's list and can create, rename or remove that
+ * pipeline's stages, so both catalogues are announced once it succeeds.
+ */
+function announced<T>(write: Promise<T>): Promise<T> {
+  return write.then((result) => {
+    announce(PIPELINES_CHANGED);
+    announce(STAGES_CHANGED);
+    return result;
+  });
+}
+
 export function createPipeline(
   input: CreatePipelineInput,
 ): Promise<PipelineNode> {
-  return apiPost<PipelineNode>("/pipelines", input);
+  return announced(apiPost<PipelineNode>("/pipelines", input));
 }
 
 export function updatePipeline(
   id: string,
   input: UpdatePipelineInput,
 ): Promise<PipelineNode> {
-  return apiPatch<PipelineNode>(`/pipelines/${id}`, input);
+  return announced(apiPatch<PipelineNode>(`/pipelines/${id}`, input));
 }
 
 /**
@@ -139,11 +156,11 @@ export function updatePipeline(
  * previous default changed too — anything narrower would leave the table showing two.
  */
 export function setDefaultPipeline(id: string): Promise<PipelineNode[]> {
-  return apiPatch<PipelineNode[]>(`/pipelines/${id}/default`, {});
+  return announced(apiPatch<PipelineNode[]>(`/pipelines/${id}/default`, {}));
 }
 
 export function deletePipeline(id: string): Promise<{ id: string }> {
-  return apiDelete<{ id: string }>(`/pipelines/${id}`);
+  return announced(apiDelete<{ id: string }>(`/pipelines/${id}`));
 }
 
 /**

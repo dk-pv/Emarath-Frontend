@@ -1,11 +1,11 @@
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPatch, apiPost } from "@/lib/api-client";
 import {
   LOGISTICS_ORDERS_PATH,
   logisticsOrdersParams,
-  shipmentActionRequest,
+  orderActionRequest,
   type LogisticsOrdersQuery,
   type LogisticsStatus,
-  type ShipmentActionInput,
+  type OrderActionInput,
 } from "@/lib/logistics-orders";
 import type { ListResult } from "@/types";
 
@@ -81,14 +81,17 @@ export function fetchLogisticsOrder(
 }
 
 /**
- * Sends one shipment action. The response is the order read back after the move, with its new
- * status and its new `allowedActions`. The route, its role gate and the transition table decide;
- * a refusal comes back as the API's own 403, 404 or 409.
+ * Sends one order action — a status move or one of the Logistics Manager's corrections. The
+ * response is the order read back after it, with its new status and its new `allowedActions`.
+ * The route, its role gate, the caller's scope and the transition table decide; a refusal comes
+ * back as the API's own 400, 403, 404 or 409.
  */
-export function runShipmentAction(
+export function runOrderAction(
   orderId: string,
-  input: ShipmentActionInput,
+  input: OrderActionInput,
 ): Promise<LogisticsOrder> {
-  const { path, body } = shipmentActionRequest(orderId, input);
-  return apiPost<LogisticsOrder>(path, body);
+  const { method, path, body } = orderActionRequest(orderId, input);
+  return method === "PATCH"
+    ? apiPatch<LogisticsOrder>(path, body)
+    : apiPost<LogisticsOrder>(path, body);
 }

@@ -32,6 +32,7 @@ import type {
   LeadCustomFieldType,
 } from "@/services/leads-custom-fields-service";
 import { fetchAssignableAgents } from "@/services/lookups-service";
+import { fetchStages } from "@/services/stages-service";
 import type { SelectOption } from "@/types";
 
 type LeadFormDrawerProps = {
@@ -319,8 +320,38 @@ export function LeadFormDrawer({
     return () => controller.abort();
   }, [user, lead]);
 
-  const leadStatus = useLookup("leadStatus");
   const pipelines = useLookup("pipelines");
+
+  // Lead Status offers the stages of the pipeline the form is on — a board's own
+  // pipeline included — so a lead can't be saved with a status its board has no column
+  // for (KAN-07.1 AC3). Each result is tagged with its pipeline, so a switch never shows
+  // the previous pipeline's stages.
+  const [stageOptions, setStageOptions] = useState<{
+    pipeline: string;
+    options: SelectOption[];
+  } | null>(null);
+  useEffect(() => {
+    const pipeline = form.pipeline;
+    if (!pipeline) return;
+    const controller = new AbortController();
+    fetchStages(pipeline, controller.signal)
+      .then((stages) =>
+        setStageOptions({
+          pipeline,
+          options: stages.map((s) => ({ value: s.name, label: s.name })),
+        }),
+      )
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        setStageOptions({ pipeline, options: [] });
+      });
+    return () => controller.abort();
+  }, [form.pipeline]);
+  const statusOptions =
+    stageOptions?.pipeline === form.pipeline ? stageOptions.options : [];
+  const statusLoading =
+    form.pipeline !== null && stageOptions?.pipeline !== form.pipeline;
   const languages = useLookup("languages");
   const sources = useLookup("sources");
   const callStatuses = useLookup("callStatus");
@@ -525,10 +556,10 @@ export function LeadFormDrawer({
               <SearchableSelect
                 searchable={false}
                 clearable
-                options={leadStatus.options}
+                options={statusOptions}
                 value={form.status}
                 onChange={(v) => set("status", v)}
-                loading={leadStatus.isLoading}
+                loading={statusLoading}
                 invalid={Boolean(errors.status)}
                 placeholder="Lead Status"
               />
@@ -747,7 +778,12 @@ export function LeadFormDrawer({
                   clearable
                   options={pipelines.options}
                   value={form.pipeline}
-                  onChange={(v) => set("pipeline", v)}
+                  onChange={(v) => {
+                    // The status belongs to the pipeline; a new pipeline needs one of
+                    // its own stages, chosen from the list that now follows it.
+                    if (v !== form.pipeline) set("status", null);
+                    set("pipeline", v);
+                  }}
                   loading={pipelines.isLoading}
                   invalid={Boolean(errors.pipeline)}
                   placeholder="Lead Pipeline"

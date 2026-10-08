@@ -86,10 +86,20 @@ export function ActivityDueDateEditor({
   const tone = overdue ? "text-rose-600" : "text-ink-muted";
   const isOpen = anchor !== null;
 
+  // Compared with the draft the panel opened on, not the stored instant: the picker
+  // snaps minutes to five, so opening and closing it untouched must not rewrite a
+  // 23:59 follow-up to 23:55.
+  const opened = draftOf(row.dueAt);
   const commit = () => {
     setAnchor(null);
     const next = composeIso(draft.date, draft.hour, draft.minute, draft.ampm);
-    if (next !== new Date(row.dueAt).toISOString()) onSave(row, next);
+    const unchanged = composeIso(
+      opened.date,
+      opened.hour,
+      opened.minute,
+      opened.ampm,
+    );
+    if (next !== unchanged) onSave(row, next);
   };
 
   // The panel is portalled, so it must count as "inside" or a press in it commits early.

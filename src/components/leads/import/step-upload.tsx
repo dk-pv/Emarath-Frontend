@@ -5,8 +5,10 @@ import { IconFileCheck } from "@tabler/icons-react";
 import { Spinner } from "@/components/ui/Spinner";
 import { cn } from "@/lib/cn";
 import {
+  downloadImportSample,
   parseImportFile,
   type ParseResult,
+  type SampleFormat,
 } from "@/services/leads-import-service";
 
 const ACCEPT = ".csv,.xlsx";
@@ -22,7 +24,8 @@ type StepUploadProps = {
  * centred heading over a large dashed drop zone with the CSV/XLSX illustration,
  * constraints and sample-file links. A valid pick is parsed by the backend (header
  * detection + preview); the "Parsing…" spinner and the invalid-file message are the
- * states the video does not show, in the same design language.
+ * states the video does not show, in the same design language. The sample links
+ * download the template the backend builds from the importer's own field catalog.
  */
 export function StepUpload({ onParsed }: StepUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +33,24 @@ export function StepUpload({ onParsed }: StepUploadProps) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState<SampleFormat | null>(null);
+
+  const downloadSample = async (format: SampleFormat) => {
+    if (downloading) return;
+    setError(null);
+    setDownloading(format);
+    try {
+      await downloadImportSample(format);
+    } catch (caught) {
+      setError(
+        `Couldn’t download the sample file. ${
+          caught instanceof Error ? caught.message : ""
+        }`.trim(),
+      );
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const accept = async (file: File | undefined) => {
     if (!file || busy) return;
@@ -126,21 +147,26 @@ export function StepUpload({ onParsed }: StepUploadProps) {
           You can download sample importing files below
         </p>
         <p className="mt-1 text-sm">
-          <button
-            type="button"
-            onClick={(event) => event.stopPropagation()}
-            className="font-medium text-brand-strong hover:underline"
-          >
-            CSV Sample
-          </button>
-          <span className="mx-2 text-ink-subtle">|</span>
-          <button
-            type="button"
-            onClick={(event) => event.stopPropagation()}
-            className="font-medium text-brand-strong hover:underline"
-          >
-            XLSX Sample
-          </button>
+          {(["csv", "xlsx"] as const).map((format, index) => (
+            <span key={format}>
+              {index > 0 && <span className="mx-2 text-ink-subtle">|</span>}
+              <button
+                type="button"
+                // Inside the drop zone: neither a click nor Enter/Space may open the file picker.
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void downloadSample(format);
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-busy={downloading === format}
+                className="rounded-control font-medium text-brand-strong hover:underline focus-ring"
+              >
+                {downloading === format
+                  ? "Downloading…"
+                  : `${format.toUpperCase()} Sample`}
+              </button>
+            </span>
+          ))}
         </p>
       </div>
 
@@ -155,7 +181,12 @@ export function StepUpload({ onParsed }: StepUploadProps) {
         type="file"
         accept={ACCEPT}
         className="sr-only"
-        onChange={(event) => void accept(event.target.files?.[0])}
+        onChange={(event) => {
+          const picked = event.target.files?.[0];
+          // Cleared so picking the same file again — fixed after an error — still fires.
+          event.target.value = "";
+          void accept(picked);
+        }}
       />
     </div>
   );

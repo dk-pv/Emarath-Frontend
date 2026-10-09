@@ -6,6 +6,7 @@ import { IconDownload, IconLock, IconLogout } from "@tabler/icons-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
 import { initialsOf } from "@/lib/format";
 import { UpdatePasswordDrawer } from "../UpdatePasswordDrawer";
 
@@ -92,15 +93,20 @@ export function UserMenu() {
             icon: IconLock,
             onSelect: () => setPasswordOpen(true),
           },
-          {
-            type: "item",
-            id: "import-data",
-            label: "Import Data",
-            icon: IconDownload,
-            // The Leads import wizard the product already ships (LEAD-09.x) — this is a
-            // launcher, not a second import system.
-            onSelect: () => router.push("/leads/import"),
-          },
+          // The Leads import wizard the product already ships (LEAD-09.x) — this is a
+          // launcher, not a second import system. The post-sale roles hold no sales access,
+          // so for them the wizard could only answer 403 (ADR-0084).
+          ...(can(user?.role, "useSalesModules")
+            ? [
+                {
+                  type: "item" as const,
+                  id: "import-data",
+                  label: "Import Data",
+                  icon: IconDownload,
+                  onSelect: () => router.push("/leads/import"),
+                },
+              ]
+            : []),
           {
             type: "item",
             id: "logout",

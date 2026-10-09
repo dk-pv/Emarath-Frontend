@@ -10,6 +10,12 @@ export const IMPORT_STEPS: readonly Step[] = [
   { label: "Import" },
 ];
 
+/**
+ * Failed/skipped rows listed on screen; the downloadable error report holds them all. A
+ * 10 MB file can carry tens of thousands, which would freeze the page as table rows.
+ */
+export const MAX_LISTED_ERROR_ROWS = 200;
+
 /** A mapping from each file column to a target field value, or null if unmapped. */
 export type FieldMapping = Record<string, string | null>;
 
@@ -20,7 +26,8 @@ const normalize = (value: string) =>
  * The initial column→field guess: an exact match on the normalised label, against
  * the field catalog the backend serves. A file column with no matching field (e.g.
  * "Lead Name" has no field of its own) starts unmapped and is assigned by hand —
- * the exact gap the Workpex walkthrough demonstrates for Customer Name.
+ * the exact gap the Workpex walkthrough demonstrates for Customer Name. A field is
+ * given to its first matching column only — one field is fed by one column.
  */
 export function autoMap(
   columns: string[],
@@ -29,20 +36,21 @@ export function autoMap(
   const byNormalizedLabel = new Map(
     fields.map((field) => [normalize(field.label), field.value]),
   );
+  const used = new Set<string>();
   const mapping: FieldMapping = {};
   for (const column of columns) {
-    mapping[column] = byNormalizedLabel.get(normalize(column)) ?? null;
+    const value = byNormalizedLabel.get(normalize(column));
+    mapping[column] = value && !used.has(value) ? value : null;
+    if (value) used.add(value);
   }
   return mapping;
 }
 
-/** Every required field is mapped by at least one column. */
-export function requiredFieldsMapped(
+/** The required fields no column is mapped to yet. */
+export function missingRequiredFields(
   mapping: FieldMapping,
   fields: readonly ImportFieldOption[],
-): boolean {
+): ImportFieldOption[] {
   const mapped = new Set(Object.values(mapping).filter(Boolean));
-  return fields
-    .filter((field) => field.required)
-    .every((field) => mapped.has(field.value));
+  return fields.filter((field) => field.required && !mapped.has(field.value));
 }

@@ -2,19 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { IconDownload, IconFileImport, IconHistory } from "@tabler/icons-react";
+import { IconFileImport, IconHistory } from "@tabler/icons-react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Modal } from "@/components/ui/Modal";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Table } from "@/components/ui/Table";
+import { ErrorReportButton } from "@/components/leads/import/error-report-button";
+import { MAX_LISTED_ERROR_ROWS } from "@/components/leads/import/import-data";
+import { isAbortError } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/format";
 import {
   fetchImportErrors,
   fetchImportHistory,
-  importErrorsCsvUrl,
   type ImportJob,
   type ImportRowError,
 } from "@/services/leads-import-service";
@@ -131,13 +133,10 @@ export function ImportHistoryView() {
             View Details
           </button>
           {job.failedCount + job.skippedCount > 0 && (
-            <a
-              href={importErrorsCsvUrl(job.id)}
+            <ErrorReportButton
+              jobId={job.id}
               aria-label={`Download error report for ${job.fileName}`}
-              className="inline-flex size-control-sm items-center justify-center rounded-control border border-hairline text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas hover:text-ink focus-ring"
-            >
-              <IconDownload size={16} stroke={1.75} aria-hidden="true" />
-            </a>
+            />
           )}
         </div>
       ),
@@ -202,6 +201,7 @@ function JobDetailsModal({
   onClose: () => void;
 }) {
   const [errors, setErrors] = useState<ImportRowError[] | null>(null);
+  const [errorsFailed, setErrorsFailed] = useState(false);
   const attention = job.failedCount + job.skippedCount;
 
   useEffect(() => {
@@ -211,7 +211,9 @@ function JobDetailsModal({
     const controller = new AbortController();
     fetchImportErrors(job.id, controller.signal)
       .then(setErrors)
-      .catch(() => setErrors([]));
+      .catch((error: unknown) => {
+        if (!isAbortError(error)) setErrorsFailed(true);
+      });
     return () => controller.abort();
   }, [job.id, attention]);
 
@@ -230,13 +232,7 @@ function JobDetailsModal({
             <h3 className="text-sm font-semibold text-ink">
               Rows that need attention
             </h3>
-            <a
-              href={importErrorsCsvUrl(job.id)}
-              className="inline-flex h-control-sm items-center gap-2 rounded-control border border-hairline bg-surface px-3 text-sm font-medium text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring"
-            >
-              <IconDownload size={16} stroke={1.75} aria-hidden="true" />
-              Download CSV
-            </a>
+            <ErrorReportButton jobId={job.id} label="Download CSV" />
           </div>
           <div className="max-h-72 overflow-y-auto rounded-control border border-hairline scrollbar-slim">
             <table className="w-full border-collapse text-sm text-ink">
@@ -247,7 +243,7 @@ function JobDetailsModal({
                 </tr>
               </thead>
               <tbody>
-                {(errors ?? []).map((error) => (
+                {(errors ?? []).slice(0, MAX_LISTED_ERROR_ROWS).map((error) => (
                   <tr
                     key={error.rowNumber}
                     className="border-b border-hairline last:border-b-0"
@@ -258,10 +254,25 @@ function JobDetailsModal({
                     <td className="px-4 py-2">{error.reason}</td>
                   </tr>
                 ))}
-                {errors === null && (
+                {errors === null && !errorsFailed && (
                   <tr>
                     <td colSpan={2} className="px-4 py-4 text-ink-muted">
                       Loading…
+                    </td>
+                  </tr>
+                )}
+                {errors && errors.length > MAX_LISTED_ERROR_ROWS && (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-4 text-ink-muted">
+                      Showing {MAX_LISTED_ERROR_ROWS} of {errors.length} — the
+                      CSV lists them all.
+                    </td>
+                  </tr>
+                )}
+                {errorsFailed && (
+                  <tr>
+                    <td colSpan={2} className="px-4 py-4 text-ink-muted">
+                      Couldn’t load the row details — use Download CSV.
                     </td>
                   </tr>
                 )}

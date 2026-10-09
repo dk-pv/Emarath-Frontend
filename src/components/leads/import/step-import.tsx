@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  IconAlertTriangle,
-  IconCheck,
-  IconDownload,
-} from "@tabler/icons-react";
+import { IconAlertTriangle, IconCheck } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
-import type { FieldMapping } from "@/components/leads/import/import-data";
+import { ErrorReportButton } from "@/components/leads/import/error-report-button";
+import {
+  MAX_LISTED_ERROR_ROWS,
+  type FieldMapping,
+} from "@/components/leads/import/import-data";
 import {
   fetchImportErrors,
   fetchImportJob,
-  importErrorsCsvUrl,
   startImport,
   type ImportJob,
   type ImportRowError,
@@ -47,6 +46,7 @@ export function StepImport({
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<ImportJob | null>(null);
   const [errors, setErrors] = useState<ImportRowError[]>([]);
+  const [errorsFailed, setErrorsFailed] = useState(false);
   const [phase, setPhase] = useState<Phase>("importing");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -74,24 +74,38 @@ export function StepImport({
   useEffect(() => {
     if (!jobId) return;
     let active = true;
+    // Ticks overlap when a poll takes longer than POLL_MS: once one has seen the job
+    // settle, a slower, older snapshot must not overwrite its final counts.
+    let settled = false;
     let timer = 0;
 
     const tick = async () => {
       try {
         const current = await fetchImportJob(jobId);
-        if (!active) return;
+        if (!active || settled) return;
         setJob(current);
 
         if (current.status === "COMPLETED" || current.status === "FAILED") {
+          settled = true;
           window.clearInterval(timer);
           if (current.status === "FAILED") {
             setPhase("error");
-            setMessage("The import failed while processing. Please try again.");
+            // Rows are written in batches, so some may already be in; say so plainly.
+            setMessage(
+              current.importedCount > 0
+                ? `The import stopped part-way: ${current.importedCount} lead${
+                    current.importedCount === 1 ? " was" : "s were"
+                  } added before the error and are in your Leads list. Re-importing the same file skips them as duplicates.`
+                : "The import failed while processing. No leads were added. Please try again.",
+            );
             return;
           }
           if (current.failedCount + current.skippedCount > 0) {
-            const rows = await fetchImportErrors(jobId).catch(() => []);
-            if (active) setErrors(rows);
+            const rows = await fetchImportErrors(jobId).catch(() => null);
+            if (active) {
+              if (rows) setErrors(rows);
+              else setErrorsFailed(true);
+            }
           }
           if (active) setPhase("done");
         }
@@ -130,18 +144,27 @@ export function StepImport({
 
   if (phase === "done" && job) {
     const attention = job.failedCount + job.skippedCount;
+    const imported = job.importedCount > 0;
     return (
       <div className="mx-auto flex max-w-3xl flex-col items-center py-8 text-center">
-        <span className="flex size-16 items-center justify-center rounded-full bg-brand-subtle text-brand-strong">
-          <IconCheck size={36} stroke={2.5} aria-hidden="true" />
-        </span>
-        <h2 className="mt-5 text-xl font-semibold text-ink">Import Complete</h2>
+        {imported ? (
+          <span className="flex size-16 items-center justify-center rounded-full bg-brand-subtle text-brand-strong">
+            <IconCheck size={36} stroke={2.5} aria-hidden="true" />
+          </span>
+        ) : (
+          <span className="flex size-16 items-center justify-center rounded-full bg-amber-100 text-warning">
+            <IconAlertTriangle size={34} stroke={2} aria-hidden="true" />
+          </span>
+        )}
+        <h2 className="mt-5 text-xl font-semibold text-ink">
+          {imported ? "Import Complete" : "No leads were imported"}
+        </h2>
         <p className="mt-1 text-sm text-ink-muted">
           <span className="font-medium text-ink">{job.importedCount}</span>{" "}
           imported
           {" · "}
           <span className="font-medium text-ink">{job.skippedCount}</span>{" "}
-          skipped
+          skipped as duplicates
           {" · "}
           <span className="font-medium text-ink">{job.failedCount}</span> failed
         </p>
@@ -152,13 +175,7 @@ export function StepImport({
               <h3 className="text-sm font-semibold text-ink">
                 Rows that need attention ({attention})
               </h3>
-              <a
-                href={importErrorsCsvUrl(job.id)}
-                className="inline-flex h-control-sm items-center gap-2 rounded-control border border-hairline bg-surface px-3 text-sm font-medium text-ink transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas focus-ring"
-              >
-                <IconDownload size={16} stroke={1.75} aria-hidden="true" />
-                Download error report
-              </a>
+              <ErrorReportButton jobId={job.id} label="Download error report" />
             </div>
             <div className="max-h-72 overflow-y-auto scrollbar-slim">
               <table className="w-full border-collapse text-sm text-ink">
@@ -169,7 +186,7 @@ export function StepImport({
                   </tr>
                 </thead>
                 <tbody>
-                  {errors.map((error) => (
+                  {errors.slice(0, MAX_LISTED_ERROR_ROWS).map((error) => (
                     <tr
                       key={error.rowNumber}
                       className="border-b border-hairline last:border-b-0"
@@ -180,6 +197,22 @@ export function StepImport({
                       <td className="px-4 py-2 text-ink">{error.reason}</td>
                     </tr>
                   ))}
+                  {errors.length > MAX_LISTED_ERROR_ROWS && (
+                    <tr>
+                      <td colSpan={2} className="px-4 py-4 text-ink-muted">
+                        Showing {MAX_LISTED_ERROR_ROWS} of {errors.length} — the
+                        error report lists them all.
+                      </td>
+                    </tr>
+                  )}
+                  {errorsFailed && (
+                    <tr>
+                      <td colSpan={2} className="px-4 py-4 text-ink-muted">
+                        Couldn’t load the row details — use Download error
+                        report.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -211,9 +244,13 @@ export function StepImport({
       <div
         className="mt-8 h-2 w-full overflow-hidden rounded-full bg-canvas"
         role="progressbar"
+        aria-label="Import progress"
         aria-valuenow={progress}
         aria-valuemin={0}
         aria-valuemax={100}
+        aria-valuetext={
+          job ? `${job.processedRows} of ${job.totalRows} rows` : undefined
+        }
       >
         <div
           className="h-full rounded-full bg-brand transition-[width] duration-200 ease-shell"

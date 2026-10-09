@@ -1,5 +1,5 @@
-import { apiGet, apiPostForm } from "@/lib/api-client";
-import { env } from "@/lib/env";
+import { apiGet, apiGetBlob, apiPostForm } from "@/lib/api-client";
+import { saveBlob } from "@/lib/download";
 import type { FieldMapping } from "@/components/leads/import/import-data";
 
 /**
@@ -145,9 +145,30 @@ export function fetchImportHistory(signal?: AbortSignal): Promise<ImportJob[]> {
   ).then((result) => result.jobs);
 }
 
-/** The direct URL for the CSV error report — used as an anchor href (browser download). */
-export function importErrorsCsvUrl(jobId: string): string {
-  return `${env.apiBaseUrl}/leads/import/${jobId}/errors?format=csv`;
+/**
+ * Downloads a job's failed/skipped rows as CSV. Fetched as a Blob (like the Leads
+ * export) rather than linked, so an expired session refreshes instead of opening
+ * the API's raw error page.
+ */
+export async function downloadImportErrors(jobId: string): Promise<void> {
+  const blob = await apiGetBlob(
+    `/leads/import/${jobId}/errors`,
+    new URLSearchParams({ format: "csv" }),
+  );
+  saveBlob(blob, `import-errors-${jobId.slice(0, 8)}.csv`);
+}
+
+export type SampleFormat = "csv" | "xlsx";
+
+/** Downloads the import template the backend builds from its field catalog. */
+export async function downloadImportSample(
+  format: SampleFormat,
+): Promise<void> {
+  const blob = await apiGetBlob(
+    "/leads/import/sample",
+    new URLSearchParams({ format }),
+  );
+  saveBlob(blob, `leads-import-sample.${format}`);
 }
 
 function importForm(

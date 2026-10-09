@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { IconInfoCircle, IconLink } from "@tabler/icons-react";
+import { Fragment, useMemo, useState } from "react";
+import { IconLink } from "@tabler/icons-react";
+import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
-import type { FieldMapping } from "@/components/leads/import/import-data";
+import {
+  missingRequiredFields,
+  type FieldMapping,
+} from "@/components/leads/import/import-data";
 import type { ImportFieldOption } from "@/services/leads-import-service";
 import type { SelectOption } from "@/types";
 
@@ -24,6 +27,9 @@ type StepMapFieldsProps = {
  * detected server-side, and the target fields) joined by a link marker that fills
  * green once mapped, searchable field dropdowns with a clear affordance, and a
  * Clear Mapping control that confirms before resetting. Required fields are starred.
+ * As in Workpex, a field mapped by one row is hidden from every other row's list, so
+ * no field is fed by two columns. The required-fields notice is the state the video
+ * does not show, in the same design language.
  */
 export function StepMapFields({
   columns,
@@ -42,14 +48,8 @@ export function StepMapFields({
     [fields],
   );
 
-  const requiredLabels = useMemo(
-    () =>
-      fields
-        .filter((field) => field.required)
-        .map((field) => field.label)
-        .join(", "),
-    [fields],
-  );
+  const required = fields.filter((field) => field.required);
+  const missing = missingRequiredFields(mapping, fields);
 
   const setColumn = (column: string, value: string | null) =>
     onMappingChange({ ...mapping, [column]: value });
@@ -68,15 +68,14 @@ export function StepMapFields({
           <h2 className="text-lg font-semibold text-ink">Map Your Fields</h2>
           <p className="mt-1 text-sm text-ink-muted">
             Match file columns to system fields.{" "}
-            <span className="font-semibold text-ink">Customer Name</span>,{" "}
-            <span className="font-semibold text-ink">Primary Phone</span> and{" "}
-            <span className="font-semibold text-ink">More</span>{" "}
-            <Tooltip content={`Required: ${requiredLabels}`}>
-              <span className="inline-flex align-middle text-info">
-                <IconInfoCircle size={16} stroke={1.75} aria-hidden="true" />
-              </span>
-            </Tooltip>{" "}
-            are required to complete the import.
+            {required.map((field, index) => (
+              <Fragment key={field.value}>
+                {index > 0 && (index === required.length - 1 ? " and " : ", ")}
+                <span className="font-semibold text-ink">{field.label}</span>
+              </Fragment>
+            ))}{" "}
+            {required.length === 1 ? "is" : "are"} required to complete the
+            import.
           </p>
         </div>
         <button
@@ -88,13 +87,21 @@ export function StepMapFields({
         </button>
       </div>
 
+      {missing.length > 0 && (
+        <Alert tone="warning" className="mt-4">
+          Map a column to {missing.map((field) => field.label).join(" and ")} to
+          continue. If your file has no such column, download the CSV or XLSX
+          sample from the Upload step to see the expected columns.
+        </Alert>
+      )}
+
       <div className={cn(GRID, "mt-6")}>
         <div className="rounded-control bg-canvas px-4 py-3 text-sm font-medium text-ink">
           Your Column
         </div>
         <div aria-hidden="true" />
         <div className="rounded-control bg-canvas px-4 py-3 text-sm font-medium text-ink">
-          Fields in Workpex
+          Fields in Emarath
         </div>
       </div>
 
@@ -102,6 +109,14 @@ export function StepMapFields({
         {columns.map((column) => {
           const value = mapping[column] ?? null;
           const mapped = Boolean(value);
+          const usedElsewhere = new Set(
+            columns
+              .filter((other) => other !== column)
+              .map((other) => mapping[other]),
+          );
+          const options = fieldOptions.filter(
+            (option) => !usedElsewhere.has(option.value),
+          );
 
           return (
             <li key={column} className={GRID}>
@@ -127,7 +142,7 @@ export function StepMapFields({
               </div>
 
               <SearchableSelect
-                options={fieldOptions}
+                options={options}
                 value={value}
                 onChange={(next) => setColumn(column, next)}
                 clearable

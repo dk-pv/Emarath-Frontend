@@ -1,6 +1,7 @@
 "use client";
 
 import { IconAlertTriangle } from "@tabler/icons-react";
+import { Alert } from "@/components/ui/Alert";
 import { Loading } from "@/components/ui/Loading";
 import { cn } from "@/lib/cn";
 import type {
@@ -42,7 +43,8 @@ const STATUS_LABEL: Record<RowStatus, string> = {
  * Step 4 — Preview Data (validated against the backend). A summary of the whole
  * file plus a table of the parsed rows: invalid and duplicate rows are tinted and
  * carry their reason (LEAD-07.2 AC2). The table window is what the API returns
- * (bounded); the counts above it are exact for the whole file.
+ * (bounded, rows needing attention first); the counts above it are exact for the
+ * whole file.
  */
 export function StepPreview({
   pipeline,
@@ -69,7 +71,7 @@ export function StepPreview({
         </p>
         <p className="text-sm text-ink-muted">{validation.message}</p>
         <p className="text-sm text-ink-muted">
-          Go back to Map Fields and check your mapping, then try again.
+          Go back, fix the pipeline, mapping or file, then try again.
         </p>
       </div>
     );
@@ -87,7 +89,24 @@ export function StepPreview({
           {pipeline || "Lead Pipeline"}
         </span>
         .
+        {invalid + duplicates > 0 &&
+          " Rows that need attention are listed first."}
       </p>
+
+      {valid === 0 &&
+        (duplicates === total ? (
+          <Alert tone="warning" className="mt-4">
+            {total === 1
+              ? "This row already exists as a lead"
+              : `All ${total} rows already exist as leads`}{" "}
+            — there is nothing new to import.
+          </Alert>
+        ) : (
+          <Alert tone="danger" className="mt-4">
+            None of the rows can be imported. Fix the issues listed below — in
+            the file, the mapping or the selected pipeline — then try again.
+          </Alert>
+        ))}
 
       <div className="mt-4 flex flex-wrap gap-3 text-sm">
         <Summary label="Total records" value={total} />
@@ -102,12 +121,14 @@ export function StepPreview({
             <tr className="border-b border-hairline text-left text-xs text-ink-muted">
               <th className="px-4 py-3 whitespace-nowrap">Row</th>
               <th className="px-4 py-3 whitespace-nowrap">Status</th>
+              {/* Beside the status, not after every file column: a filled-in template has
+                  25, which pushed the reason off-screen. */}
+              <th className="min-w-64 px-4 py-3 whitespace-nowrap">Issue</th>
               {columns.map((column) => (
                 <th key={column} className="px-4 py-3 whitespace-nowrap">
                   {column}
                 </th>
               ))}
-              <th className="px-4 py-3 whitespace-nowrap">Issue</th>
             </tr>
           </thead>
           <tbody>
@@ -132,14 +153,14 @@ export function StepPreview({
                     {STATUS_LABEL[row.status]}
                   </span>
                 </td>
+                <td className="min-w-64 px-4 py-3 text-danger">
+                  {row.error?.reason ?? ""}
+                </td>
                 {columns.map((column) => (
                   <td key={column} className="px-4 py-3 whitespace-nowrap">
                     {row.values[column] ?? ""}
                   </td>
                 ))}
-                <td className="px-4 py-3 text-danger">
-                  {row.error?.reason ?? ""}
-                </td>
               </tr>
             ))}
           </tbody>

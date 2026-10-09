@@ -11,7 +11,7 @@ import { Stepper } from "@/components/ui/Stepper";
 import {
   IMPORT_STEPS,
   autoMap,
-  requiredFieldsMapped,
+  missingRequiredFields,
   type FieldMapping,
 } from "@/components/leads/import/import-data";
 import { StepImport } from "@/components/leads/import/step-import";
@@ -181,6 +181,9 @@ export function ImportWizard() {
                 setFile(uploaded);
                 setParsed(result);
                 setMapping(autoMap(result.columns, fields));
+                // A corrected file re-uploaded under the same name and mapping has the
+                // same validation key; the old result must not stand in for it.
+                setValidationResult(null);
                 next();
               }}
             />
@@ -232,7 +235,7 @@ export function ImportWizard() {
           <WizardFooter
             onBack={back}
             primaryLabel="Continue to Preview"
-            primaryDisabled={!requiredFieldsMapped(mapping, fields)}
+            primaryDisabled={missingRequiredFields(mapping, fields).length > 0}
             onPrimary={next}
             left={
               <div className="flex items-center gap-5">
@@ -257,11 +260,13 @@ export function ImportWizard() {
           <WizardFooter
             onBack={back}
             primaryLabel="Start Import"
-            primaryDisabled={validation?.status !== "done"}
+            primaryDisabled={validation?.status !== "done" || validCount === 0}
             onPrimary={next}
             left={
               <p className="text-sm text-ink-muted">
-                {validation?.status === "done" ? (
+                {validation?.status === "done" && validCount === 0 ? (
+                  "No valid records to import"
+                ) : validation?.status === "done" ? (
                   <>
                     <span className="font-medium text-ink">{validCount}</span>{" "}
                     valid record{validCount === 1 ? "" : "s"} ready to import
@@ -270,6 +275,8 @@ export function ImportWizard() {
                       {pipeline || "Lead Pipeline"}
                     </span>
                   </>
+                ) : validation?.status === "error" ? (
+                  "Nothing can be imported until the file validates"
                 ) : (
                   "Validating records…"
                 )}

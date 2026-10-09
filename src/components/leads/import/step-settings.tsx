@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { IconPlus, IconRefresh } from "@tabler/icons-react";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { useLookup } from "@/hooks/use-lookup";
 
@@ -25,7 +28,7 @@ export function StepSettings({
   savedMapping,
   onSavedMappingChange,
 }: StepSettingsProps) {
-  const { options: pipelines, isLoading } = useLookup("pipelines");
+  const [attempt, setAttempt] = useState(0);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -35,25 +38,12 @@ export function StepSettings({
           Please select a pipeline. All imported leads will be added to the
           selected pipeline.
         </p>
-        <div className="mt-3 flex items-center gap-3">
-          <Select
-            className="flex-1"
-            placeholder={isLoading ? "Loading pipelines…" : "Select Pipeline"}
-            options={pipelines.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            value={pipeline}
-            onChange={(event) => onPipelineChange(event.target.value)}
-          />
-          <button
-            type="button"
-            aria-label="Add pipeline"
-            className="flex size-control-md shrink-0 items-center justify-center rounded-control bg-brand text-white transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong focus-ring"
-          >
-            <IconPlus size={20} stroke={2} aria-hidden="true" />
-          </button>
-        </div>
+        <PipelineField
+          key={attempt}
+          value={pipeline}
+          onChange={onPipelineChange}
+          onRetry={() => setAttempt((value) => value + 1)}
+        />
       </section>
 
       <section className="mt-8">
@@ -80,5 +70,56 @@ export function StepSettings({
         </div>
       </section>
     </div>
+  );
+}
+
+/**
+ * The pipeline picker, its own component so Try again can remount it: `useLookup`
+ * re-fetches a list whose last load failed when it mounts. Without the notice a failed
+ * load looked like an empty dropdown that could not be passed.
+ */
+function PipelineField({
+  value,
+  onChange,
+  onRetry,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onRetry: () => void;
+}) {
+  const { options: pipelines, isLoading, isError } = useLookup("pipelines");
+
+  return (
+    <>
+      <div className="mt-3 flex items-center gap-3">
+        <Select
+          className="flex-1"
+          placeholder={isLoading ? "Loading pipelines…" : "Select Pipeline"}
+          options={pipelines.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="button"
+          aria-label="Add pipeline"
+          className="flex size-control-md shrink-0 items-center justify-center rounded-control bg-brand text-white transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-strong focus-ring"
+        >
+          <IconPlus size={20} stroke={2} aria-hidden="true" />
+        </button>
+      </div>
+      {isError && (
+        <Alert tone="danger" className="mt-3">
+          <span className="flex flex-wrap items-center justify-between gap-3">
+            Couldn’t load the pipelines. Check your connection and try again.
+            <Button variant="secondary" size="sm" onClick={onRetry}>
+              Try again
+            </Button>
+          </span>
+        </Alert>
+      )}
+    </>
   );
 }

@@ -93,26 +93,38 @@ export function StepPreview({
           " Rows that need attention are listed first."}
       </p>
 
-      {valid === 0 &&
-        (duplicates === total ? (
-          <Alert tone="warning" className="mt-4">
-            {total === 1
-              ? "This row already exists as a lead"
-              : `All ${total} rows already exist as leads`}{" "}
-            — there is nothing new to import.
-          </Alert>
-        ) : (
-          <Alert tone="danger" className="mt-4">
-            None of the rows can be imported. Fix the issues listed below — in
-            the file, the mapping or the selected pipeline — then try again.
-          </Alert>
-        ))}
+      {/* A duplicate row is still imported (ADR-0092), so only invalid rows can leave nothing. */}
+      {valid + duplicates === 0 && (
+        <Alert tone="danger" className="mt-4">
+          None of the rows can be imported. Fix the issues listed below — in the
+          file, the mapping or the selected pipeline — then try again.
+        </Alert>
+      )}
+
+      {duplicates > 0 && (
+        <Alert
+          tone="warning"
+          title="Matching rows will still be created"
+          className="mt-4"
+        >
+          {duplicates === 1
+            ? "1 row matches a lead that already exists, or an earlier row in this file."
+            : `${duplicates} rows match a lead that already exists, or an earlier row in this file.`}{" "}
+          Each will be imported as a separate lead marked as a duplicate —
+          nothing is skipped or merged. If you have imported this file before,
+          importing it again adds these rows again.
+        </Alert>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-3 text-sm">
         <Summary label="Total records" value={total} />
         <Summary label="Valid" value={valid} tone="success" />
         <Summary label="Invalid" value={invalid} tone="danger" />
-        <Summary label="Duplicates" value={duplicates} tone="warning" />
+        <Summary
+          label="Duplicates (imported)"
+          value={duplicates}
+          tone="warning"
+        />
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-surface border border-hairline scrollbar-slim">

@@ -70,7 +70,7 @@ type Answer =
   | { type: "page-loaded"; stage: string; rows: LeadListItem[] }
   | { type: "page-error"; stage: string }
   | { type: "column-retry"; stage: string }
-  | { type: "move-confirm"; stages: BoardStageSummary[] }
+  | { type: "move-confirm"; stages: BoardStageSummary[]; lead: LeadListItem }
   | {
       type: "move-rollback";
       lead: LeadListItem;
@@ -287,6 +287,20 @@ function reducer(state: BoardState, action: Action): BoardState {
             totalValue: summary.totalValue,
           };
         }
+      }
+      // The moved card takes the server's copy of the lead: a move onto WON comes back with
+      // the Logistics order it created, which locks the card's drag and menu (ADR-0085). The
+      // response carries no pin, so the card keeps its own.
+      const dst = columns[action.lead.status];
+      if (dst) {
+        columns[action.lead.status] = {
+          ...dst,
+          rows: dst.rows.map((row) =>
+            row.id === action.lead.id
+              ? { ...action.lead, isPinned: row.isPinned }
+              : row,
+          ),
+        };
       }
       return { ...state, columns };
     }
@@ -511,6 +525,7 @@ export function useKanbanBoard(
             dispatch({
               type: "move-confirm",
               stages: response.stages,
+              lead: response.lead,
               generation,
             });
             // Re-page the source from the top, so its paging matches the server again.

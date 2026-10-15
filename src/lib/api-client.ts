@@ -294,3 +294,10 @@ async function throwApiError(
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
+
+/** The server's reason for a refused request, when it gave one — a toast's description. */
+export function apiReason(error: unknown): string | undefined {
+  return error instanceof ApiError
+    ? error.messages.join(" · ") || undefined
+    : undefined;
+}

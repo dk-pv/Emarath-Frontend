@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { MultiSelect } from "@/components/ui/MultiSelect";
@@ -22,6 +22,7 @@ import { useStages } from "@/components/stages/stages-context";
 import { useAnchoredPanel } from "@/hooks/use-anchored-panel";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
+import { dateKey, keyBound, type DateTimeBound } from "@/lib/date-time-range";
 import { fetchAssignableAgents, fetchLookup } from "@/services/lookups-service";
 import {
   FIELD_OPTIONS,
@@ -30,6 +31,7 @@ import {
   emptyRow,
   fieldDef,
   operatorOptions,
+  rowError,
   valueControl,
   type LeadFilterOperator,
   type LeadFilterRow,
@@ -170,14 +172,16 @@ export function LeadFilterBuilder({
     values[index] = value;
     setValues(row.id, values);
   };
-  const setDateAt = (row: LeadFilterRow, index: number, date: Date | null) =>
-    setValueAt(row, index, date ? date.toISOString() : "");
+  const setBoundAt = (
+    row: LeadFilterRow,
+    index: number,
+    { day, time }: DateTimeBound,
+  ) => setValueAt(row, index, day ? dateKey(day, time) : "");
   const addRow = () => onRowsChange([...rows, emptyRow()]);
   const removeRow = (id: string) => {
     const next = rows.filter((row) => row.id !== id);
     onRowsChange(next.length > 0 ? next : [emptyRow()]);
   };
-  const asDate = (iso: string | undefined) => (iso ? new Date(iso) : null);
 
   const numberInput = (
     row: LeadFilterRow,
@@ -218,27 +222,35 @@ export function LeadFilterBuilder({
           />
         );
       case "date":
+        // Before reads like a start edge (blank = 12:00 AM); On and After cover the
+        // whole day when no time is given.
         return (
-          <DatePicker
-            numeric
-            value={asDate(row.values[0])}
-            onChange={(d) => setDateAt(row, 0, d)}
+          <DateTimeField
+            edge={row.operator === "before" ? "start" : "end"}
+            timeLabel="Time"
+            dateOnly={def.dateOnly}
+            value={keyBound(row.values[0])}
+            onChange={(bound) => setBoundAt(row, 0, bound)}
             placeholder="Select Date"
           />
         );
       case "dateRange":
+        // Stacked, not side by side: a third of the panel is too narrow for two
+        // "13/10/2026" triggers at once, and the value column only gets narrower.
         return (
-          <div className="flex items-center gap-2">
-            <DatePicker
-              numeric
-              value={asDate(row.values[0])}
-              onChange={(d) => setDateAt(row, 0, d)}
+          <div className="flex flex-col gap-2">
+            <DateTimeField
+              edge="start"
+              dateOnly={def.dateOnly}
+              value={keyBound(row.values[0])}
+              onChange={(bound) => setBoundAt(row, 0, bound)}
               placeholder="From Date"
             />
-            <DatePicker
-              numeric
-              value={asDate(row.values[1])}
-              onChange={(d) => setDateAt(row, 1, d)}
+            <DateTimeField
+              edge="end"
+              dateOnly={def.dateOnly}
+              value={keyBound(row.values[1])}
+              onChange={(bound) => setBoundAt(row, 1, bound)}
               placeholder="To Date"
             />
           </div>
@@ -267,6 +279,8 @@ export function LeadFilterBuilder({
 
   /** Complete rows drive whether a preset can be saved/updated at all. */
   const completeCount = activeConditionCount(rows);
+  /** An end-before-start range holds the apply and the saves: nothing half-valid goes out. */
+  const hasRowError = rows.some((row) => rowError(row) !== null);
 
   /** Shared save/update flow: run, report, apply, close. Errors keep the panel open. */
   const runSave = async (op: Promise<unknown>, okTitle: string) => {
@@ -327,6 +341,7 @@ export function LeadFilterBuilder({
       <div className="flex flex-col gap-3">
         {rows.map((row) => {
           const def = fieldDef(row.field);
+          const error = rowError(row);
           return (
             <div
               key={row.id}
@@ -354,7 +369,14 @@ export function LeadFilterBuilder({
                   disabled={!def}
                 />
               </div>
-              <div className="min-w-0 flex-1">{renderValue(row)}</div>
+              <div className="min-w-0 flex-1">
+                {renderValue(row)}
+                {error && (
+                  <p role="alert" className="mt-2 text-xs text-danger">
+                    {error}
+                  </p>
+                )}
+              </div>
               {/* No remove control on a lone row — Workpex's single-condition panel runs
                   its three controls to the right padding edge with no × column, and the
                   last row can't be removed anyway (removing it re-adds an empty one). */}
@@ -392,7 +414,7 @@ export function LeadFilterBuilder({
             <Button
               variant="secondary"
               size="sm"
-              disabled={busy || completeCount === 0}
+              disabled={busy || completeCount === 0 || hasRowError}
               onClick={() => {
                 void runSave(updatePreset(), "Filter updated");
               }}
@@ -403,7 +425,7 @@ export function LeadFilterBuilder({
             <Button
               variant="secondary"
               size="sm"
-              disabled={busy || completeCount === 0}
+              disabled={busy || completeCount === 0 || hasRowError}
               onClick={() => setSaveName("")}
             >
               Save &amp; Filter
@@ -414,6 +436,7 @@ export function LeadFilterBuilder({
           <Button
             size="sm"
             className="min-w-[78px]"
+            disabled={hasRowError}
             onClick={() => {
               onApply();
               setOpen(false);

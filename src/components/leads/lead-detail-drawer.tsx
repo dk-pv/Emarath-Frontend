@@ -23,8 +23,10 @@ import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 import { formatDateTime, initialsOf } from "@/lib/format";
+import { orderLockReason } from "@/lib/logistics-orders";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { LeadTimeline } from "@/components/leads/lead-timeline";
+import { LeadDuplicateNotice } from "@/components/leads/lead-duplicate-notice";
 import { TYPE_LABEL } from "@/components/activities/activity-form-parts";
 import {
   fetchLeadActivities,
@@ -256,11 +258,13 @@ export function LeadDetailDrawer({
           </Tooltip>
         )}
 
-        <Tooltip content="Delete">
+        {/* Off while a Logistics order keeps the lead (the server refuses, 409). */}
+        <Tooltip content={orderLockReason(lead.logisticsOrder) ?? "Delete"}>
           <IconButton
             size="xl"
             variant="outline"
             aria-label="Delete"
+            disabled={Boolean(lead.logisticsOrder)}
             onClick={() => actions.onDelete(lead)}
             tone="danger"
           >
@@ -283,6 +287,7 @@ export function LeadDetailDrawer({
       <div className="flex h-full min-h-0 flex-col">
         {/* Workpex: 136px label column, 32px between rows, a thick rule before the feed. */}
         <div className="flex-none border-b-4 border-hairline/60 px-6 py-6">
+          <LeadDuplicateNotice lead={lead} className="mb-6" />
           <dl className="grid grid-cols-[136px_1fr] gap-x-6 gap-y-8">
             {nextFollowUp ? (
               <>

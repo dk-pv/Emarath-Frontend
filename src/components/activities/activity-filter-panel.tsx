@@ -4,7 +4,7 @@ import { useState } from "react";
 import { IconChevronDown, IconFilter } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Popover } from "@/components/ui/Popover";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
@@ -12,6 +12,7 @@ import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button
 // simply the unset state, so the dropdown needs no option of its own for it.
 import { TYPE_OPTIONS } from "@/components/activities/activity-form-parts";
 import { cn } from "@/lib/cn";
+import { rangeError, type TimeOfDay } from "@/lib/date-time-range";
 import type {
   ActivityDateWindow,
   ActivityType,
@@ -43,6 +44,9 @@ export interface ActivityFilterState {
   windows: readonly ActivityDateWindow[];
   from: Date | null;
   to: Date | null;
+  /** Optional time of day within each bound; null = start / end of the day. */
+  fromTime: TimeOfDay | null;
+  toTime: TimeOfDay | null;
   type: ActivityType | null;
   assignedAgent: string | null;
 }
@@ -51,6 +55,8 @@ export const EMPTY_ACTIVITY_FILTERS: ActivityFilterState = {
   windows: [],
   from: null,
   to: null,
+  fromTime: null,
+  toTime: null,
   type: null,
   assignedAgent: null,
 };
@@ -140,6 +146,10 @@ function FilterDraft({
   close: () => void;
 }) {
   const [draft, setDraft] = useState<ActivityFilterState>(applied);
+  const dateError = rangeError(
+    { day: draft.from, time: draft.fromTime },
+    { day: draft.to, time: draft.toTime },
+  );
 
   const toggleWindow = (window: ActivityDateWindow) =>
     setDraft((prev) => ({
@@ -186,21 +196,32 @@ function FilterDraft({
       </div>
 
       <div className="mt-5 flex flex-col gap-4 border-t border-hairline pt-5">
-        <div className="grid grid-cols-[6rem_1fr] items-center gap-4">
-          <span className="text-sm font-medium text-ink">Date</span>
-          <div className="grid grid-cols-2 gap-3">
-            <DatePicker
-              numeric
-              value={draft.from}
-              onChange={(from) => setDraft((prev) => ({ ...prev, from }))}
-              placeholder="From"
-            />
-            <DatePicker
-              numeric
-              value={draft.to}
-              onChange={(to) => setDraft((prev) => ({ ...prev, to }))}
-              placeholder="To"
-            />
+        <div className="grid grid-cols-[6rem_1fr] items-start gap-4">
+          <span className="pt-2 text-sm font-medium text-ink">Date</span>
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <DateTimeField
+                edge="start"
+                placeholder="From"
+                value={{ day: draft.from, time: draft.fromTime }}
+                onChange={({ day, time }) =>
+                  setDraft((prev) => ({ ...prev, from: day, fromTime: time }))
+                }
+              />
+              <DateTimeField
+                edge="end"
+                placeholder="To"
+                value={{ day: draft.to, time: draft.toTime }}
+                onChange={({ day, time }) =>
+                  setDraft((prev) => ({ ...prev, to: day, toTime: time }))
+                }
+              />
+            </div>
+            {dateError && (
+              <p role="alert" className="text-xs text-danger">
+                {dateError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -237,6 +258,7 @@ function FilterDraft({
 
       <div className="mt-5 flex justify-end">
         <Button
+          disabled={dateError !== null}
           onClick={() => {
             onApply(draft);
             close();

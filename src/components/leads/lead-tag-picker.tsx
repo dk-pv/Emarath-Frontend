@@ -11,8 +11,10 @@ import { useMounted } from "@/components/ui/Modal";
 import { useAnchoredPosition } from "@/hooks/use-anchored-position";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
-import { useLookup } from "@/hooks/use-lookup";
+import { useTagAccess } from "@/hooks/use-tag-access";
+import { ApiError } from "@/lib/api-client";
 import type { LeadListItem } from "@/services/leads-service";
+import { createTag } from "@/services/tags-service";
 
 export type LeadTagPickerProps = {
   lead: LeadListItem;
@@ -28,10 +30,12 @@ export type LeadTagPickerProps = {
  * The Basic Info panel's tag control: a round green "+" that opens a searchable list of the
  * tag catalogue above it, matched to the supplied reference.
  *
- * Tags come from `GET /lookups/tags` through the shared `useLookup` cache — the same
- * catalogue the Leads list' tag cell and the New Lead form read — so this can only ever
- * offer tags that exist, and only ones not already on the lead. Applying one calls the
- * existing LEAD-12.1 endpoint through the parent.
+ * Tags come from `GET /tag-access/me` — the tags the Admin lets this user select (Tag
+ * Permissions, ADR-0091), the same list the Leads list' tag cell and the New Lead form read — so
+ * this can only ever offer tags that exist, that the user may use, and that are not already on
+ * the lead. Applying one calls the existing LEAD-12.1 endpoint through the parent. A user the
+ * Admin has allowed to create tags also gets a "Create" row, which makes the tag and applies it.
+ * A tag on the lead that the user may not change shows without an ×.
  *
  * The panel is portalled and anchored upward: the "+" sits at the foot of a panel that is
  * itself a scroll container, so an absolutely positioned list would be clipped by it, and a
@@ -50,7 +54,16 @@ export function LeadTagPicker({
   const panelRef = useRef<HTMLDivElement>(null);
   const { isOpen, close, toggle } = useDisclosure();
   const mounted = useMounted();
-  const tags = useLookup("tags");
+  const access = useTagAccess();
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const permitted = useMemo(
+    () => new Set(access.tags.map((tag) => tag.value)),
+    [access.tags],
+  );
+  /** A tag the user may not select cannot be taken off either; the server refuses both. */
+  const isLocked = (tagId: string) =>
+    access.restricted && !permitted.has(tagId);
 
   // The panel is portalled, so it must count as "inside" or a press in it dismisses.
   useDismissable([root, panelRef], isOpen, close);
@@ -67,12 +80,40 @@ export function LeadTagPicker({
   const available = useMemo(() => {
     const applied = new Set(lead.tags.map((tag) => tag.id));
     const term = query.trim().toLowerCase();
-    return tags.options.filter(
+    return access.tags.filter(
       (option) =>
         !applied.has(option.value) &&
         (term === "" || option.label.toLowerCase().includes(term)),
     );
-  }, [tags.options, lead.tags, query]);
+  }, [access.tags, lead.tags, query]);
+
+  const trimmed = query.trim();
+  const canCreateNamed =
+    access.canCreate &&
+    trimmed !== "" &&
+    ![
+      ...access.tags.map((tag) => tag.label),
+      ...lead.tags.map((t) => t.name),
+    ].some((name) => name.toLowerCase() === trimmed.toLowerCase());
+
+  /** Creates the tag the user typed, then applies it to the lead like any other pick. */
+  const createAndSelect = async () => {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const tag = await createTag({ name: trimmed });
+      onSelect(tag.id);
+      close();
+    } catch (error) {
+      setCreateError(
+        error instanceof ApiError
+          ? (error.messages[0] ?? error.message)
+          : "Couldn’t create the tag.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const panel = (
     <div
@@ -91,15 +132,18 @@ export function LeadTagPicker({
               className={cn(tagPillClass(tag.name), "px-2.5 py-1")}
             >
               <span className="truncate">{tag.name}</span>
-              <button
-                type="button"
-                disabled={pending}
-                aria-label={`Remove ${tag.name}`}
-                onClick={() => onRemove(tag.id)}
-                className="focus-ring -mr-0.5 ml-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity duration-(--duration-shell) ease-shell hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <IconX size={12} stroke={2.5} aria-hidden="true" />
-              </button>
+              {/* The × is only offered for a tag the user may change; a locked tag is a plain pill. */}
+              {!isLocked(tag.id) && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  aria-label={`Remove ${tag.name}`}
+                  onClick={() => onRemove(tag.id)}
+                  className="focus-ring -mr-0.5 ml-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity duration-(--duration-shell) ease-shell hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <IconX size={12} stroke={2.5} aria-hidden="true" />
+                </button>
+              )}
             </span>
           ))}
         </div>
@@ -117,13 +161,13 @@ export function LeadTagPicker({
       </div>
 
       <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto pb-2">
-        {tags.isError ? (
+        {access.isError ? (
           <p className="px-4 py-6 text-center text-sm text-danger">
             Couldn’t load tags.
           </p>
         ) : available.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-ink-subtle">
-            {tags.options.length === 0
+            {access.tags.length === 0
               ? "No tags available"
               : "No results found"}
           </p>
@@ -146,6 +190,25 @@ export function LeadTagPicker({
           ))
         )}
       </div>
+
+      {canCreateNamed && (
+        <div className="border-t border-hairline">
+          <button
+            type="button"
+            disabled={pending || creating}
+            onClick={() => void createAndSelect()}
+            className="focus-ring-inset flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-brand transition-colors duration-(--duration-shell) ease-shell hover:bg-brand-subtle disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <IconPlus size={14} stroke={2} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate">Create “{trimmed}”</span>
+          </button>
+          {createError && (
+            <p role="alert" className="px-4 pb-2 text-xs text-danger">
+              {createError}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* The bubble's tail, pointing back down at the "+". */}
       <span

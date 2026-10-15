@@ -1,3 +1,9 @@
+import {
+  dateOperatorBoundaries,
+  dateOperatorKeys,
+  keyBound,
+  rangeError,
+} from "@/lib/date-time-range";
 import type { LookupType } from "@/services/lookups-service";
 import type { SelectOption } from "@/types";
 
@@ -255,7 +261,10 @@ export type LeadFilterRow = {
   id: string;
   field: string | null;
   operator: LeadFilterOperator | null;
-  /** enum/user/tags: ids. text/number: [value]. range: [a,b]. date: ISO day string(s). */
+  /**
+   * enum/user/tags: ids. text/number: [value]. range: [a,b]. date: date key(s) —
+   * `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` when a time is set (lib/date-time-range).
+   */
   values: string[];
 };
 
@@ -272,7 +281,10 @@ export function rowIsComplete(row: LeadFilterRow): boolean {
   if (!operatorsForField(def).includes(row.operator)) return false;
   const control = valueControl(def.kind, row.operator);
   if (control === "none") return true;
-  if (control === "numberRange" || control === "dateRange")
+  if (control === "dateRange")
+    return row.values.length === 2 && row.values.every(isDateKey);
+  if (control === "date") return isDateKey(row.values[0]);
+  if (control === "numberRange")
     return row.values.length === 2 && row.values.every(Boolean);
   // A text value of only spaces is no value: the server trims it away and refuses it.
   return row.values.length > 0 && Boolean(row.values[0]?.trim());
@@ -282,31 +294,20 @@ export function activeConditionCount(rows: readonly LeadFilterRow[]): number {
   return rows.filter(rowIsComplete).length;
 }
 
-/** Local midnight for a picked day, as an ISO instant the server compares to. */
-function startOfDayIso(iso: string): string {
-  const d = new Date(iso);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
-}
-function nextDayIso(iso: string): string {
-  const d = new Date(iso);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).toISOString();
+/** A complete date row holds only parseable keys — what lets the payload builder trust them. */
+function isDateKey(value: string | undefined): boolean {
+  return keyBound(value).day !== null;
 }
 
-/** The picked day (a local-midnight instant), `offset` days on, as "YYYY-MM-DD". */
-function calendarDay(iso: string, offset = 0): string {
-  const d = new Date(iso);
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
-}
-
-const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** A stored value back to the local-midnight instant the date picker shows. */
-function pickerInstant(value: string): string {
-  if (!CALENDAR_DAY.test(value)) return value;
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day).toISOString();
+/**
+ * Why a row can't be applied — a Between / Not Between whose end falls before its start —
+ * or null. A row with this error is not silently dropped on Filter: the builder shows the
+ * message and holds the apply, so what is applied is always what is on screen.
+ */
+export function rowError(row: LeadFilterRow): string | null {
+  if (row.operator !== "between" && row.operator !== "notBetween") return null;
+  if (fieldDef(row.field)?.kind !== "date") return null;
+  return rangeError(keyBound(row.values[0]), keyBound(row.values[1]));
 }
 
 type ConditionPayload = {
@@ -316,37 +317,9 @@ type ConditionPayload = {
 };
 
 /**
- * A date row's picked day(s) → the half-open boundaries the server expects: local
- * midnight instants for a timestamp column, calendar days for a date-only one.
- */
-function datePayloadValues(
-  op: LeadFilterOperator,
-  values: string[],
-  dateOnly: boolean,
-): string[] {
-  const start = (iso: string) =>
-    dateOnly ? calendarDay(iso) : startOfDayIso(iso);
-  const next = (iso: string) =>
-    dateOnly ? calendarDay(iso, 1) : nextDayIso(iso);
-  switch (op) {
-    case "on":
-      return [start(values[0]), next(values[0])];
-    case "before":
-      return [start(values[0])];
-    case "after":
-      return [next(values[0])];
-    case "between":
-    case "notBetween":
-      return [start(values[0]), next(values[1])];
-    default:
-      return [];
-  }
-}
-
-/**
  * The applied conditions as the JSON `conditions` param, or undefined when none are
- * complete. Date rows convert to boundary instants; every other kind sends its values
- * as-is; non-queryable fields (Created By) are never included.
+ * complete. Date rows convert to boundary instants (`dateOperatorBoundaries`); every
+ * other kind sends its values as-is; non-queryable fields (Created By) are never included.
  */
 export function buildConditionsPayload(
   rows: readonly LeadFilterRow[],
@@ -361,7 +334,11 @@ export function buildConditionsPayload(
       return {
         field: def.key,
         operator,
-        values: datePayloadValues(operator, row.values, def.dateOnly === true),
+        values: dateOperatorBoundaries(
+          operator,
+          row.values,
+          def.dateOnly === true,
+        ),
       };
     }
     if (def.kind === "text") {
@@ -376,33 +353,6 @@ export function buildConditionsPayload(
     return { field: def.key, operator, values: row.values };
   });
   return payload.length > 0 ? JSON.stringify(payload) : undefined;
-}
-
-/** One day back from an exclusive upper boundary, as the ISO day the picker shows. */
-function previousDayIso(iso: string): string {
-  const d = new Date(iso);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toISOString();
-}
-
-/**
- * A stored date row's boundaries back to the day(s) the user picked. Values may be
- * instants or calendar days (a BOOKING DATE row, or a preset saved before either
- * shape existed), so each is read back as the picker's local-midnight instant.
- */
-function datePickedValues(op: LeadFilterOperator, values: string[]): string[] {
-  const picked = values.map(pickerInstant);
-  switch (op) {
-    case "on":
-    case "before":
-      return picked.slice(0, 1);
-    case "after":
-      return [previousDayIso(picked[0])];
-    case "between":
-    case "notBetween":
-      return [picked[0], previousDayIso(picked[1])];
-    default:
-      return [];
-  }
 }
 
 /**
@@ -448,7 +398,7 @@ export function rowsFromPayload(
         operator: op,
         values:
           def.kind === "date" && operatorNeedsValue(op)
-            ? datePickedValues(op, raw)
+            ? dateOperatorKeys(op, raw)
             : raw,
       },
     ];

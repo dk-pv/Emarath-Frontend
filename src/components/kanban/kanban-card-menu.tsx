@@ -15,7 +15,13 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/cn";
+import { orderLockReason } from "@/lib/logistics-orders";
+import { MOVE_PIPELINE_HINT, convertBlockReason } from "@/lib/pipeline-access";
 import { whatsappUrl } from "@/lib/whatsapp";
+import { can } from "@/constants/permissions";
+import { useAuth } from "@/components/auth/auth-context";
+import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
+import { useStages } from "@/components/stages/stages-context";
 import { AnchoredLayer } from "@/components/ui/AnchoredLayer";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { LeadListItem } from "@/services/leads-service";
@@ -36,8 +42,10 @@ import { useKanbanCardActions } from "./kanban-card-actions";
  *
  * Every item is real and reuses the card action handlers (`useKanbanCardActions`):
  * Change Pipeline opens the pipeline picker, Archive soft-archives, and the rest map to
- * the reused composers/dialogs. WhatsApp is the only item that ever disables — when the
- * lead has no phone number.
+ * the reused composers/dialogs. WhatsApp disables when the lead has no phone number; Change
+ * Pipeline, Convert Lead and Delete when the lead has a Logistics order (ADR-0085). Change
+ * Pipeline is also off for anyone but a manager or an administrator, and Convert Lead on a
+ * board with no WON stage (ADR-0093).
  */
 
 const PANEL_WIDTH = 224; // w-56 — the design-system Dropdown's width.
@@ -71,6 +79,23 @@ export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
 
   const wa = whatsappUrl(lead.primaryPhone);
   const pinned = actions.isPinned(lead);
+  // A lead with a Logistics order keeps its pipeline and status and can't be deleted (the
+  // server refuses all three, 409), so those items are shown off with the reason.
+  const locked = orderLockReason(lead.logisticsOrder);
+  // Only managers and administrators move leads between pipelines (ADR-0093 B5), and Convert
+  // needs a WON stage on the board's pipeline — the card's own (B12).
+  const { user } = useAuth();
+  const moveHint = can(user?.role, "moveLeadPipelines")
+    ? null
+    : MOVE_PIPELINE_HINT;
+  const board = useStages();
+  const noConvert = convertBlockReason(
+    lead.pipeline,
+    board.pipeline === lead.pipeline && board.status === "ready"
+      ? board.stages
+      : null,
+    CONVERTED_STATUS,
+  );
 
   const rows: Row[] = [
     { kind: "label", id: "actions", label: "Actions" },
@@ -103,6 +128,8 @@ export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
       label: "Change Pipeline",
       icon: IconArrowsRightLeft,
       onSelect: () => actions.onChangePipeline(lead),
+      disabled: locked !== null || moveHint !== null,
+      hint: locked ?? moveHint ?? undefined,
     },
     {
       kind: "item",
@@ -110,6 +137,8 @@ export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
       label: "Convert Lead",
       icon: IconArrowsExchange2,
       onSelect: () => actions.onConvert(lead),
+      disabled: locked !== null || noConvert !== null,
+      hint: locked ?? noConvert ?? undefined,
     },
     { kind: "separator", id: "sep" },
     {
@@ -132,6 +161,8 @@ export function KanbanCardMenu({ lead }: { lead: LeadListItem }) {
       label: "Delete",
       icon: IconTrash,
       onSelect: () => actions.onDelete(lead),
+      disabled: locked !== null,
+      hint: locked ?? undefined,
       danger: true,
     },
   ];

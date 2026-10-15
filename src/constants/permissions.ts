@@ -20,6 +20,13 @@ import type { UserRole } from "./roles";
  *   • manageStages — add, rename, recolour, reorder and delete pipeline stages: admins and
  *     sales managers only (owner decision 2026-10-07, KAN-05.2 AC5). Mirrors the
  *     backend's @Roles on the stage writes, which is what actually enforces it.
+ *   • beAssignedLeads — who a lead may be assigned to: the lead-handling roles (LEAD-06.2).
+ *     Mirrors the backend's ASSIGNABLE_ROLES, which refuses anyone else on create, edit and
+ *     reassign; the New Lead form only pre-fills its own user when they hold it.
+ *   • moveLeadPipelines — move a lead from one pipeline to another (Change Pipeline, the
+ *     detail page's pipeline switcher, the edit form's Pipeline field): admins and sales
+ *     managers only (ADR-0093 B5). Mirrors the backend's PIPELINE_MOVE_ROLES, which is what
+ *     actually enforces it.
  * Every other role/menu mapping is unresolved (awaiting Product Owner) and deliberately
  * absent, so nothing here restricts a surface the business has not signed off.
  */
@@ -28,7 +35,9 @@ export type Capability =
   | "viewTeamMetrics"
   | "useSalesModules"
   | "useLogistics"
-  | "manageStages";
+  | "manageStages"
+  | "beAssignedLeads"
+  | "moveLeadPipelines";
 
 const MANAGERS_AND_ADMINS: readonly UserRole[] = [
   "SUPERADMIN",
@@ -54,6 +63,8 @@ const CAPABILITY_ROLES: Record<Capability, readonly UserRole[]> = {
     "LOGISTICS_EXECUTIVE",
     "QC",
   ],
+  beAssignedLeads: ["SALES_AGENT", "SALES_MANAGER", "CUSTOMER_SERVICE_AGENT"],
+  moveLeadPipelines: MANAGERS_AND_ADMINS,
 };
 
 /** True when the role holds the capability. Unknown/absent role holds nothing (fail-closed). */

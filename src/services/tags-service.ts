@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
+import { announce, TAGS_CHANGED } from "@/lib/catalog-events";
 
 /**
  * The Tags catalogue client (Settings → Sales & CRM Configuration → Tags).
@@ -32,15 +33,26 @@ export function fetchTags(signal?: AbortSignal): Promise<TagNode[]> {
   return apiGet<TagNode[]>("/tags", undefined, signal);
 }
 
+/**
+ * Every writer announces the change, so the tag pickers and Tag Permissions already open
+ * elsewhere in this session read the catalogue again (ADR-0091).
+ */
+function announced<T>(write: Promise<T>): Promise<T> {
+  return write.then((result) => {
+    announce(TAGS_CHANGED);
+    return result;
+  });
+}
+
 export function createTag(input: CreateTagInput): Promise<TagNode> {
-  return apiPost<TagNode>("/tags", input);
+  return announced(apiPost<TagNode>("/tags", input));
 }
 
 export function updateTag(id: string, input: UpdateTagInput): Promise<TagNode> {
-  return apiPatch<TagNode>(`/tags/${id}`, input);
+  return announced(apiPatch<TagNode>(`/tags/${id}`, input));
 }
 
 /** Retires a tag. The leads carrying it keep their link and their other tags. */
 export function deleteTag(id: string): Promise<{ id: string }> {
-  return apiDelete<{ id: string }>(`/tags/${id}`);
+  return announced(apiDelete<{ id: string }>(`/tags/${id}`));
 }

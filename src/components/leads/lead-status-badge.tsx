@@ -16,8 +16,11 @@ import {
   type AnchoredLayerCloseReason,
 } from "@/components/ui/AnchoredLayer";
 import { cn } from "@/lib/cn";
+import { orderLockReason } from "@/lib/logistics-orders";
+import { stageColorClasses } from "@/lib/stage-palette";
 import { useStages } from "@/components/stages/stages-context";
 import type { LeadListItem } from "@/services/leads-service";
+import { fetchStages, type Stage } from "@/services/stages-service";
 
 /**
  * The Lead Status badge (LEAD-11.1). A colour-coded pill whose colour and catalogue
@@ -65,11 +68,13 @@ export function LeadStatusBadge({ lead }: { lead: LeadListItem }) {
   const ctx = useContext(StatusContext);
   const { colorsFor } = useStages();
   const badgeCls = colorsFor(lead.status).badge;
+  const locked = orderLockReason(lead.logisticsOrder);
 
-  // No provider (e.g. reused outside the list): a plain, non-interactive pill.
-  if (!ctx) {
+  // No provider (e.g. reused outside the list), or a lead whose status its Logistics order
+  // owns (the server refuses a change, 409): a plain, non-interactive pill.
+  if (!ctx || locked) {
     return (
-      <span className={cn(BADGE_CLASS, badgeCls)}>
+      <span className={cn(BADGE_CLASS, badgeCls)} title={locked ?? undefined}>
         <span className="truncate">{lead.status}</span>
       </span>
     );
@@ -87,11 +92,32 @@ function InteractiveStatusBadge({
   ctx: StatusContextValue;
   badgeCls: string;
 }) {
-  const { stages, colorsFor } = useStages();
+  const { stages: catalogue, pipeline: cataloguePipeline } = useStages();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pending = ctx.pendingId === lead.id;
+
+  // The options are the stages of the lead's OWN pipeline — the server refuses any other
+  // (400). The shared catalogue is the default pipeline's, so a lead on another board has its
+  // own pipeline's stages fetched when the menu first opens.
+  const foreign = lead.pipeline !== cataloguePipeline;
+  const [own, setOwn] = useState<{ pipeline: string; stages: Stage[] } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!open || !foreign || own?.pipeline === lead.pipeline) return;
+    const controller = new AbortController();
+    fetchStages(lead.pipeline, controller.signal)
+      .then((list) => setOwn({ pipeline: lead.pipeline, stages: list }))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [open, foreign, lead.pipeline, own]);
+  const stages = !foreign
+    ? catalogue
+    : own?.pipeline === lead.pipeline
+      ? own.stages
+      : [];
 
   // Escape returns focus to the badge; the layer handles every other dismissal.
   const close = (reason: AnchoredLayerCloseReason) => {
@@ -195,7 +221,7 @@ function InteractiveStatusBadge({
               <span
                 className={cn(
                   "size-3.5 shrink-0 rounded-sm",
-                  colorsFor(option.name).swatch,
+                  stageColorClasses(option.color).swatch,
                 )}
                 aria-hidden="true"
               />

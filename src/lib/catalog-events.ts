@@ -7,6 +7,8 @@
  */
 export const STAGES_CHANGED = "emarath:stages-changed";
 export const PIPELINES_CHANGED = "emarath:pipelines-changed";
+/** A tag was created or renamed, or a Tag Permissions change was saved (ADR-0091). */
+export const TAGS_CHANGED = "emarath:tags-changed";
 
 export function announce(event: string): void {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(event));

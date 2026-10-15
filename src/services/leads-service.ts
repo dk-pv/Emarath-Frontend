@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut } from "@/lib/api-client";
+import type { LeadLogisticsOrder } from "@/lib/logistics-orders";
 import type { FilterCondition, ListQuery, ListResult } from "@/types";
 
 /** Multi-value field filters (LEAD-03.2, LEAD-12.1): repeated in the query string. */
@@ -84,6 +85,17 @@ export interface LeadListItem {
   customFields: Record<string, string>;
   /** Whether the current user has pinned this lead (ADR-0031) — personal, floats it to the top. */
   isPinned: boolean;
+  /**
+   * Whether this lead was received as a duplicate of an earlier one (ADR-0092). A yes/no, not the
+   * other lead's id: the original may be one the caller cannot open, and nothing about it rides
+   * along here. `fetchLeadDuplicates` returns the related leads the caller may read.
+   */
+  isDuplicate: boolean;
+  /**
+   * The Logistics order this lead converted into, or null (ADR-0085). While it exists the server
+   * refuses Delete and any status or pipeline change (`orderLockReason`).
+   */
+  logisticsOrder: LeadLogisticsOrder | null;
 }
 
 /**
@@ -124,9 +136,10 @@ export function fetchLead(
 export type LeadActivityType = "CALL" | "MEETING" | "TASK";
 
 /**
- * One entry in the Lead Detail drawer's timeline. The `created`/`assigned`/`note`
- * variants mirror the backend `GET /leads/:id/timeline` (partial-but-honest — no
- * "email sent" and no actor for create/assign). The two `followup-*` variants are
+ * One entry in the Lead Detail drawer's timeline. The `created`/`assigned`/`note`/
+ * `call`/`status` variants mirror the backend `GET /leads/:id/timeline` (partial-but-honest
+ * — no "email sent" and no actor for create/assign; `status` comes from the audit log and
+ * does name who moved the lead). The two `followup-*` variants are
  * derived on the client from `GET /leads/:id/activities` and merged in, so a
  * created/completed follow-up shows on the timeline without a new backend feed.
  * The follow-up actor is not recorded either, so it is deliberately absent.
@@ -134,6 +147,15 @@ export type LeadActivityType = "CALL" | "MEETING" | "TASK";
 export type LeadTimelineEvent =
   | { id: string; type: "created"; at: string }
   | { id: string; type: "assigned"; at: string; assigneeName: string }
+  | {
+      id: string;
+      type: "status";
+      at: string;
+      from: string;
+      to: string;
+      /** Null for an automation or a user the server could not name. */
+      actorName: string | null;
+    }
   | { id: string; type: "note"; at: string; authorName: string; body: string }
   | {
       id: string;
@@ -158,6 +180,64 @@ export type LeadTimelineEvent =
       dueAt: string;
       description: string | null;
     };
+
+/** A lead on the other end of a duplicate link — only what the caller may already read. */
+export interface RelatedLead {
+  id: string;
+  name: string;
+  status: string;
+  pipeline: string;
+  primaryPhone: string;
+  createdAt: string;
+}
+
+/** A lead's place in its duplicate group (ADR-0092). */
+export interface LeadDuplicateLinks {
+  /** The earlier lead this one duplicates; null if it is not a duplicate, or is hidden from the caller. */
+  original: RelatedLead | null;
+  /** Leads recorded as duplicates of this one, oldest first. */
+  duplicates: RelatedLead[];
+  /** A related lead exists that is not listed: archived, or outside the caller's access. */
+  hasHidden: boolean;
+}
+
+export function fetchLeadDuplicates(
+  id: string,
+  signal?: AbortSignal,
+): Promise<LeadDuplicateLinks> {
+  return apiGet<LeadDuplicateLinks>(
+    `/leads/${id}/duplicates`,
+    undefined,
+    signal,
+  );
+}
+
+/** One existing lead the enquiry being typed would duplicate. */
+export interface DuplicateCheckMatch {
+  /** Null, with the name and status, for a match the caller cannot open. */
+  id: string | null;
+  name: string | null;
+  status: string | null;
+  matchedOn: "primaryPhone" | "secondaryPhone" | "email";
+  restricted: boolean;
+}
+
+/** A warning only: the enquiry is saved whether or not anything matched (ADR-0092). */
+export interface DuplicateCheckResult {
+  matches: DuplicateCheckMatch[];
+}
+
+/** The New Lead form's pre-save look at the existing leads the enquiry would duplicate. */
+export function checkLeadDuplicates(
+  contact: { primaryPhone?: string; secondaryPhone?: string; email?: string },
+  signal?: AbortSignal,
+): Promise<DuplicateCheckResult> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(contact)) {
+    if (value) params.set(key, value);
+  }
+  return apiGet<DuplicateCheckResult>("/leads/duplicate-check", params, signal);
+}
 
 /** The Lead Detail timeline for one lead (newest first), scoped server-side. */
 export function fetchLeadTimeline(
@@ -350,6 +430,8 @@ export interface LeadEditData {
   complaintReason: string | null;
   /** Custom values keyed by field key (LEAD-05.1), so Edit prefills them. */
   customFields: Record<string, string>;
+  /** As on `LeadListItem`: the form locks Status and Pipeline while an order exists. */
+  logisticsOrder: LeadLogisticsOrder | null;
 }
 
 /** Fetches one scoped lead's full editable data to prefill the Edit Lead form. */

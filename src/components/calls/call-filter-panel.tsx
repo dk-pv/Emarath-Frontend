@@ -3,9 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { IconCheck, IconFilter } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/cn";
+import {
+  RANGE_ERROR,
+  boundEnd,
+  boundStart,
+  type TimeOfDay,
+} from "@/lib/date-time-range";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useDismissable } from "@/hooks/use-dismissable";
 import { fetchAssignableAgents } from "@/services/lookups-service";
@@ -34,6 +40,9 @@ export type CallFilterState = {
   /** Custom Date From/To; either bound overrides that side of the preset. */
   dateFrom: Date | null;
   dateTo: Date | null;
+  /** Optional time of day within each bound; null = start / end of the day. */
+  timeFrom: TimeOfDay | null;
+  timeTo: TimeOfDay | null;
 };
 
 export const DEFAULT_CALL_FILTERS: CallFilterState = {
@@ -41,6 +50,8 @@ export const DEFAULT_CALL_FILTERS: CallFilterState = {
   agentId: null,
   dateFrom: null,
   dateTo: null,
+  timeFrom: null,
+  timeTo: null,
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -68,7 +79,8 @@ export function callFilterCount(state: CallFilterState): number {
 /**
  * The filter state as the half-open window plus agent the API takes. Dates are
  * resolved in the user's own timezone so "Today" is their day, not the server's;
- * a picked "To" day is inclusive, so it sends the following midnight.
+ * a picked "To" is inclusive (lib/date-time-range): the following midnight for a bare
+ * day, one minute past the picked time otherwise.
  */
 export function resolveCallRange(state: CallFilterState): CallRange {
   const todayStart = startOfDay(new Date());
@@ -88,8 +100,8 @@ export function resolveCallRange(state: CallFilterState): CallRange {
     from = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
   }
 
-  if (state.dateFrom) from = startOfDay(state.dateFrom);
-  if (state.dateTo) to = new Date(startOfDay(state.dateTo).getTime() + DAY_MS);
+  if (state.dateFrom) from = boundStart(state.dateFrom, state.timeFrom);
+  if (state.dateTo) to = boundEnd(state.dateTo, state.timeTo);
 
   return {
     from: from.toISOString(),
@@ -165,6 +177,11 @@ function FilterDraft({
     key: K,
     value: CallFilterState[K],
   ) => setDraft((prev) => ({ ...prev, [key]: value }));
+  // Judged on the window the API will actually get, so a lone To is measured against
+  // its preset's start — the call endpoints answer an inverted window with a 400.
+  const range = resolveCallRange(draft);
+  const error =
+    Date.parse(range.to) <= Date.parse(range.from) ? RANGE_ERROR : null;
 
   return (
     <div className="flex flex-col">
@@ -200,6 +217,8 @@ function FilterDraft({
                 period: period.id,
                 dateFrom: null,
                 dateTo: null,
+                timeFrom: null,
+                timeTo: null,
               }));
             }}
           />
@@ -229,19 +248,34 @@ function FilterDraft({
 
         <div className="flex items-start gap-4">
           <span className="w-24 shrink-0 pt-2 text-sm text-ink">Date</span>
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
-            <DatePicker
-              numeric
-              placeholder="From"
-              value={draft.dateFrom}
-              onChange={(date) => set("dateFrom", date)}
-            />
-            <DatePicker
-              numeric
-              placeholder="To"
-              value={draft.dateTo}
-              onChange={(date) => set("dateTo", date)}
-            />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <DateTimeField
+                edge="start"
+                placeholder="From"
+                value={{ day: draft.dateFrom, time: draft.timeFrom }}
+                onChange={({ day, time }) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    dateFrom: day,
+                    timeFrom: time,
+                  }))
+                }
+              />
+              <DateTimeField
+                edge="end"
+                placeholder="To"
+                value={{ day: draft.dateTo, time: draft.timeTo }}
+                onChange={({ day, time }) =>
+                  setDraft((prev) => ({ ...prev, dateTo: day, timeTo: time }))
+                }
+              />
+            </div>
+            {error && (
+              <p role="alert" className="text-xs text-danger">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -249,6 +283,7 @@ function FilterDraft({
       <div className="flex justify-end px-4 pb-4">
         <Button
           size="sm"
+          disabled={error !== null}
           onClick={() => {
             onApply(draft);
             close();

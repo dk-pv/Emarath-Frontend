@@ -28,6 +28,7 @@ import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useLocalDay } from "@/hooks/use-local-day";
+import { boundEnd, boundStart } from "@/lib/date-time-range";
 import {
   activityColumns,
   ActivityRowProvider,
@@ -83,7 +84,7 @@ import {
   type ActivityType,
 } from "@/services/activities-service";
 import { TYPE_OPTIONS } from "@/components/activities/activity-form-parts";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, apiReason } from "@/lib/api-client";
 import { dayBoundaries, windowEdges } from "@/lib/day-boundaries";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { SelectOption } from "@/types";
@@ -98,18 +99,6 @@ const NO_OPTIONS: {
   statuses: SelectOption[];
   pipelines: SelectOption[];
 } = { agents: [], statuses: [], pipelines: [] };
-
-/** Local midnight of the picked day — the From edge the server compares `>=` against. */
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-/** The next local midnight, so a picked To date is included by a `<` comparison. */
-function nextDay(date: Date): Date {
-  const next = startOfDay(date);
-  next.setDate(next.getDate() + 1);
-  return next;
-}
 
 /**
  * The columns Workpex's Activities worklist opens with. Everything else the table
@@ -210,7 +199,8 @@ export function ActivitiesListView() {
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
 
   const query = useMemo<ActivitiesQuery>(() => {
-    const { windows, from, to, type, assignedAgent } = activeFilters;
+    const { windows, from, to, fromTime, toTime, type, assignedAgent } =
+      activeFilters;
     // The wider window edges only matter when their checkbox is ticked, so they are
     // computed here and spread in only for the ticked ones — an unticked window
     // sends nothing and the request URL stays as small as the selection.
@@ -234,10 +224,10 @@ export function ActivitiesListView() {
       ...(needs("thisMonth")
         ? { monthStart: edges.monthStart, monthEnd: edges.monthEnd }
         : undefined),
-      dueFrom: from ? startOfDay(from).toISOString() : undefined,
-      // `To` is inclusive of the chosen day, and the server compares `< dueTo`, so
-      // send the start of the following day.
-      dueTo: to ? nextDay(to).toISOString() : undefined,
+      dueFrom: from ? boundStart(from, fromTime).toISOString() : undefined,
+      // `To` is inclusive of the chosen day (or minute), and the server compares
+      // `< dueTo`, so send the first instant after it.
+      dueTo: to ? boundEnd(to, toTime).toISOString() : undefined,
     };
   }, [bucket, page, size, boundaries, debouncedSearch, activeFilters]);
 
@@ -406,8 +396,12 @@ export function ActivitiesListView() {
       setDetailLead(null);
       refetch();
       toast({ title: `${lead.name} deleted`, tone: "success" });
-    } catch {
-      toast({ title: "Couldn’t delete the lead", tone: "danger" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t delete the lead",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setLeadBusy(false);
     }
@@ -501,14 +495,20 @@ export function ActivitiesListView() {
       applyOverride(row.id, {
         lead: { ...updated, isPinned: row.lead.isPinned },
       });
+      // An open Detail drawer's timeline gains this status move.
+      setDetailRefresh((token) => token + 1);
       toast({ title: `${row.lead.name} set to ${status}`, tone: "success" });
       // "Make the follow-up screen mandatory when changing the status".
       if (workflow?.general.followUpMandatoryOnStatusChange) {
         setFollowUpTarget({ ...updated, isPinned: row.lead.isPinned });
       }
-    } catch {
+    } catch (error) {
       applyOverride(row.id, { lead: row.lead });
-      toast({ title: "Couldn’t update status", tone: "danger" });
+      toast({
+        title: "Couldn’t update status",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setStatusPendingId(null);
     }

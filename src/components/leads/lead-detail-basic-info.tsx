@@ -19,10 +19,18 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagPicker } from "@/components/leads/lead-tag-picker";
 import { tagPillClass } from "@/lib/tag-palette";
-import { isLeadConverted } from "@/components/leads/lead-row-actions";
+import {
+  CONVERTED_STATUS,
+  isLeadConverted,
+} from "@/components/leads/lead-row-actions";
+import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
 import { useLookup } from "@/hooks/use-lookup";
+import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatRelativeTime, initialsOf } from "@/lib/format";
+import { orderLockReason } from "@/lib/logistics-orders";
+import { MOVE_PIPELINE_HINT, convertBlockReason } from "@/lib/pipeline-access";
 import type { LeadDetailField } from "@/components/leads/lead-detail-fields";
 import { whatsappUrl } from "@/lib/whatsapp";
 import type { LeadListItem } from "@/services/leads-service";
@@ -86,7 +94,19 @@ export function LeadDetailBasicInfo({
 }) {
   const waUrl = whatsappUrl(lead.primaryPhone);
   const converted = isLeadConverted(lead);
+  // A Logistics order owns the lead's status and pipeline and keeps the lead (409 otherwise).
+  const locked = orderLockReason(lead.logisticsOrder);
   const pipelines = useLookup("pipelines");
+  // Only managers and administrators move a lead to another pipeline (ADR-0093 B5); Convert
+  // needs a WON stage on the lead's own pipeline (B12).
+  const { user } = useAuth();
+  const pipelineLock =
+    locked ??
+    (can(user?.role, "moveLeadPipelines") ? null : MOVE_PIPELINE_HINT);
+  const stages = usePipelineStages(lead.pipeline);
+  const noConvert = converted
+    ? null
+    : convertBlockReason(lead.pipeline, stages, CONVERTED_STATUS);
 
   const pipelineItems: DropdownItem[] = pipelines.options.map((option) => ({
     type: "item",
@@ -154,21 +174,24 @@ export function LeadDetailBasicInfo({
           />
 
           {/* Converted is a one-way state, so an already-won lead keeps the filled
-              button but stops being actionable — the same rule the list applies. */}
-          <Tooltip content={converted ? "Converted" : "Convert"}>
+              button but stops being actionable — the same rule the list applies. So is a
+              lead whose pipeline has no WON stage, with the reason as its tooltip. */}
+          <Tooltip content={converted ? "Converted" : (noConvert ?? "Convert")}>
             <button
               type="button"
               aria-label={converted ? "Converted" : "Convert"}
-              aria-disabled={converted || undefined}
+              aria-disabled={converted || noConvert !== null || undefined}
               disabled={converting}
               onClick={() => {
-                if (!converted) actions.onConvert();
+                if (!converted && !noConvert) actions.onConvert();
               }}
               className={cn(
                 "focus-ring flex h-9 items-center gap-1.5 rounded-control px-3 text-sm font-medium text-white transition-colors duration-(--duration-shell) ease-shell disabled:cursor-not-allowed disabled:opacity-60",
                 converted
                   ? "cursor-default bg-brand-strong"
-                  : "bg-brand hover:bg-brand-strong",
+                  : noConvert
+                    ? "cursor-not-allowed bg-brand opacity-60"
+                    : "bg-brand hover:bg-brand-strong",
               )}
             >
               {converting ? (
@@ -185,10 +208,11 @@ export function LeadDetailBasicInfo({
             </button>
           </Tooltip>
 
-          <Tooltip content="Delete">
+          <Tooltip content={locked ?? "Delete"}>
             <button
               type="button"
               aria-label="Delete"
+              disabled={locked !== null}
               onClick={actions.onDelete}
               className={cn(ACTION_CLASS, "hover:text-danger")}
             >
@@ -210,17 +234,27 @@ export function LeadDetailBasicInfo({
           <span className="truncate font-semibold text-ink">{lead.name}</span>
           <div className="flex flex-wrap items-center gap-2">
             <LeadStatusBadge lead={lead} />
-            <Dropdown
-              align="start"
-              items={pipelineItems}
-              trigger={
-                <span className="flex items-center gap-1 text-sm text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink">
-                  {lead.pipeline}
-                  <IconChevronDown size={16} stroke={1.75} aria-hidden="true" />
-                  <span className="sr-only">Change pipeline</span>
-                </span>
-              }
-            />
+            {pipelineLock ? (
+              <span className="text-sm text-ink-muted" title={pipelineLock}>
+                {lead.pipeline}
+              </span>
+            ) : (
+              <Dropdown
+                align="start"
+                items={pipelineItems}
+                trigger={
+                  <span className="flex items-center gap-1 text-sm text-ink-muted transition-colors duration-(--duration-shell) ease-shell hover:text-ink">
+                    {lead.pipeline}
+                    <IconChevronDown
+                      size={16}
+                      stroke={1.75}
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">Change pipeline</span>
+                  </span>
+                }
+              />
+            )}
           </div>
         </div>
       </div>

@@ -9,7 +9,8 @@ import type { LeadTimelineEvent } from "@/services/leads-service";
  * screenshots): newest first down a green rail of filled dots, each entry showing its
  * day ("Today", "06 Jul 2026") in bold, the time, a label with its subjects in bold,
  * and — for notes — the note body under a note icon. Rendered from the partial-but-honest feed
- * (`GET /leads/:id/timeline`): Lead Created, Lead Assigned, Note Added. Client-only
+ * (`GET /leads/:id/timeline`): Lead Created, Lead Assigned, Note Added, Calls and Status
+ * changes (from → to, by whom). Client-only
  * (the drawer is a client component), so the local "today" comparison is safe.
  */
 
@@ -82,6 +83,21 @@ function EventLabel({ event }: { event: LeadTimelineEvent }) {
       <>
         Lead <span className="font-semibold text-ink">Assigned</span> to{" "}
         <span className="font-semibold text-ink">{event.assigneeName}</span>
+      </>
+    );
+  }
+  if (event.type === "status") {
+    return (
+      <>
+        Lead <span className="font-semibold text-ink">Status</span> changed from{" "}
+        <span className="font-semibold text-ink">{event.from}</span> to{" "}
+        <span className="font-semibold text-ink">{event.to}</span>
+        {event.actorName && (
+          <>
+            {" "}
+            by <span className="font-semibold text-ink">{event.actorName}</span>
+          </>
+        )}
       </>
     );
   }

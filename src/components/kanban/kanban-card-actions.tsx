@@ -7,7 +7,7 @@ import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
 import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
 import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, apiReason } from "@/lib/api-client";
 import { whatsappUrl } from "@/lib/whatsapp";
 import {
   fetchLeadForEdit,
@@ -177,8 +177,12 @@ export function KanbanCardActionsProvider({
       await archiveLead(lead.id);
       toast({ title: `${lead.name} archived`, tone: "success" });
       onBoardChanged();
-    } catch {
-      toast({ title: "Couldn’t archive lead", tone: "danger" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t archive lead",
+        description: apiReason(error),
+        tone: "danger",
+      });
     }
   };
 
@@ -195,10 +199,10 @@ export function KanbanCardActionsProvider({
       setConvertTarget(null);
       toast({ title: `${lead.name} converted`, tone: "success" });
       onBoardChanged();
-    } catch {
+    } catch (error) {
       toast({
         title: "Unable to convert lead",
-        description: "Please try again.",
+        description: apiReason(error) ?? "Please try again.",
         tone: "danger",
       });
     } finally {
@@ -219,8 +223,12 @@ export function KanbanCardActionsProvider({
       setDeleteTarget(null);
       toast({ title: `${lead.name} deleted`, tone: "success" });
       onBoardChanged();
-    } catch {
-      toast({ title: "Couldn’t delete lead", tone: "danger" });
+    } catch (error) {
+      toast({
+        title: "Couldn’t delete lead",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       deletingRef.current = false;
       setDeleteBusy(false);

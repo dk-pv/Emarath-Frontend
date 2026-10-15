@@ -95,7 +95,7 @@ export function StepImport({
               current.importedCount > 0
                 ? `The import stopped part-way: ${current.importedCount} lead${
                     current.importedCount === 1 ? " was" : "s were"
-                  } added before the error and are in your Leads list. Re-importing the same file skips them as duplicates.`
+                  } added before the error and are in your Leads list. Importing the same file again would add them a second time, marked as duplicates.`
                 : "The import failed while processing. No leads were added. Please try again.",
             );
             return;
@@ -162,12 +162,25 @@ export function StepImport({
         <p className="mt-1 text-sm text-ink-muted">
           <span className="font-medium text-ink">{job.importedCount}</span>{" "}
           imported
-          {" · "}
-          <span className="font-medium text-ink">{job.skippedCount}</span>{" "}
-          skipped as duplicates
+          {/* Earlier imports skipped duplicates; today's write them, so this is 0 for a new job. */}
+          {job.skippedCount > 0 && (
+            <>
+              {" · "}
+              <span className="font-medium text-ink">
+                {job.skippedCount}
+              </span>{" "}
+              skipped as duplicates
+            </>
+          )}
           {" · "}
           <span className="font-medium text-ink">{job.failedCount}</span> failed
         </p>
+        {job.importedCount > 0 && (
+          <p className="mt-1 text-xs text-ink-subtle">
+            A row that matched an existing lead was imported as its own lead and
+            is marked Duplicate in the Leads list.
+          </p>
+        )}
 
         {attention > 0 && (
           <div className="mt-8 w-full rounded-surface border border-hairline text-left">

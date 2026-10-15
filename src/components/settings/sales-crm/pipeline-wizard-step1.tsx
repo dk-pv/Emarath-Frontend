@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
@@ -249,6 +250,15 @@ export function PipelineWizardStep1({
               <p role="alert" className="text-sm text-danger">
                 {errors.permissions}
               </p>
+            )}
+            {/* Allowed, but worth saying (ADR-0093 B7): with no grant at all, only
+                administrators can open the pipeline or the leads in it. */}
+            {value.permissions.length === 0 && (
+              <Alert tone="warning">
+                No role or user is granted access, so only administrators can
+                open this pipeline and its leads. Add a permission to give
+                others access.
+              </Alert>
             )}
             {value.permissions.map((row) => (
               <div key={row.key} className="flex flex-wrap items-end gap-3">

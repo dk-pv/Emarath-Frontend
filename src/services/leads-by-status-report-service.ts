@@ -1,4 +1,5 @@
 import { apiGet } from "@/lib/api-client";
+import { keyRange } from "@/lib/date-time-range";
 import { env } from "@/lib/env";
 import type { LeadListItem } from "@/services/leads-service";
 import type { ListResult } from "@/types";
@@ -80,25 +81,11 @@ export function isDatePeriodKey(value: string | null): value is DatePeriodKey {
 /** Monday — the UAE working week. */
 const WEEK_STARTS_ON = 1;
 
-/** A local calendar date as the `YYYY-MM-DD` the Custom range carries in the URL. */
-export function dateKey(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-/** The inverse of `dateKey`: local midnight of that date, or undefined for anything else. */
-export function parseDateKey(key: string | undefined): Date | undefined {
-  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return undefined;
-  const [y, m, d] = key.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  // Round-trip, not isNaN: `new Date(2026, 12, 99)` silently rolls over to a valid date.
-  return dateKey(date) === key ? date : undefined;
-}
-
 /**
  * The half-open [from, to) window of instants a preset means, computed in the client's
  * timezone (matching day-boundaries.ts) so "today" is the user's today. Custom takes the
- * picker's calendar dates, end inclusive.
+ * picker's date keys — a day, or a day with a time (`YYYY-MM-DD[THH:mm]`, see
+ * lib/date-time-range) — end inclusive.
  */
 export function periodRange(
   key: DatePeriodKey,
@@ -133,14 +120,8 @@ export function periodRange(
       return window(year(), year(1));
     case "lastYear":
       return window(year(-1), year());
-    case "custom": {
-      const from = parseDateKey(custom.from);
-      const to = parseDateKey(custom.to);
-      return {
-        from: from?.toISOString(),
-        to: to ? day(to, 1).toISOString() : undefined,
-      };
-    }
+    case "custom":
+      return keyRange(custom.from, custom.to);
   }
 }
 

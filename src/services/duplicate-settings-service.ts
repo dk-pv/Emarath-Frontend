@@ -3,13 +3,13 @@ import { apiGet, apiPut } from "@/lib/api-client";
 /**
  * Settings → Sales & CRM Configuration → Duplicate Settings.
  *
- * Stored as one JSON row in `app_settings`, exactly as General Settings is. The screen
- * configures what happens *after* a duplicate is found; the matching fields themselves
- * (primary phone, secondary phone, email) are fixed and not configurable (ADR-0064).
+ * Stored as one JSON row in `app_settings`, exactly as General Settings is. The matching
+ * fields (primary phone, secondary phone, email) are fixed and not configurable (ADR-0064).
+ *
+ * There is no handling mode any more: a duplicate is always saved as its own lead and linked to
+ * the lead it duplicates (ADR-0092). The "Block, hard stop" option is gone, so no setting here can
+ * make a lead be refused.
  */
-
-export const DUPLICATE_MODES = ["WARN_ALLOW_SAVE", "BLOCK_HARD_STOP"] as const;
-export type DuplicateMode = (typeof DUPLICATE_MODES)[number];
 
 /** One recorded configuration change — what the Activity Log lists. */
 export interface DuplicateSettingsLogEntry {
@@ -19,9 +19,7 @@ export interface DuplicateSettingsLogEntry {
 }
 
 export interface DuplicateSettings {
-  mode: DuplicateMode;
   allowDuplicateSearch: boolean;
-  displayAssigneeInfo: boolean;
   checkArchivedLeads: boolean;
   /** Newest first; written by the server, never by this client. */
   log: DuplicateSettingsLogEntry[];

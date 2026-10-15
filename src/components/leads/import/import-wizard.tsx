@@ -128,8 +128,14 @@ export function ImportWizard() {
 
   const mappedCount = Object.values(mapping).filter(Boolean).length;
   const unmappedCount = Object.keys(mapping).length - mappedCount;
+  // Every row the import will write: the valid ones, and the duplicates, which are imported
+  // as their own leads marked as duplicates (ADR-0092) rather than skipped.
+  const duplicateCount =
+    validation?.status === "done" ? validation.result.duplicates : 0;
   const validCount =
-    validation?.status === "done" ? validation.result.valid : 0;
+    validation?.status === "done"
+      ? validation.result.valid + duplicateCount
+      : 0;
 
   const next = () =>
     setStep((value) => Math.min(value + 1, IMPORT_STEPS.length - 1));
@@ -269,11 +275,17 @@ export function ImportWizard() {
                 ) : validation?.status === "done" ? (
                   <>
                     <span className="font-medium text-ink">{validCount}</span>{" "}
-                    valid record{validCount === 1 ? "" : "s"} ready to import
-                    into{" "}
+                    record{validCount === 1 ? "" : "s"} ready to import into{" "}
                     <span className="font-medium text-ink">
                       {pipeline || "Lead Pipeline"}
                     </span>
+                    {duplicateCount > 0 && (
+                      <>
+                        {" "}
+                        ({duplicateCount} marked as duplicate
+                        {duplicateCount === 1 ? "" : "s"})
+                      </>
+                    )}
                   </>
                 ) : validation?.status === "error" ? (
                   "Nothing can be imported until the file validates"

@@ -44,6 +44,26 @@ export function orderNumberLabel(orderNumber: number): string {
   return `#${orderNumber}`;
 }
 
+/** The Logistics order a lead converted into, as a lead response carries it. */
+export type LeadLogisticsOrder = {
+  orderNumber: number;
+  status: LogisticsStatus;
+};
+
+/**
+ * Why a lead's Delete, Convert, status and pipeline controls are off, or null when they are
+ * not. Once a lead has a Logistics order the server refuses all four (409): the order owns
+ * the lead's status and pipeline, and the lead is kept. A lead with no order — a WON lead
+ * from before ADR-0085 included — keeps every control.
+ */
+export function orderLockReason(
+  order: LeadLogisticsOrder | null | undefined,
+): string | null {
+  return order
+    ? `Logistics order ${orderNumberLabel(order.orderNumber)} manages this lead’s status and pipeline, and the lead can’t be deleted.`
+    : null;
+}
+
 export const LOGISTICS_ORDERS_PATH = "/logistics/orders";
 
 export type LogisticsOrdersQuery = {

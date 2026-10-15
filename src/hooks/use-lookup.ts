@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { PIPELINES_CHANGED, STAGES_CHANGED } from "@/lib/catalog-events";
+import {
+  PIPELINES_CHANGED,
+  STAGES_CHANGED,
+  TAGS_CHANGED,
+} from "@/lib/catalog-events";
 import {
   fetchLookup,
   type LookupOption,
@@ -18,10 +22,12 @@ import {
 const cache = new Map<LookupType, Promise<LookupOption[]>>();
 
 // A stage or pipeline edit retires the cached copy, so the next field that opens reads the
-// current catalogue rather than one from before the edit.
+// current catalogue rather than one from before the edit. A sign-in retires the pipelines too:
+// the server offers each user only the pipelines open to them (ADR-0093).
 if (typeof window !== "undefined") {
   window.addEventListener(STAGES_CHANGED, () => cache.delete("leadStatus"));
   window.addEventListener(PIPELINES_CHANGED, () => cache.delete("pipelines"));
+  window.addEventListener(TAGS_CHANGED, () => cache.delete("tags"));
 }
 
 function load(type: LookupType): Promise<LookupOption[]> {

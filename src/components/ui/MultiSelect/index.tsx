@@ -157,7 +157,13 @@ export function MultiSelect({
           <Chip
             key={option.value}
             className={capped ? "min-w-0" : undefined}
-            onRemove={disabled ? undefined : () => toggleValue(option.value)}
+            // A disabled option that is selected is locked in: it stays as a chip but the
+            // chip cannot be dismissed, exactly as its checkbox cannot be unticked.
+            onRemove={
+              disabled || option.disabled
+                ? undefined
+                : () => toggleValue(option.value)
+            }
             removeLabel={`Remove ${option.label}`}
           >
             {option.label}

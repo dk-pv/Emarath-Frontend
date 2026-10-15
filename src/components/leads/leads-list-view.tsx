@@ -61,7 +61,7 @@ import {
   type LeadCustomField,
 } from "@/services/leads-custom-fields-service";
 import { completeActivity } from "@/services/activities-service";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, apiReason } from "@/lib/api-client";
 import {
   CONVERTED_STATUS,
   LeadRowActionsProvider,
@@ -79,7 +79,8 @@ import {
   unpinLead,
 } from "@/services/leads-row-actions-service";
 import { addLeadTag, removeLeadTag } from "@/services/leads-tags-service";
-import { fetchLookup } from "@/services/lookups-service";
+import { createTag } from "@/services/tags-service";
+import { useTagAccess } from "@/hooks/use-tag-access";
 import {
   downloadLeadsExport,
   type ExportFormat,
@@ -155,24 +156,18 @@ export function LeadsListView({
   // The backend @Roles() gate is the real block — this just keeps the UI honest.
   const canReassign = can(user?.role, "reassignLeads");
 
-  // The full existing-tag catalogue the row Tags picker offers (LEAD-12.1 AC1):
-  // every existing tag, since a lead with none can still take any.
-  const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchLookup("tags", controller.signal)
-      .then((opts) =>
-        setTagOptions(opts.map((o) => ({ id: o.value, name: o.label }))),
-      )
-      .catch((error: unknown) => {
-        // Aborted on unmount; expected. Otherwise the picker just has no options
-        // to add — the existing chips and the list still work.
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-      });
-    return () => controller.abort();
-  }, []);
+  // The tags the row Tags picker offers (LEAD-12.1 AC1): the existing tags this user may
+  // select (Tag Permissions, ADR-0091), not the whole catalogue. A tag already on a row that
+  // they may not select stays visible, locked, and cannot be removed here.
+  const tagAccess = useTagAccess();
+  const tagOptions = useMemo<TagOption[]>(
+    () => tagAccess.tags.map((tag) => ({ id: tag.value, name: tag.label })),
+    [tagAccess.tags],
+  );
+  const permittedTagIds = useMemo(
+    () => new Set(tagOptions.map((tag) => tag.id)),
+    [tagOptions],
+  );
 
   const filters = useFilters(NO_FILTER_FIELDS);
 
@@ -424,10 +419,12 @@ export function LeadsListView({
     null,
   );
   // The lead being edited (LEAD-06 edit mode): the full record that prefills the
-  // shared form, plus the row's current pin so the patched row keeps it (the update
-  // response, like the other row mutations, doesn't carry the caller's pin).
+  // shared form, the custom-field definitions loaded with it, and the row's current pin
+  // so the patched row keeps it (the update response, like the other row mutations,
+  // doesn't carry the caller's pin).
   const [editLead, setEditLead] = useState<{
     data: LeadEditData;
+    customFields: LeadCustomField[];
     isPinned: boolean;
   } | null>(null);
   const [rowPending, setRowPending] = useState<{
@@ -609,8 +606,14 @@ export function LeadsListView({
   const handleEdit = async (lead: LeadListItem) => {
     setRowPending({ id: lead.id, action: "edit" });
     try {
-      const data = await fetchLeadForEdit(lead.id);
-      setEditLead({ data, isPinned: lead.isPinned });
+      // The definitions load with the lead, as on the Detail page and the Kanban card: the
+      // list's own copy may still be loading, may have failed, or may be stale, and the
+      // form would then send `customFields: []`, which clears every value on save.
+      const [data, customFields] = await Promise.all([
+        fetchLeadForEdit(lead.id),
+        fetchLeadCustomFields(),
+      ]);
+      setEditLead({ data, customFields, isPinned: lead.isPinned });
     } catch (error) {
       const gone = error instanceof ApiError && error.status === 404;
       if (gone) patchRow(lead.id, null);
@@ -642,12 +645,14 @@ export function LeadsListView({
       const updated = await setLeadStatus(lead.id, CONVERTED_STATUS);
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       syncDetail(lead.id, { ...updated, isPinned: lead.isPinned });
+      // An open Detail drawer's timeline gains the move to WON.
+      setDetailRefresh((token) => token + 1);
       setConvertTarget(null);
       toast({ title: `${lead.name} converted`, tone: "success" });
-    } catch {
+    } catch (error) {
       toast({
         title: "Unable to convert lead",
-        description: "Please try again.",
+        description: apiReason(error) ?? "Please try again.",
         tone: "danger",
       });
     } finally {
@@ -692,14 +697,20 @@ export function LeadsListView({
       const updated = await setLeadStatus(lead.id, status, lostReason);
       // Preserve the caller's pin — the status response doesn't carry it (ADR-0031).
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
+      // An open Detail drawer's timeline gains this status move.
+      setDetailRefresh((token) => token + 1);
       toast({ title: `${lead.name} set to ${status}`, tone: "success" });
       // "Make the follow-up screen mandatory when changing the status".
       if (workflow?.general.followUpMandatoryOnStatusChange) {
         setFollowUpTarget({ ...updated, isPinned: lead.isPinned });
       }
-    } catch {
+    } catch (error) {
       patchRow(lead.id, lead);
-      toast({ title: "Couldn’t update status", tone: "danger" });
+      toast({
+        title: "Couldn’t update status",
+        description: apiReason(error),
+        tone: "danger",
+      });
     } finally {
       setStatusPendingId(null);
     }
@@ -724,9 +735,13 @@ export function LeadsListView({
       const updated = await addLeadTag(lead.id, tag.id);
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: `Tagged “${tag.name}”`, tone: "success" });
-    } catch {
+    } catch (error) {
       patchRow(lead.id, lead);
-      toast({ title: "Couldn’t add tag", tone: "danger" });
+      toast({
+        title: "Couldn’t add tag",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
     } finally {
       setTagPendingId(null);
     }
@@ -742,16 +757,41 @@ export function LeadsListView({
       const updated = await removeLeadTag(lead.id, tagId);
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       toast({ title: "Tag removed", tone: "success" });
-    } catch {
+    } catch (error) {
       patchRow(lead.id, lead);
-      toast({ title: "Couldn’t remove tag", tone: "danger" });
+      toast({
+        title: "Couldn’t remove tag",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
     } finally {
       setTagPendingId(null);
     }
   };
 
+  /** Creates the tag the user typed (when Tag Permissions allow it) and applies it to the row. */
+  const handleCreateTag = async (lead: LeadListItem, name: string) => {
+    setTagPendingId(lead.id);
+    try {
+      const created = await createTag({ name });
+      await handleAddTag(lead, { id: created.id, name: created.name });
+    } catch (error) {
+      setTagPendingId(null);
+      toast({
+        title: "Couldn’t create tag",
+        description: error instanceof ApiError ? error.message : undefined,
+        tone: "danger",
+      });
+    }
+  };
+
   const tagsValue = {
     onAdd: (lead: LeadListItem, tag: TagOption) => void handleAddTag(lead, tag),
+    canCreate: tagAccess.canCreate,
+    onCreate: (lead: LeadListItem, name: string) =>
+      void handleCreateTag(lead, name),
+    isLocked: (tagId: string) =>
+      tagAccess.restricted && !permittedTagIds.has(tagId),
     onRemove: (lead: LeadListItem, tagId: string) =>
       void handleRemoveTag(lead, tagId),
     options: tagOptions,
@@ -1228,7 +1268,7 @@ export function LeadsListView({
         <LeadFormDrawer
           open
           lead={editLead.data}
-          customFields={customFieldDefs}
+          customFields={editLead.customFields}
           onClose={() => setEditLead(null)}
           onSaved={(updated) => {
             patchRow(updated.id, { ...updated, isPinned: editLead.isPinned });
@@ -1266,11 +1306,4 @@ export function LeadsListView({
       )}
     </>
   );
-}
-
-/** The server's reason for a refused request, when it gave one. */
-function apiReason(error: unknown): string | undefined {
-  return error instanceof ApiError
-    ? error.messages.join(" · ") || undefined
-    : undefined;
 }

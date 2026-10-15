@@ -6,16 +6,20 @@ import { IconCalendar, IconChevronDown, IconX } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Radio } from "@/components/ui/Radio";
 import { TOOLBAR_BUTTON_CLASS } from "@/components/layout/Toolbar/toolbar-button";
 import { useAnchoredPanel } from "@/hooks/use-anchored-panel";
 import { cn } from "@/lib/cn";
 import {
+  dateKey,
+  keyBound,
+  rangeError,
+  type DateTimeBound,
+} from "@/lib/date-time-range";
+import {
   DATE_FIELD_OPTIONS,
   DATE_PERIODS,
-  dateKey,
-  parseDateKey,
   type DatePeriodKey,
   type LeadsByStatusDateField,
 } from "@/services/leads-by-status-report-service";
@@ -23,7 +27,10 @@ import {
 export type DateFilterValue = {
   field: LeadsByStatusDateField;
   period: DatePeriodKey | null;
-  /** The Custom range as calendar dates (YYYY-MM-DD), end inclusive. */
+  /**
+   * The Custom range's bounds as date keys — `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` when a
+   * time is set — end inclusive.
+   */
   from?: string;
   to?: string;
 };
@@ -84,8 +91,12 @@ export function ReportDateFilter({
   // windows, so checking one unchecks the rest (and re-checking clears it).
   const togglePeriod = (period: DatePeriodKey) =>
     setDraft((d) => ({ ...d, period: d.period === period ? null : period }));
-  const setDate = (key: "from" | "to", date: Date | null) =>
-    setDraft((d) => ({ ...d, [key]: date ? dateKey(date) : undefined }));
+  const setBound = (key: "from" | "to", { day, time }: DateTimeBound) =>
+    setDraft((d) => ({ ...d, [key]: day ? dateKey(day, time) : undefined }));
+  const customError =
+    draft.period === "custom"
+      ? rangeError(keyBound(draft.from), keyBound(draft.to))
+      : null;
 
   const heading =
     DATE_FIELD_OPTIONS.find((option) => option.value === draft.field)?.label ??
@@ -142,23 +153,30 @@ export function ReportDateFilter({
       </div>
 
       {draft.period === "custom" && (
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:gap-[9px]">
-          <div className="min-w-0 flex-1">
-            <DatePicker
-              numeric
-              value={parseDateKey(draft.from) ?? null}
-              onChange={(date) => setDate("from", date)}
-              placeholder="From Date"
-            />
+        <div className="mt-6 flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-[9px]">
+            <div className="min-w-0 flex-1">
+              <DateTimeField
+                edge="start"
+                placeholder="From Date"
+                value={keyBound(draft.from)}
+                onChange={(bound) => setBound("from", bound)}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DateTimeField
+                edge="end"
+                placeholder="To Date"
+                value={keyBound(draft.to)}
+                onChange={(bound) => setBound("to", bound)}
+              />
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <DatePicker
-              numeric
-              value={parseDateKey(draft.to) ?? null}
-              onChange={(date) => setDate("to", date)}
-              placeholder="To Date"
-            />
-          </div>
+          {customError && (
+            <p role="alert" className="text-xs text-danger">
+              {customError}
+            </p>
+          )}
         </div>
       )}
 
@@ -167,6 +185,7 @@ export function ReportDateFilter({
         <Button
           size="sm"
           className="min-w-[78px]"
+          disabled={customError !== null}
           onClick={() => {
             onApply(draft);
             setOpen(false);

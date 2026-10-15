@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useToast } from "@/components/ui/Toast";
 import { LeadDetailBasicInfo } from "@/components/leads/lead-detail-basic-info";
+import { LeadDuplicateNotice } from "@/components/leads/lead-duplicate-notice";
 import { LeadDetailFollowUps } from "@/components/leads/lead-detail-followups";
 import {
   LeadDetailAddButton,
@@ -43,7 +44,7 @@ import { LeadFormDrawer } from "@/components/leads/lead-form-drawer";
 import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
 import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
 import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, apiReason } from "@/lib/api-client";
 import { whatsappUrl } from "@/lib/whatsapp";
 import {
   fetchLead,
@@ -441,9 +442,13 @@ export function LeadDetailView({
       await deleteLead(lead.id);
       toast({ title: `${lead.name} deleted`, tone: "success" });
       router.push("/leads");
-    } catch {
+    } catch (error) {
       setDeleting(false);
-      toast({ title: "Couldn’t delete lead", tone: "danger" });
+      toast({
+        title: "Couldn’t delete lead",
+        description: apiReason(error),
+        tone: "danger",
+      });
     }
   };
 
@@ -454,6 +459,8 @@ export function LeadDetailView({
     try {
       const updated = await setLeadStatus(lead.id, CONVERTED_STATUS);
       setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+      // The move is now a timeline entry; the feed was fetched before it happened.
+      setNotesRefresh((token) => token + 1);
       toast({ title: `${lead.name} converted`, tone: "success" });
     } catch (error) {
       toast({
@@ -471,6 +478,8 @@ export function LeadDetailView({
     try {
       const updated = await changeLeadPipeline(lead.id, pipeline);
       setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+      // The move resets the status to the new pipeline's first stage — a timeline entry.
+      setNotesRefresh((token) => token + 1);
       toast({ title: `Moved to ${pipeline}`, tone: "success" });
     } catch (error) {
       toast({
@@ -605,6 +614,7 @@ export function LeadDetailView({
             </h2>
           </div>
           <div className="scrollbar-slim flex flex-col gap-4 rounded-surface rounded-tl-none border border-hairline bg-surface p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            <LeadDuplicateNotice lead={lead} />
             <LeadDetailSection
               title="File Attachments"
               columns={ATTACHMENT_COLUMNS}
@@ -780,6 +790,8 @@ export function LeadDetailView({
           onClose={() => setEditData(null)}
           onSaved={(updated) => {
             setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
+            // The edit form can change the status too.
+            setNotesRefresh((token) => token + 1);
             setEditData(null);
             toast({ title: `${updated.name} updated`, tone: "success" });
           }}

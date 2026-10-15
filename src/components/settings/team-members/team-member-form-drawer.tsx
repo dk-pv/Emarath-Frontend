@@ -616,7 +616,12 @@ function StepRoleAccess({
         />
       </FormField>
 
-      <FormField label="Role" required htmlFor="tm-role">
+      <FormField
+        label="Role"
+        required
+        htmlFor="tm-role"
+        hint="Decides what this member can do, and which Specific pipelines they can open through role permissions."
+      >
         <SearchableSelect
           id="tm-role"
           searchable
@@ -649,7 +654,14 @@ function StepRoleAccess({
         />
       </FormField>
 
-      <FormField label="Pipeline" required htmlFor="tm-pipelines">
+      {/* Stored only (ADR-0093 B13): pipeline access comes from each pipeline's own
+          permissions, never from this list. */}
+      <FormField
+        label="Pipeline"
+        required
+        htmlFor="tm-pipelines"
+        hint="Saved with the member but not enforced. Who can open a pipeline is set in that pipeline's permissions (Sales Pipeline settings)."
+      >
         <MultiSelect
           searchable
           options={options.pipelines}
@@ -681,7 +693,12 @@ function StepPermission({
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <FormField label="Assign Lead Form" required htmlFor="tm-lead-form">
+      <FormField
+        label="Assign Lead Form"
+        required
+        htmlFor="tm-lead-form"
+        hint="Saved with the member but not enforced yet: the New Lead form follows the default lead form."
+      >
         <SearchableSelect
           id="tm-lead-form"
           searchable
@@ -703,21 +720,21 @@ function StepPermission({
           <ToggleRow
             id="tm-app-access"
             label="App Access"
-            hint="Whether this member may use the field app."
+            hint="Saved with the member but not enforced yet."
             checked={form.appAccess}
             onChange={(appAccess) => patch({ appAccess })}
           />
           <ToggleRow
             id="tm-reporting"
             label="Include in Reporting and Analysis"
-            hint="Count this member in reports and analytics."
+            hint="Saved with the member but not enforced yet: reports count every member."
             checked={form.includeInReporting}
             onChange={(includeInReporting) => patch({ includeInReporting })}
           />
           <ToggleRow
             id="tm-auto-follow-up"
             label="Automatic Prompt to Create fol.."
-            hint="Prompt this member to create a follow-up after a call."
+            hint="Saved with the member but not enforced yet."
             checked={form.autoFollowUpPrompt}
             onChange={(autoFollowUpPrompt) => patch({ autoFollowUpPrompt })}
           />
@@ -730,7 +747,7 @@ function StepPermission({
           <FormField
             label="WhatsApp Inbox Access Level"
             htmlFor="tm-whatsapp"
-            hint="How much of the shared WhatsApp inbox this member can read."
+            hint="Saved with the member but not enforced yet."
           >
             <SearchableSelect
               id="tm-whatsapp"
@@ -754,7 +771,7 @@ function StepPermission({
       <section>
         <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
           User Permissions
-          <InfoHint label="Stored per member and returned by the API; day-to-day access still follows the account's role." />
+          <InfoHint label="Saved with the member but not enforced: what this member can do follows their role, and which pipelines they can open follows each pipeline's permissions." />
         </h3>
         <div className="mt-3 rounded-surface border border-hairline">
           <PermissionMatrix

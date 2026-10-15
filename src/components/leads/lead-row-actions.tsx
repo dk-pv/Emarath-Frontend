@@ -13,7 +13,10 @@ import {
   IconTrash,
   IconUserEdit,
 } from "@tabler/icons-react";
+import { usePipelineStages } from "@/hooks/use-pipeline-stages";
 import { cn } from "@/lib/cn";
+import { orderLockReason } from "@/lib/logistics-orders";
+import { convertBlockReason } from "@/lib/pipeline-access";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { IconButton } from "@/components/ui/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -53,9 +56,14 @@ export type RowActionKind = "reassign" | "delete" | "pin" | "edit";
  */
 export const CONVERTED_STATUS = "WON";
 
-/** True when a lead is converted, read from its persisted status (not local state). */
+/**
+ * True when a lead is converted, read from the server's record (not local state): it is WON,
+ * or it has a Logistics order — which outlives WON when QC rejects the order and writes the
+ * lead's status back (ADR-0085), and refuses a second Convert either way. Truthiness, not
+ * `!== null`, so a response from a backend that predates the field reads as "no order".
+ */
 export const isLeadConverted = (lead: LeadListItem): boolean =>
-  lead.status === CONVERTED_STATUS;
+  lead.status === CONVERTED_STATUS || Boolean(lead.logisticsOrder);
 
 type RowActionsContextValue = {
   onReassign: (lead: LeadListItem) => void;
@@ -100,6 +108,12 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
 
   const pinned = lead.isPinned;
   const converted = isLeadConverted(lead);
+  const locked = orderLockReason(lead.logisticsOrder);
+  // Convert writes WON, so a lead on a pipeline without that stage can't be converted (B12).
+  const stages = usePipelineStages(lead.pipeline);
+  const noConvert = converted
+    ? null
+    : convertBlockReason(lead.pipeline, stages, CONVERTED_STATUS);
 
   return (
     <span className="flex items-center gap-0.5">
@@ -204,32 +218,36 @@ export function LeadRowActions({ lead }: { lead: LeadListItem }) {
           an unconverted lead opens the confirm dialog; a converted lead is non-actionable
           (guarded onClick, aria-disabled) but stays focusable/hoverable so its "Converted"
           tooltip still shows. The green state reads the persisted status, so it survives
-          reload. `disabled` only while another row action is running. */}
-      <Tooltip content={converted ? "Converted" : "Convert"}>
+          reload. `disabled` only while another row action is running. A lead whose
+          pipeline has no WON stage is off the same way, its tooltip saying why (B12). */}
+      <Tooltip content={converted ? "Converted" : (noConvert ?? "Convert")}>
         <button
           type="button"
           aria-label={converted ? "Converted" : "Convert"}
-          aria-disabled={converted || undefined}
+          aria-disabled={converted || noConvert !== null || undefined}
           disabled={busy}
           onClick={() => {
-            if (!converted) ctx?.onConvert(lead);
+            if (!converted && !noConvert) ctx?.onConvert(lead);
           }}
           className={cn(
             "flex size-6 items-center justify-center rounded-full border transition-colors duration-(--duration-shell) ease-shell focus-ring disabled:cursor-not-allowed disabled:opacity-45",
             converted
               ? "cursor-default border-brand bg-brand text-white"
-              : "border-hairline text-ink-muted hover:bg-canvas hover:text-ink",
+              : noConvert
+                ? "cursor-not-allowed border-hairline text-ink-muted opacity-45"
+                : "border-hairline text-ink-muted hover:bg-canvas hover:text-ink",
           )}
         >
           <IconArrowsExchange2 size={14} stroke={1.75} aria-hidden="true" />
         </button>
       </Tooltip>
 
-      {/* Delete — single-lead hard delete (LEAD-10.1 API), confirmed first. */}
-      <Tooltip content="Delete">
+      {/* Delete — single-lead hard delete (LEAD-10.1 API), confirmed first. Off while the
+          lead has a Logistics order, which the server keeps (409); the tooltip says why. */}
+      <Tooltip content={locked ?? "Delete"}>
         <IconButton
           aria-label="Delete"
-          disabled={busy}
+          disabled={busy || locked !== null}
           onClick={() => ctx?.onDelete(lead)}
           tone="danger"
         >

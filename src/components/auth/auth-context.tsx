@@ -16,6 +16,7 @@ import {
   logout as logoutRequest,
   type AuthUser,
 } from "@/services/auth-service";
+import { announce, PIPELINES_CHANGED } from "@/lib/catalog-events";
 import { registerSessionBridge } from "@/lib/session";
 
 /**
@@ -72,6 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const current = await loginRequest({ email, password });
+    // The pipelines lookup is per user (ADR-0093) and cached for the tab's lifetime, so a
+    // sign-in must not inherit the list the previous user of this tab was offered.
+    announce(PIPELINES_CHANGED);
     setUser(current);
     setStatus("authenticated");
     return current;

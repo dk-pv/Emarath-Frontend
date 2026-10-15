@@ -13,9 +13,17 @@ import { PhoneInput } from "@/components/ui/PhoneInput";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Textarea } from "@/components/ui/Textarea";
 import { ApiError } from "@/lib/api-client";
+import { customFieldsPayload } from "@/lib/lead-custom-values";
+import { orderLockReason } from "@/lib/logistics-orders";
+import { MOVE_PIPELINE_HINT } from "@/lib/pipeline-access";
 import { COUNTRIES, STATES_BY_COUNTRY } from "@/constants/countries";
 import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
 import { useLookup } from "@/hooks/use-lookup";
+import { useTagAccess } from "@/hooks/use-tag-access";
+import { useDuplicateCheck } from "@/hooks/use-duplicate-check";
+import { LeadDuplicateWarning } from "@/components/leads/lead-duplicate-warning";
+import { createTag } from "@/services/tags-service";
 import {
   createLead,
   updateLead,
@@ -243,13 +251,21 @@ export function LeadFormDrawer({
     () => (customFields ?? []).filter((field) => layout.shows(field.key)),
     [customFields, layout],
   );
-  // Assigned defaults to the current user on create (verified Workpex behaviour); on edit it
-  // starts from the lead's existing assignees. The id comes from the server session (useAuth),
-  // never a client-typed value, and the backend re-resolves the caller for scope/authorization.
+  // Assigned defaults to the current user on create (verified Workpex behaviour) when they can
+  // be assigned leads at all — an administrator or a marketing analyst cannot, so theirs starts
+  // empty; on edit it starts from the lead's existing assignees. The id comes from the server
+  // session (useAuth), never a client-typed value, and the backend re-resolves the caller for
+  // scope/authorization. Only a manager or an administrator may change it (`reassignLeads`, the
+  // Reassign actions' rule); the server refuses anyone else, so for them the field is locked.
   const { user } = useAuth();
+  const canAssign = can(user?.role, "reassignLeads");
   const [form, setForm] = useState<FormState>(() => {
     if (lead) return formFromEdit(lead);
-    const base = { ...initialForm(), assignedAgentIds: user ? [user.id] : [] };
+    const base = {
+      ...initialForm(),
+      assignedAgentIds:
+        user && can(user.role, "beAssignedLeads") ? [user.id] : [],
+    };
     // Stage-scoped create (Kanban "+"): land the lead in the clicked stage/pipeline.
     if (defaultStatus) base.status = defaultStatus;
     if (defaultPipeline) base.pipeline = defaultPipeline;
@@ -261,12 +277,13 @@ export function LeadFormDrawer({
   const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Seed the picker so every pre-selected assignee shows a name before (or without) the agent
-  // list loading — the current user (create) or the lead's assignees (edit) may not be in the
-  // assignable-agents list at all (e.g. an admin).
+  // list loading — on edit the lead's assignees, who may no longer be assignable (an admin, a
+  // deactivated user) and are kept as they are; on create the current user, only when they are
+  // pre-selected, so an administrator is never offered themselves (the server refuses it).
   const [agents, setAgents] = useState<SelectOption[]>(() =>
     lead
       ? lead.assignedAgents.map((a) => ({ value: a.id, label: a.name }))
-      : user
+      : user && can(user.role, "beAssignedLeads")
         ? [{ value: user.id, label: user.name }]
         : [],
   );
@@ -299,12 +316,11 @@ export function LeadFormDrawer({
           value: agent.id,
           label: agent.name,
         }));
-        // Keep every pre-selected assignee resolvable even when they aren't an
-        // assignable agent (an admin, or a lead's existing assignees on edit), so a
-        // chip never renders as a bare id.
+        // Keep every pre-selected assignee resolvable even when the list no longer offers
+        // them (a lead's existing assignees on edit), so a chip never renders as a bare id.
         const seeds = lead
           ? lead.assignedAgents.map((a) => ({ value: a.id, label: a.name }))
-          : user
+          : user && can(user.role, "beAssignedLeads")
             ? [{ value: user.id, label: user.name }]
             : [];
         for (const seed of seeds) {
@@ -360,7 +376,71 @@ export function LeadFormDrawer({
   const paymentMethods = useLookup("paymentMethods");
   const complaintReasons = useLookup("complaintReasons");
   const products = useLookup("products");
+  // Every active tag, for the labels of tags already on the lead; which of them this user
+  // may *select* is the Admin's call (Tag Permissions, ADR-0091) and comes from useTagAccess.
   const tags = useLookup("tags");
+  const tagAccess = useTagAccess();
+
+  /*
+    The Tags picker offers only what the user may select. A tag already on the lead that they
+    may not select stays visible as a locked chip — its checkbox and its × are disabled — and
+    stays in the form's value, so saving the edit neither hides it nor silently drops it.
+  */
+  const tagOptions = useMemo<SelectOption[]>(() => {
+    if (tagAccess.isLoading || tagAccess.isError) return [];
+    const permitted = new Set(tagAccess.tags.map((tag) => tag.value));
+    const locked = tags.options
+      .filter(
+        (option) =>
+          form.tagIds.includes(option.value) && !permitted.has(option.value),
+      )
+      .map((option) => ({ ...option, disabled: true }));
+    return [...tagAccess.tags, ...locked];
+  }, [tagAccess, tags.options, form.tagIds]);
+  const lockedTagCount = tagOptions.filter((option) => option.disabled).length;
+  // Edit mode: a Logistics order owns the lead's status and pipeline (the server refuses a
+  // change, 409), so both fields are shown but locked; every other field stays editable.
+  const orderLock = orderLockReason(lead?.logisticsOrder);
+  // Edit mode: only a manager or an administrator moves a lead to another pipeline (ADR-0093
+  // B5), so for anyone else Pipeline is shown but locked. Its current value stays listed even
+  // when the lookup does not offer it — a pipeline closed to this user, on a lead they see
+  // because it is assigned to them.
+  const pipelineLock =
+    orderLock ??
+    (editing && !can(user?.role, "moveLeadPipelines")
+      ? MOVE_PIPELINE_HINT
+      : null);
+  const pipelineOptions = useMemo(
+    () =>
+      editing &&
+      form.pipeline &&
+      !pipelines.options.some((option) => option.value === form.pipeline)
+        ? [...pipelines.options, { value: form.pipeline, label: form.pipeline }]
+        : pipelines.options,
+    [editing, form.pipeline, pipelines.options],
+  );
+
+  // Create mode only: an edit's own record would always match itself.
+  const duplicates = useDuplicateCheck({
+    enabled: !editing,
+    primaryPhone: form.primaryPhone,
+    secondaryPhone: form.secondaryPhone,
+    email: form.email,
+  });
+
+  /** Creates a tag from the picker (when Tag Permissions allow it) and selects it. */
+  async function createAndSelectTag(name: string) {
+    try {
+      const tag = await createTag({ name });
+      setForm((prev) => ({ ...prev, tagIds: [...prev.tagIds, tag.id] }));
+    } catch (error) {
+      setApiError(
+        error instanceof ApiError
+          ? error.messages.join(" · ") || error.message
+          : "Could not create the tag. Please try again.",
+      );
+    }
+  }
 
   const stateOptions = useMemo<SelectOption[]>(() => {
     const iso2 = form.country ? ISO2_BY_NAME.get(form.country) : undefined;
@@ -445,15 +525,9 @@ export function LeadFormDrawer({
         actualAmount: form.actualAmount.trim() || undefined,
         forecastedAmount: form.forecastedAmount.trim() || undefined,
         paymentMethod: form.paymentMethod ?? undefined,
-        // Only non-blank values are sent; on update the backend full-replaces, so a
-        // field the user cleared is dropped (LEAD-05.1). Without definitions the key is
-        // omitted, which the backend reads as "leave the custom values alone".
-        customFields: customFields
-          ?.map((field) => ({
-            fieldId: field.id,
-            value: (customValues[field.key] ?? "").trim(),
-          }))
-          .filter((entry) => entry.value !== ""),
+        // Without definitions the key is omitted, which the backend reads as "leave the
+        // custom values alone" — never `[]`, which clears them (lead-custom-values.ts).
+        customFields: customFieldsPayload(customFields, customValues),
       };
       const saved = lead
         ? await updateLead(lead.id, payload)
@@ -541,9 +615,17 @@ export function LeadFormDrawer({
               </FormField>
     ),
     assignedAgentIds: (
-      <FormField label="Assigned">
+      <FormField
+        label="Assigned"
+        hint={
+          canAssign
+            ? undefined
+            : "Only a manager or an administrator can change who a lead is assigned to."
+        }
+      >
                 <MultiSelect
                   searchable
+                  disabled={!canAssign}
                   options={agents}
                   value={form.assignedAgentIds}
                   onChange={(v) => set("assignedAgentIds", v)}
@@ -552,10 +634,16 @@ export function LeadFormDrawer({
               </FormField>
     ),
     status: (
-      <FormField label="Lead Status" required error={errors.status}>
+      <FormField
+        label="Lead Status"
+        required
+        error={errors.status}
+        hint={orderLock ?? undefined}
+      >
               <SearchableSelect
                 searchable={false}
                 clearable
+                disabled={orderLock !== null}
                 options={statusOptions}
                 value={form.status}
                 onChange={(v) => set("status", v)}
@@ -566,13 +654,22 @@ export function LeadFormDrawer({
             </FormField>
     ),
     tagIds: (
-      <FormField label="Tags">
+      <FormField
+        label="Tags"
+        hint={
+          lockedTagCount > 0
+            ? "Locked tags are outside your permissions and can’t be changed."
+            : undefined
+        }
+      >
                 <MultiSelect
                   searchable
-                  options={tags.options}
+                  options={tagOptions}
                   value={form.tagIds}
                   onChange={(v) => set("tagIds", v)}
                   placeholder="Tags"
+                  allowCreate={tagAccess.canCreate}
+                  onCreate={(name) => void createAndSelectTag(name)}
                 />
               </FormField>
     ),
@@ -772,11 +869,17 @@ export function LeadFormDrawer({
               </FormField>
     ),
     pipeline: (
-      <FormField label="Lead Pipeline" required error={errors.pipeline}>
+      <FormField
+        label="Lead Pipeline"
+        required
+        error={errors.pipeline}
+        hint={pipelineLock ?? undefined}
+      >
                 <SearchableSelect
                   searchable={false}
                   clearable
-                  options={pipelines.options}
+                  disabled={pipelineLock !== null}
+                  options={pipelineOptions}
                   value={form.pipeline}
                   onChange={(v) => {
                     // The status belongs to the pipeline; a new pipeline needs one of
@@ -872,6 +975,9 @@ export function LeadFormDrawer({
         }}
       >
         {apiError && <FormError>{apiError}</FormError>}
+
+        {/* Never blocks the Submit button: under Warn the lead is saved either way. */}
+        <LeadDuplicateWarning result={duplicates} />
 
         {/*
           The Lead form's own layout comes from Settings > Data & Schema Management >

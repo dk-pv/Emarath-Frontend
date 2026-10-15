@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { IconHistory, IconInfoCircle } from "@tabler/icons-react";
+import {
+  IconCircleCheck,
+  IconHistory,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import { ApiError, isAbortError } from "@/lib/api-client";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -12,41 +16,17 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Switch } from "@/components/ui/Switch";
 import { useToast } from "@/components/ui/Toast";
-import { cn } from "@/lib/cn";
 import { formatDate, formatTime } from "@/lib/format";
 import {
   fetchDuplicateSettings,
   saveDuplicateSettings,
-  type DuplicateMode,
   type DuplicateSettings,
   type UpdateDuplicateSettingsInput,
 } from "@/services/duplicate-settings-service";
 import { SettingLabel } from "./setting-controls";
 
-/** The reference's two cards, in its order, with its exact copy. */
-const MODES: {
-  value: DuplicateMode;
-  title: string;
-  description: string;
-}[] = [
-  {
-    value: "WARN_ALLOW_SAVE",
-    title: "Warn, allow save",
-    description:
-      "The lead is saved and flagged as a possible duplicate. The rep sees a warning first but can continue.",
-  },
-  {
-    value: "BLOCK_HARD_STOP",
-    title: "Block, hard stop",
-    description:
-      "No lead is created. The enquiry is logged to the Duplicate report instead.",
-  },
-];
-
 const form = (settings: DuplicateSettings): UpdateDuplicateSettingsInput => ({
-  mode: settings.mode,
   allowDuplicateSearch: settings.allowDuplicateSearch,
-  displayAssigneeInfo: settings.displayAssigneeInfo,
   checkArchivedLeads: settings.checkArchivedLeads,
 });
 
@@ -54,22 +34,17 @@ const same = (
   a: UpdateDuplicateSettingsInput,
   b: UpdateDuplicateSettingsInput,
 ) =>
-  a.mode === b.mode &&
   a.allowDuplicateSearch === b.allowDuplicateSearch &&
-  a.displayAssigneeInfo === b.displayAssigneeInfo &&
   a.checkArchivedLeads === b.checkArchivedLeads;
 
 /**
  * Settings → Sales & CRM Configuration → Duplicate Settings.
  *
- * The screen configures what happens *after* a duplicate is found; the matching fields
- * themselves are fixed, which is what the banner states. The saved mode really does gate
- * `POST /api/leads` — Warn saves the lead, Block refuses it and logs the enquiry — so this
- * is policy, not decoration (ADR-0064).
- *
- * The dependent toggles are hidden by mode, as the reference shows, but their values are
- * kept and submitted either way: switching modes and back must not silently discard a
- * choice the user made.
+ * The matching fields themselves are fixed, which is what the banner states. What happens next
+ * is fixed too (ADR-0092): a duplicate is always saved as its own lead and linked to the lead it
+ * duplicates, so the screen states that outcome instead of offering a choice. The earlier
+ * "Block, hard stop" option is gone — no setting here can make a lead be refused. Only the two
+ * toggles that still change something remain.
  */
 export function DuplicateSettingsView() {
   const { toast } = useToast();
@@ -208,60 +183,39 @@ export function DuplicateSettingsView() {
                 isn&apos;t configurable.
               </Alert>
 
-              <h2 className="mt-6 text-base font-semibold text-ink">For leads</h2>
-              <p className="mt-0.5 text-sm text-ink-muted" id="duplicate-mode-help">
-                What should happen when a duplicate is found?
+              <h2 className="mt-6 text-base font-semibold text-ink">
+                For leads
+              </h2>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                What happens when a duplicate is found?
               </p>
 
-              <div
-                role="radiogroup"
-                aria-label="What should happen when a duplicate is found?"
-                aria-describedby="duplicate-mode-help"
-                className="mt-4 grid gap-4 sm:grid-cols-2 lg:max-w-3xl"
-              >
-                {MODES.map((mode) => (
-                  <ModeCard
-                    key={mode.value}
-                    title={mode.title}
-                    description={mode.description}
-                    checked={value.mode === mode.value}
-                    onSelect={() => set("mode", mode.value)}
-                  />
-                ))}
+              <div className="mt-4 lg:max-w-3xl">
+                <OutcomeCard
+                  title="Save and flag as a duplicate"
+                  description="The lead is saved as its own lead and marked as a duplicate of the earlier one. The rep sees a warning first but can continue."
+                />
+                <p className="mt-2 text-xs text-ink-subtle">
+                  Blocking a duplicate lead is not available: a duplicate is
+                  always saved, so no enquiry is lost.
+                </p>
               </div>
 
-              {/*
-                Hidden by mode, as the reference shows — not merely dimmed. The values
-                behind them stay in state and are submitted either way, so switching modes
-                and back restores the configuration.
-              */}
               <div className="mt-6 flex flex-col gap-4">
-                {value.mode === "WARN_ALLOW_SAVE" ? (
-                  <ToggleRow
-                    id="duplicate-allow-search"
-                    label="Ability to search and view Duplicate leads"
-                    hint="Lets users search the Leads list for possible duplicates."
-                    checked={value.allowDuplicateSearch}
-                    onChange={(next) => set("allowDuplicateSearch", next)}
-                  />
-                ) : (
-                  <>
-                    <ToggleRow
-                      id="duplicate-assignee-info"
-                      label="Display Assignee Information for Duplicate Leads"
-                      hint="Shows who owns the matching lead when an enquiry is blocked."
-                      checked={value.displayAssigneeInfo}
-                      onChange={(next) => set("displayAssigneeInfo", next)}
-                    />
-                    <ToggleRow
-                      id="duplicate-check-archived"
-                      label="Check archived leads for duplicates?"
-                      hint="Includes archived leads when matching a new enquiry."
-                      checked={value.checkArchivedLeads}
-                      onChange={(next) => set("checkArchivedLeads", next)}
-                    />
-                  </>
-                )}
+                <ToggleRow
+                  id="duplicate-allow-search"
+                  label="Ability to search and view Duplicate leads"
+                  hint="Saved but not enforced yet: the Leads list's duplicate search stays available to everyone who can see the leads."
+                  checked={value.allowDuplicateSearch}
+                  onChange={(next) => set("allowDuplicateSearch", next)}
+                />
+                <ToggleRow
+                  id="duplicate-check-archived"
+                  label="Check archived leads for duplicates?"
+                  hint="Includes archived leads when matching a new enquiry, so an archived lead can be the one a new duplicate is linked to."
+                  checked={value.checkArchivedLeads}
+                  onChange={(next) => set("checkArchivedLeads", next)}
+                />
               </div>
             </>
           )}
@@ -332,60 +286,34 @@ export function DuplicateSettingsView() {
 }
 
 /**
- * One duplicate-handling option.
- *
- * Local rather than the shared `RadioCard`: the reference draws a title over a
- * description with the indicator on the *right*, where the General Settings card is a
- * single line with the radio on the left. The native radio stays inside it, so the group
- * keeps arrow-key navigation, focus and screen-reader semantics.
+ * The one outcome duplicate handling has, drawn like the reference's selected card (a title over
+ * a description, indicator on the right) but not selectable: there is nothing to choose.
  */
-function ModeCard({
+function OutcomeCard({
   title,
   description,
-  checked,
-  onSelect,
 }: {
   title: string;
   description: string;
-  checked: boolean;
-  onSelect: () => void;
 }) {
   return (
-    <label
-      className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-surface border p-4 transition-colors duration-(--duration-shell) ease-shell has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand has-[:focus-visible]:ring-offset-2",
-        checked
-          ? "border-brand bg-brand-subtle"
-          : "border-hairline bg-surface hover:border-brand/40",
-      )}
+    <div
+      aria-label={title}
+      className="flex items-start gap-3 rounded-surface border border-brand bg-brand-subtle p-4"
     >
       <span className="min-w-0 flex-1">
-        <span
-          className={cn(
-            "block text-sm font-semibold",
-            checked ? "text-brand-strong" : "text-ink",
-          )}
-        >
+        <span className="block text-sm font-semibold text-brand-strong">
           {title}
         </span>
         <span className="mt-1 block text-sm text-ink-muted">{description}</span>
       </span>
-
-      <span className="relative mt-0.5 inline-flex shrink-0">
-        <input
-          type="radio"
-          name="duplicate-mode"
-          aria-label={title}
-          checked={checked}
-          onChange={onSelect}
-          className="peer size-4 shrink-0 appearance-none rounded-full border-2 border-hairline bg-surface outline-none transition-colors duration-(--duration-shell) ease-shell checked:border-brand"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 m-auto size-2 rounded-full bg-brand opacity-0 peer-checked:opacity-100"
-        />
-      </span>
-    </label>
+      <IconCircleCheck
+        size={20}
+        stroke={1.75}
+        aria-hidden="true"
+        className="mt-0.5 shrink-0 text-brand"
+      />
+    </div>
   );
 }
 

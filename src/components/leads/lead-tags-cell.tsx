@@ -44,6 +44,15 @@ type TagsContextValue = {
   options: readonly TagOption[];
   /** The lead whose tag change is in flight — freezes that cell's editor. */
   pendingId: string | null;
+  /** Tag Permissions (ADR-0091): may the caller create a tag from this picker. */
+  canCreate?: boolean;
+  /** Creates the tag named `name` and applies it to `lead`; the parent owns the write and feedback. */
+  onCreate?: (lead: LeadListItem, name: string) => void;
+  /**
+   * True for a tag the caller may not change. It stays on the lead as a chip, but without an ×:
+   * the server would refuse the removal, so the control is not offered.
+   */
+  isLocked?: (tagId: string) => boolean;
 };
 
 const TagsContext = createContext<TagsContextValue | null>(null);
@@ -109,6 +118,17 @@ function InteractiveTagsCell({
   }, [ctx.options, query, lead.tags]);
 
   const hasTags = lead.tags.length > 0;
+
+  // A new name can be created only when the caller may, and only if no tag of that name is
+  // already offered or applied (a name the caller may not select would just come back 409).
+  const trimmed = query.trim();
+  const canCreateNamed =
+    ctx.canCreate === true &&
+    ctx.onCreate !== undefined &&
+    trimmed !== "" &&
+    ![...ctx.options, ...lead.tags].some(
+      (tag) => tag.name.toLowerCase() === trimmed.toLowerCase(),
+    );
 
   return (
     <>
@@ -185,7 +205,11 @@ function InteractiveTagsCell({
                     "h-auto py-0.5 text-xs",
                     tagToneClass(tag.name),
                   )}
-                  onRemove={() => ctx.onRemove(lead, tag.id)}
+                  onRemove={
+                    ctx.isLocked?.(tag.id)
+                      ? undefined
+                      : () => ctx.onRemove(lead, tag.id)
+                  }
                   removeLabel={`Remove ${tag.name}`}
                 >
                   {tag.name}
@@ -220,6 +244,24 @@ function InteractiveTagsCell({
               ))
             )}
           </div>
+
+          {canCreateNamed && (
+            <button
+              type="button"
+              onClick={() => ctx.onCreate?.(lead, trimmed)}
+              className="focus-ring-inset flex w-full items-center gap-2 border-t border-hairline px-4 py-2 text-left text-sm text-brand transition-colors duration-(--duration-shell) ease-shell hover:bg-canvas"
+            >
+              <IconPlus
+                size={14}
+                stroke={2}
+                className="shrink-0"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 truncate">
+                Create “{trimmed}”
+              </span>
+            </button>
+          )}
         </div>
 
         {pending && (

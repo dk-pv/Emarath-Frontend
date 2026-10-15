@@ -431,32 +431,32 @@ export function LeadFormBuilder({ formId }: { formId?: string }) {
               </div>
 
               {/*
-                Only while editing. The reference's create screen carries Form Name and
-                Status and nothing else — a new form becomes the default by being edited,
-                which is also the only moment the "which form loses it" question is real.
+                On create as well as edit (client fix, 2026-10-14). The reference's create
+                screen carries Form Name and Status only, so a new form could become the
+                default only by being saved and then edited — and until then it changed
+                nothing. Turning it on makes the new form the one the Lead drawer renders,
+                clearing the previous default server-side in the same transaction.
               */}
-              {formId && (
-                <div className="flex min-h-control-lg flex-1 items-center justify-between gap-3 rounded-control border border-hairline bg-canvas px-4 py-2">
-                  <SettingLabel
-                    htmlFor="lead-form-default"
-                    className="cursor-pointer"
-                  >
-                    Default Form
-                  </SettingLabel>
-                  <Switch
-                    id="lead-form-default"
-                    aria-label="Default form"
-                    checked={isDefault}
-                    // Clearing the default here would leave the module with none; another
-                    // form is made default instead, which clears this one server-side.
-                    disabled={existing?.isDefault === true}
-                    onChange={(event) => {
-                      setIsDefault(event.target.checked);
-                      if (event.target.checked) setIsActive(true);
-                    }}
-                  />
-                </div>
-              )}
+              <div className="flex min-h-control-lg flex-1 items-center justify-between gap-3 rounded-control border border-hairline bg-canvas px-4 py-2">
+                <SettingLabel
+                  htmlFor="lead-form-default"
+                  className="cursor-pointer"
+                >
+                  Default Form
+                </SettingLabel>
+                <Switch
+                  id="lead-form-default"
+                  aria-label="Default form"
+                  checked={isDefault}
+                  // Clearing the default here would leave the module with none; another
+                  // form is made default instead, which clears this one server-side.
+                  disabled={existing?.isDefault === true}
+                  onChange={(event) => {
+                    setIsDefault(event.target.checked);
+                    if (event.target.checked) setIsActive(true);
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>

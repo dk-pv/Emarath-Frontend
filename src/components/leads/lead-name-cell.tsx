@@ -4,6 +4,7 @@ import Link from "next/link";
 import { IconArrowUpRight } from "@tabler/icons-react";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { useLeadDetail } from "@/components/leads/lead-detail-context";
+import { LeadDuplicateBadge } from "@/components/leads/lead-duplicate-notice";
 import type { LeadListItem } from "@/services/leads-service";
 
 /**
@@ -21,7 +22,12 @@ export function LeadNameCell({ lead }: { lead: LeadListItem }) {
   const detail = useLeadDetail();
 
   if (!detail) {
-    return <CustomerNameLink leadId={lead.id} name={lead.name} />;
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <CustomerNameLink leadId={lead.id} name={lead.name} />
+        <LeadDuplicateBadge lead={lead} />
+      </span>
+    );
   }
 
   return (
@@ -33,6 +39,7 @@ export function LeadNameCell({ lead }: { lead: LeadListItem }) {
       >
         {lead.name}
       </button>
+      <LeadDuplicateBadge lead={lead} />
       {/* The row is a `group` (the sticky first column), so the arrow rests hidden
           and appears on row hover or keyboard focus — Workpex's open-in-page affordance. */}
       <Link

@@ -24,6 +24,8 @@ import { fetchStages, type Stage } from "@/services/stages-service";
  * legacy value with no stage) falls back to neutral, never a guessed hue.
  */
 type StagesContextValue = {
+  /** The pipeline these stages belong to — the app-wide catalogue's is the default one. */
+  pipeline: string;
   /** Stages in display order — the board's column set and the dropdown's options. */
   stages: Stage[];
   status: "loading" | "ready" | "error";
@@ -119,13 +121,14 @@ export function StagesProvider({
 
   const value = useMemo<StagesContextValue>(
     () => ({
+      pipeline,
       stages,
       status,
       reload,
       refresh,
       colorsFor: (statusName) => stageColorClasses(colorByName.get(statusName)),
     }),
-    [stages, status, reload, refresh, colorByName],
+    [pipeline, stages, status, reload, refresh, colorByName],
   );
 
   return <StagesContext value={value}>{children}</StagesContext>;

@@ -23,6 +23,7 @@ import {
   REASON_MAX_LENGTH,
   dispatchAwbError,
   logisticsOrdersParams,
+  orderLockReason,
   logisticsStatusLabel,
   orderActionRequest,
   orderEditChanges,
@@ -366,5 +367,14 @@ for (const action of ORDER_ACTIONS) {
     `the actions panel has a dialog for ${action}`,
   );
 }
+
+// A lead with an order has its Delete, Convert, status and pipeline controls off, and says why
+// with the order's own number; a lead without one — a legacy WON lead included — keeps them.
+assert.equal(
+  orderLockReason({ orderNumber: 42, status: "QC_REJECTED" }),
+  "Logistics order #42 manages this lead’s status and pipeline, and the lead can’t be deleted.",
+);
+assert.equal(orderLockReason(null), null);
+assert.equal(orderLockReason(undefined), null);
 
 console.log("logistics-orders.ts: all checks passed");

@@ -8,6 +8,7 @@ import {
   IconPencil,
   IconPlus,
   IconTrash,
+  IconUsersGroup,
 } from "@tabler/icons-react";
 import { ApiError, isAbortError } from "@/lib/api-client";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { useToast } from "@/components/ui/Toast";
 import { deleteTag, fetchTags, type TagNode } from "@/services/tags-service";
 import { TagFormDrawer, type TagFormState } from "./tag-form-drawer";
+import { TagPermissionsDrawer } from "./tag-permissions-drawer";
 import type { TableColumn } from "@/types";
 
 /** The reference footer opens on 10, the first of the shared `PAGE_SIZE_OPTIONS`. */
@@ -44,6 +46,7 @@ export function TagsView() {
   const [reloadToken, setReloadToken] = useState(0);
 
   const [form, setForm] = useState<TagFormState | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [deleting, setDeleting] = useState<TagNode | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -225,13 +228,24 @@ export function TagsView() {
             Configure your company&apos;s basic settings And regional preferences
           </p>
         </div>
-        <Button
-          aria-label="Add Tags"
-          onClick={() => setForm({ mode: "create", tag: null })}
-        >
-          <IconPlus size={16} stroke={2} aria-hidden="true" />
-          Add Tags
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Which teams and users may select or create tags (ADR-0091). */}
+          <Button
+            variant="secondary"
+            aria-label="Tag Permissions"
+            onClick={() => setPermissionsOpen(true)}
+          >
+            <IconUsersGroup size={16} stroke={1.75} aria-hidden="true" />
+            Tag Permissions
+          </Button>
+          <Button
+            aria-label="Add Tags"
+            onClick={() => setForm({ mode: "create", tag: null })}
+          >
+            <IconPlus size={16} stroke={2} aria-hidden="true" />
+            Add Tags
+          </Button>
+        </div>
       </div>
 
       <div className="scrollbar-slim min-h-0 flex-1 overflow-auto p-5">
@@ -285,6 +299,12 @@ export function TagsView() {
           });
           reload();
         }}
+      />
+
+      <TagPermissionsDrawer
+        open={permissionsOpen}
+        onClose={() => setPermissionsOpen(false)}
+        tags={rows ?? []}
       />
 
       <ConfirmDialog

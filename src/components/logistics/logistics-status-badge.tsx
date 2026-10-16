@@ -5,8 +5,11 @@ import {
 } from "@/lib/logistics-orders";
 import type { Tone } from "@/types";
 
-/** Tint only — the label always carries the meaning, so the tone never has to. */
-const TONE: Record<LogisticsStatus, Tone> = {
+/**
+ * Tint only — the label always carries the meaning, so the tone never has to. Shared with the
+ * Pipeline columns and the count cards, so one status reads in one colour across the screen.
+ */
+export const LOGISTICS_STATUS_TONE: Record<LogisticsStatus, Tone> = {
   INITIAL: "neutral",
   QC_VERIFIED: "info",
   QC_REJECTED: "warning",
@@ -19,7 +22,7 @@ const TONE: Record<LogisticsStatus, Tone> = {
 /** An order's current status, as the shared `Tag` pill. An unknown status reads neutral. */
 export function LogisticsStatusBadge({ status }: { status: string }) {
   return (
-    <Tag tone={TONE[status as LogisticsStatus] ?? "neutral"}>
+    <Tag tone={LOGISTICS_STATUS_TONE[status as LogisticsStatus] ?? "neutral"}>
       {logisticsStatusLabel(status)}
     </Tag>
   );

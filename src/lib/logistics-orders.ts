@@ -23,9 +23,14 @@ export const LOGISTICS_STATUSES = [
 
 export type LogisticsStatus = (typeof LOGISTICS_STATUSES)[number];
 
-/** The names the specification gives the statuses (§6); RTO keeps the client's acronym. */
+/**
+ * How each status reads on screen. INITIAL is shown by what it means to Logistics — the order is
+ * waiting for QC, the client dashboard's "QC pending" (§10) — while the status itself, in the API
+ * and the database, stays INITIAL (§6). The rest are the specification's names; RTO keeps the
+ * client's acronym.
+ */
 export const LOGISTICS_STATUS_LABEL: Record<LogisticsStatus, string> = {
-  INITIAL: "Initial",
+  INITIAL: "QC Pending",
   QC_VERIFIED: "QC Verified",
   QC_REJECTED: "QC Rejected",
   DISPATCHED: "Dispatched",
@@ -46,9 +51,15 @@ export function orderNumberLabel(orderNumber: number): string {
 
 /** The Logistics order a lead converted into, as a lead response carries it. */
 export type LeadLogisticsOrder = {
+  id: string;
   orderNumber: number;
   status: LogisticsStatus;
 };
+
+/** The Logistics screen with this order's panel open — where a lead links to its order. */
+export function logisticsOrderHref(orderId: string): string {
+  return `/logistics?order=${encodeURIComponent(orderId)}`;
+}
 
 /**
  * Why a lead's Delete, Convert, status and pipeline controls are off, or null when they are
@@ -66,25 +77,392 @@ export function orderLockReason(
 
 export const LOGISTICS_ORDERS_PATH = "/logistics/orders";
 
-export type LogisticsOrdersQuery = {
-  page: number;
-  size: number;
-  status?: LogisticsStatus;
+/** The queue's counts per status (`GET /logistics/orders/summary`). */
+export const LOGISTICS_SUMMARY_PATH = `${LOGISTICS_ORDERS_PATH}/summary`;
+
+/** The columns the queue can be ordered by — the backend's whitelist, nothing else. */
+export const LOGISTICS_SORT_KEYS = [
+  "orderNumber",
+  "customerName",
+  "status",
+  "convertedAt",
+  "statusChangedAt",
+  "deliveryDate",
+] as const;
+
+export type LogisticsSortKey = (typeof LOGISTICS_SORT_KEYS)[number];
+
+export type LogisticsSortDirection = "asc" | "desc";
+
+/** The queue's order before anyone sorts it: newest first, as the API defaults. */
+export const DEFAULT_LOGISTICS_SORT: {
+  key: LogisticsSortKey;
+  direction: LogisticsSortDirection;
+} = { key: "convertedAt", direction: "desc" };
+
+export function isLogisticsSortKey(value: string): value is LogisticsSortKey {
+  return (LOGISTICS_SORT_KEYS as readonly string[]).includes(value);
+}
+
+/** Orders per Pipeline column per request; "Load more" asks for the next page. */
+export const BOARD_PAGE_SIZE = 20;
+
+/**
+ * Where an order's delivery date stands on the business day (ADR-0094). The backend decides — in
+ * the business timezone, never this browser's — and sends each order's bucket with it.
+ */
+export const DELIVERY_BUCKETS = [
+  "today",
+  "tomorrow",
+  "future",
+  "overdue",
+  "none",
+] as const;
+
+export type DeliveryBucket = (typeof DELIVERY_BUCKETS)[number];
+
+export const DELIVERY_BUCKET_LABEL: Record<DeliveryBucket, string> = {
+  today: "Today",
+  tomorrow: "Tomorrow",
+  future: "Future-Dated",
+  overdue: "Overdue",
+  none: "No Delivery Date",
+};
+
+/** The business day the API measured the buckets against, and its IANA timezone. */
+export type BusinessDay = { timeZone: string; today: string; tomorrow: string };
+
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Whether `value` is a real calendar day written `YYYY-MM-DD` in 2000–2099 — the backend's rule
+ * for a delivery date. Checked on the parts, never through a local-time `Date`.
+ */
+export function isDateOnly(value: string): boolean {
+  const match = DATE_ONLY.exec(value);
+  if (!match) return false;
+  const [year, month, day] = match.slice(1).map(Number);
+  if (year < 2000 || year > 2099) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/**
+ * `15-10-2026` — a date-only value in the app's date format, rearranged as text so no timezone
+ * can move it a day (`formatDate` reads its input as an instant). Anything else is shown as is.
+ */
+export function formatDateOnly(value: string): string {
+  const match = DATE_ONLY.exec(value);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/** `Thu` — a date-only value's weekday, from its calendar parts (UTC), so no timezone moves it. */
+export function weekdayOf(value: string): string {
+  const match = DATE_ONLY.exec(value);
+  if (!match) return "";
+  const [year, month, day] = match.slice(1).map(Number);
+  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+}
+
+/**
+ * The calendar day in `timeZone` at `now`, `YYYY-MM-DD` — only to notice that the business day has
+ * turned over, so the screen can read again. The API alone decides which bucket an order is in.
+ */
+export function dayIn(timeZone: string, now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((each) => each.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+/** The filter limits the backend's DTO sets: its columns' lengths and a value count. */
+export const COUNTRY_MAX_LENGTH = 64;
+export const CITY_MAX_LENGTH = 120;
+export const MAX_FILTER_VALUES = 100;
+
+/**
+ * What narrows the orders: any of the chosen statuses, delivery buckets, countries and cities (none
+ * chosen is no filter), and the search. The List, every Pipeline column and the counts send the
+ * same filters.
+ */
+export type LogisticsFilters = {
+  status?: readonly LogisticsStatus[];
+  delivery?: readonly DeliveryBucket[];
+  /** One delivery day, `YYYY-MM-DD` — like a bucket, an alternative within the Delivery Date filter. */
+  deliveryOn?: string;
+  country?: readonly string[];
+  city?: readonly string[];
   search?: string;
 };
 
-/** Only what narrows the list is sent: no status means every status, no search none. */
+/** The filter keys sent as repeated values, in the order they are sent. */
+const MULTI_FILTERS = ["status", "delivery", "country", "city"] as const;
+
+export type LogisticsOrdersQuery = LogisticsFilters & {
+  page: number;
+  size: number;
+  sort?: LogisticsSortKey;
+  direction?: LogisticsSortDirection;
+};
+
+/** Only what narrows is sent, each chosen value as its own repeated key. */
+export function logisticsFilterParams(
+  filters: LogisticsFilters,
+  params = new URLSearchParams(),
+): URLSearchParams {
+  for (const key of MULTI_FILTERS) {
+    for (const value of filters[key] ?? []) params.append(key, value);
+  }
+  if (filters.deliveryOn) params.set("deliveryOn", filters.deliveryOn);
+  const search = filters.search?.trim();
+  if (search) params.set("search", search);
+  return params;
+}
+
+/**
+ * The filters a `logisticsFilterParams` request names — its inverse, so the request string can
+ * key the filters: a change elsewhere in the address (the page, the open order) re-reads nothing.
+ */
+export function readLogisticsFilters(
+  params: URLSearchParams,
+): LogisticsFilters {
+  const status = params.getAll("status");
+  const delivery = params.getAll("delivery");
+  const deliveryOn = params.get("deliveryOn") ?? "";
+  return {
+    status: LOGISTICS_STATUSES.filter((value) => status.includes(value)),
+    delivery: DELIVERY_BUCKETS.filter((value) => delivery.includes(value)),
+    deliveryOn: isDateOnly(deliveryOn) ? deliveryOn : undefined,
+    country: params.getAll("country"),
+    city: params.getAll("city"),
+    search: params.get("search") ?? undefined,
+  };
+}
+
 export function logisticsOrdersParams(
   query: LogisticsOrdersQuery,
 ): URLSearchParams {
-  const params = new URLSearchParams({
-    page: String(query.page),
-    size: String(query.size),
-  });
-  if (query.status) params.set("status", query.status);
-  const search = query.search?.trim();
-  if (search) params.set("search", search);
+  const params = logisticsFilterParams(
+    query,
+    new URLSearchParams({ page: String(query.page), size: String(query.size) }),
+  );
+  if (query.sort) params.set("sort", query.sort);
+  if (query.direction) params.set("direction", query.direction);
   return params;
+}
+
+/** How many orders hold one country or city value; `null` is an order with none recorded. */
+export type RegionCount = { value: string | null; count: number };
+
+/**
+ * How many of the caller's orders the filters select: per status (every status, zero included)
+ * and per country and city, most first, none recorded last.
+ */
+export type LogisticsSummary = {
+  counts: Record<LogisticsStatus, number>;
+  total: number;
+  countries: RegionCount[];
+  cities: RegionCount[];
+  /** The business day the delivery buckets were measured against. */
+  businessDay: BusinessDay;
+};
+
+/** The delivery schedule's counts (`GET /logistics/orders/delivery-schedule`). */
+export const LOGISTICS_SCHEDULE_PATH = `${LOGISTICS_ORDERS_PATH}/delivery-schedule`;
+
+/** One day of the delivery schedule: its orders, and how many hold each status. */
+export type DeliveryScheduleDay = {
+  date: string;
+  total: number;
+  counts: Record<LogisticsStatus, number>;
+};
+
+/**
+ * How many orders every filter but the delivery date's own selects: per bucket, and per day for
+ * the coming two weeks from the business day's today. Each count is the List's total once that
+ * bucket or day is chosen.
+ */
+export type LogisticsDeliverySchedule = {
+  businessDay: BusinessDay;
+  buckets: Record<DeliveryBucket, number>;
+  days: DeliveryScheduleDay[];
+};
+
+/** The filters the schedule is read with: every one but the delivery date's, which it never applies. */
+export function scheduleFilters(filters: LogisticsFilters): LogisticsFilters {
+  return { ...filters, delivery: [], deliveryOn: undefined };
+}
+
+/** What the Delivery Date filter holds: any of the chosen buckets, or the one chosen day. */
+export type DeliveryChoice = {
+  delivery: DeliveryBucket[];
+  deliveryOn: string | null;
+};
+
+export const NO_DELIVERY_CHOICE: DeliveryChoice = {
+  delivery: [],
+  deliveryOn: null,
+};
+
+/** Choosing a bucket on the schedule: that bucket alone. */
+export function bucketChoice(bucket: DeliveryBucket): DeliveryChoice {
+  return { delivery: [bucket], deliveryOn: null };
+}
+
+/**
+ * Choosing a day: Today and Tomorrow as their buckets, so the choice moves on with the business
+ * day as the client's "Tomorrow's Deliveries" does; any other day as itself.
+ */
+export function dayChoice(date: string, day: BusinessDay): DeliveryChoice {
+  if (date === day.today) return bucketChoice("today");
+  if (date === day.tomorrow) return bucketChoice("tomorrow");
+  return { delivery: [], deliveryOn: date };
+}
+
+/** Whether the filter holds exactly `choice` — only then does the schedule show it as chosen. */
+export function isDeliveryChoice(
+  current: DeliveryChoice,
+  choice: DeliveryChoice,
+): boolean {
+  return (
+    current.deliveryOn === choice.deliveryOn &&
+    current.delivery.length === choice.delivery.length &&
+    choice.delivery.every((bucket) => current.delivery.includes(bucket))
+  );
+}
+
+/** The country and city values the filter offers (`GET /logistics/orders/filter-options`). */
+export const LOGISTICS_FILTER_OPTIONS_PATH = `${LOGISTICS_ORDERS_PATH}/filter-options`;
+
+export type LogisticsFilterOptions = { countries: string[]; cities: string[] };
+
+/** The statuses a screen shows: the chosen ones, or every status when none is chosen. */
+export function shownStatuses(
+  status: readonly LogisticsStatus[],
+): readonly LogisticsStatus[] {
+  return status.length > 0 ? status : LOGISTICS_STATUSES;
+}
+
+/** The two ways the screen shows the same orders. */
+export type LogisticsView = "list" | "pipeline";
+
+/**
+ * Everything the Logistics screen keeps in its address, so a reload or a shared link opens it
+ * as it was: the view, the filters, the search, the page, the sort and the open order.
+ */
+export type LogisticsUrlState = {
+  view: LogisticsView;
+  status: LogisticsStatus[];
+  delivery: DeliveryBucket[];
+  deliveryOn: string | null;
+  country: string[];
+  city: string[];
+  q: string;
+  page: number;
+  size: number;
+  sort: LogisticsSortKey;
+  direction: LogisticsSortDirection;
+  order: string | null;
+};
+
+/** The screen's own limits, passed in so this module stays import-free. */
+export type LogisticsUrlLimits = {
+  pageSizes: readonly number[];
+  defaultSize: number;
+  searchMax: number;
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** One value each, trimmed; a blank or over-long one — which could match no order — dropped. */
+function filterValues(values: string[], maxLength: number): string[] {
+  const kept = values
+    .map((value) => value.trim())
+    .filter((value) => value && value.length <= maxLength);
+  return [...new Set(kept)].slice(0, MAX_FILTER_VALUES);
+}
+
+/**
+ * Reads the screen's state from the address. Anything unknown or malformed falls back to its
+ * default rather than reaching the API as a request it would refuse.
+ */
+export function parseLogisticsUrl(
+  params: URLSearchParams,
+  limits: LogisticsUrlLimits,
+): LogisticsUrlState {
+  const page = Number(params.get("page"));
+  const size = Number(params.get("size"));
+  const sort = params.get("sort") ?? "";
+  const direction = params.get("direction");
+  const order = params.get("order") ?? "";
+  const statuses = params.getAll("status");
+  const buckets = params.getAll("delivery");
+  const deliveryOn = params.get("deliveryOn") ?? "";
+  return {
+    view: params.get("view") === "pipeline" ? "pipeline" : "list",
+    // In lifecycle order whatever the address's order, so one choice is always one address.
+    status: LOGISTICS_STATUSES.filter((status) => statuses.includes(status)),
+    delivery: DELIVERY_BUCKETS.filter((bucket) => buckets.includes(bucket)),
+    deliveryOn: isDateOnly(deliveryOn) ? deliveryOn : null,
+    country: filterValues(params.getAll("country"), COUNTRY_MAX_LENGTH),
+    city: filterValues(params.getAll("city"), CITY_MAX_LENGTH),
+    q: (params.get("q") ?? "").trim().slice(0, limits.searchMax),
+    page: Number.isSafeInteger(page) && page >= 1 ? page : 1,
+    size: limits.pageSizes.includes(size) ? size : limits.defaultSize,
+    sort: isLogisticsSortKey(sort) ? sort : DEFAULT_LOGISTICS_SORT.key,
+    direction:
+      direction === "asc" || direction === "desc"
+        ? direction
+        : DEFAULT_LOGISTICS_SORT.direction,
+    order: UUID.test(order) ? order : null,
+  };
+}
+
+/** The address for a state: only what differs from the defaults, so a plain visit stays plain. */
+export function logisticsUrlParams(
+  state: LogisticsUrlState,
+  defaultSize: number,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (state.view !== "list") params.set("view", state.view);
+  for (const key of MULTI_FILTERS) {
+    for (const value of state[key]) params.append(key, value);
+  }
+  if (state.deliveryOn) params.set("deliveryOn", state.deliveryOn);
+  const q = state.q.trim();
+  if (q) params.set("q", q);
+  if (state.page > 1) params.set("page", String(state.page));
+  if (state.size !== defaultSize) params.set("size", String(state.size));
+  if (
+    state.sort !== DEFAULT_LOGISTICS_SORT.key ||
+    state.direction !== DEFAULT_LOGISTICS_SORT.direction
+  ) {
+    params.set("sort", state.sort);
+    params.set("direction", state.direction);
+  }
+  if (state.order) params.set("order", state.order);
+  return params;
+}
+
+/**
+ * What the screen says when orders can't be loaded. A refusal is not a dropped connection: a
+ * 403 means the role has no access, a 400 means the address carried filters the API refused.
+ */
+export function ordersLoadError(status: number | undefined): string {
+  if (status === 403) {
+    return "Your role doesn’t have access to Logistics orders.";
+  }
+  if (status === 400) {
+    return "The filters in this page’s address aren’t valid. Try again to clear them.";
+  }
+  return "Something went wrong while loading orders. Check your connection and try again.";
 }
 
 /**
@@ -172,6 +550,8 @@ export const ORDER_EDIT_FIELDS = [
   },
   { key: "orderValue", label: "Order Value", maxLength: 14, numeric: true },
   { key: "paymentMethod", label: "Payment Method", maxLength: 64 },
+  // Open client question D4 (ADR-0094): until answered, the date follows this edit's rules.
+  { key: "deliveryDate", label: "Delivery Date", maxLength: 10, date: true },
 ] as const;
 
 export type OrderEditField = (typeof ORDER_EDIT_FIELDS)[number]["key"];
@@ -213,6 +593,8 @@ export function orderEditErrors(
     } else if ("numeric" in field && value && !NUMBER.test(value)) {
       errors[field.key] =
         `${field.label} must be a number with at most 10 digits and 2 decimals.`;
+    } else if ("date" in field && value && !isDateOnly(value)) {
+      errors[field.key] = `${field.label} must be a real date.`;
     }
   }
   return errors;

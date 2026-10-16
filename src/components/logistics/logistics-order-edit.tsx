@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { FormField } from "@/components/ui/FormField";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import { dateKey, keyBound } from "@/lib/date-time-range";
 import {
   ORDER_EDIT_FIELDS,
   orderEditChanges,
@@ -41,6 +43,13 @@ export function LogisticsOrderEditModal({
   );
   const changes = orderEditChanges(initial, draft);
   const changed = Object.keys(changes).length > 0;
+
+  const setValue = (key: OrderEditField, value: string) => {
+    setDraft((current) => ({ ...current, [key]: value }));
+    if (errors[key]) {
+      setErrors((current) => ({ ...current, [key]: undefined }));
+    }
+  };
 
   const save = () => {
     const found = orderEditErrors(draft);
@@ -83,24 +92,42 @@ export function LogisticsOrderEditModal({
               required={"required" in field}
               error={errors[field.key]}
             >
-              {(control) => (
-                <Input
-                  {...control}
-                  value={draft[field.key]}
-                  maxLength={field.maxLength}
-                  inputMode={"numeric" in field ? "decimal" : undefined}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setDraft((current) => ({ ...current, [field.key]: value }));
-                    if (errors[field.key]) {
-                      setErrors((current) => ({
-                        ...current,
-                        [field.key]: undefined,
-                      }));
+              {(control) =>
+                "date" in field ? (
+                  // A calendar day: the picker's local date is kept as its YYYY-MM-DD parts,
+                  // never converted to an instant, so no timezone can move it.
+                  <div className="flex items-center gap-2">
+                    <DatePicker
+                      numeric
+                      className="min-w-0 flex-1"
+                      value={keyBound(draft[field.key]).day}
+                      onChange={(day) =>
+                        setValue(field.key, day ? dateKey(day) : "")
+                      }
+                      placeholder="DD/MM/YYYY"
+                    />
+                    {draft[field.key] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setValue(field.key, "")}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Input
+                    {...control}
+                    value={draft[field.key]}
+                    maxLength={field.maxLength}
+                    inputMode={"numeric" in field ? "decimal" : undefined}
+                    onChange={(event) =>
+                      setValue(field.key, event.target.value)
                     }
-                  }}
-                />
-              )}
+                  />
+                )
+              }
             </FormField>
           ))}
         </div>

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconEye, IconTruck } from "@tabler/icons-react";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
-import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { IconButton } from "@/components/ui/IconButton";
@@ -12,18 +11,21 @@ import { TabStrip } from "@/components/ui/Tabs";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/components/auth/auth-context";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
-import { LogisticsOrderDrawer } from "@/components/logistics/logistics-order-drawer";
+import { LogisticsDeliveryDate } from "@/components/logistics/logistics-delivery-date";
 import { LogisticsStatusBadge } from "@/components/logistics/logistics-status-badge";
 import { can } from "@/constants/permissions";
-import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
-import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { ApiError, isAbortError } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/format";
 import {
   LOGISTICS_STATUSES,
   LOGISTICS_STATUS_LABEL,
+  isLogisticsSortKey,
   orderNumberLabel,
+  ordersLoadError,
+  type LogisticsFilters,
   type LogisticsOrdersQuery,
   type LogisticsStatus,
+  type LogisticsUrlState,
 } from "@/lib/logistics-orders";
 import {
   fetchLogisticsOrders,
@@ -49,85 +51,116 @@ type Loaded = {
   total: number;
 };
 
+type Failed = { query: LogisticsOrdersQuery; status?: number };
+
 /**
  * One page of orders and its lifecycle, by the `useActivitiesList` rules: a result counts only
  * while it answers the query in hand (a slow earlier page cannot repaint a newer one), and no
- * state is set synchronously inside the effect.
+ * state is set synchronously inside the effect. A `reloadToken` change re-reads the same page
+ * in the background, keeping its rows on screen until the new ones arrive.
  */
-function useLogisticsOrders(query: LogisticsOrdersQuery) {
+function useLogisticsOrders(query: LogisticsOrdersQuery, reloadToken: number) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [failedQuery, setFailedQuery] = useState<LogisticsOrdersQuery | null>(
-    null,
-  );
-  const [reloadToken, setReloadToken] = useState(0);
+  const [failed, setFailed] = useState<Failed | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
     fetchLogisticsOrders(query, controller.signal)
       .then((result) => {
-        if (active) {
-          setLoaded({ query, rows: result.rows, total: result.total });
-        }
+        if (!active) return;
+        setLoaded({ query, rows: result.rows, total: result.total });
+        setFailed(null);
       })
       .catch((error: unknown) => {
-        if (!active) return;
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        setFailedQuery(query);
+        if (!active || isAbortError(error)) return;
+        setFailed({
+          query,
+          status: error instanceof ApiError ? error.status : undefined,
+        });
       });
     return () => {
       active = false;
       controller.abort();
     };
-  }, [query, reloadToken]);
+  }, [query, reloadToken, retryToken]);
 
   const isCurrent = loaded?.query === query;
-  const isError = failedQuery === query;
+  const isError = failed?.query === query;
   return {
     rows: isCurrent ? loaded.rows : [],
     total: isCurrent ? loaded.total : 0,
     isLoading: !isCurrent && !isError,
-    isError,
-    refetch: () => {
-      setFailedQuery(null);
-      setReloadToken((token) => token + 1);
-    },
+    error: isError ? { status: failed.status } : null,
+    retry: () => setRetryToken((token) => token + 1),
   };
 }
 
 /**
- * The Logistics order queue (Phase 4 foundation, ADR-0085): every order the caller may read,
- * newest first, narrowed by status and a server-side search. The scope is the API's — the
- * Logistics roles see every order, a sales role its own converted leads' — and this page shows
- * exactly what comes back. Actions live in the order panel and are only ever the backend's
- * `allowedActions` (see `LogisticsOrderDrawer`); after one, the list is read again.
+ * The List view of the Logistics screen (ADR-0085): the caller's orders a page at a time,
+ * narrowed by the screen's filters and search, ordered by any sortable column. Its filters,
+ * page, size and sort live in the address (`LogisticsView`), so a reload or a shared link opens
+ * the same page. The scope is the API's — the Logistics roles see every order, a sales role its
+ * own converted leads' — and this view shows exactly what comes back.
+ *
+ * The status tabs are one-click forms of the Status filter: "All" clears it, a status tab
+ * chooses that status alone, and with several statuses chosen in the Filter panel no tab is
+ * selected.
  *
  * No Workpex screen exists for Logistics, so it is built from the Emarath frame the other lists
  * use (CLAUDE.md §1A): `TablePageLayout`, the shared `Table`, `TabStrip` and `ToolbarSearch`.
  */
-export function LogisticsListView() {
-  const [status, setStatus] = useState<string>(ALL);
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(DEFAULT_PAGE_SIZE);
-  const [selected, setSelected] = useState<LogisticsOrder | null>(null);
-
-  // The box tracks the live value; only the value that drives the fetch waits.
-  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
-
+export function LogisticsListView({
+  state,
+  filters,
+  update,
+  toolbarLeft,
+  toolbarActions,
+  summary,
+  reloadToken,
+  onOpen,
+  onReset,
+}: {
+  state: LogisticsUrlState;
+  /** The screen's filters and search, as every view and the counts send them. */
+  filters: LogisticsFilters;
+  update: (changes: Partial<LogisticsUrlState>) => void;
+  /** The view toggle, ahead of the status tabs. */
+  toolbarLeft: React.ReactNode;
+  /** The screen's search box and Filter control. */
+  toolbarActions: React.ReactNode;
+  /** The counts. */
+  summary: React.ReactNode;
+  /** Moves after an order action, so the page is read again. */
+  reloadToken: number;
+  onOpen: (order: LogisticsOrder) => void;
+  /** Clears the filters — the way out of an address the API refused. */
+  onReset: () => void;
+}) {
   const query = useMemo<LogisticsOrdersQuery>(
     () => ({
-      page,
-      size,
-      status: status === ALL ? undefined : (status as LogisticsStatus),
-      search: debouncedSearch.trim() || undefined,
+      ...filters,
+      page: state.page,
+      size: state.size,
+      sort: state.sort,
+      direction: state.direction,
     }),
-    [page, size, status, debouncedSearch],
+    [filters, state.page, state.size, state.sort, state.direction],
   );
-  const { rows, total, isLoading, isError, refetch } =
-    useLogisticsOrders(query);
-  const pageCount = Math.max(1, Math.ceil(total / size));
+  const { rows, total, isLoading, error, retry } = useLogisticsOrders(
+    query,
+    reloadToken,
+  );
+  const pageCount = Math.max(1, Math.ceil(total / state.size));
+
+  // An action that moves an order out of the filters, or a link to a page past the end, can
+  // leave the page empty while orders remain: step back to the last page that has rows.
+  useEffect(() => {
+    if (!isLoading && !error && rows.length === 0 && state.page > pageCount) {
+      update({ page: pageCount });
+    }
+  }, [isLoading, error, rows.length, state.page, pageCount, update]);
 
   const { user } = useAuth();
   // The lead is sales data the Logistics roles cannot open (ADR-0084): for them the name is
@@ -138,6 +171,7 @@ export function LogisticsListView() {
     {
       key: "orderNumber",
       header: "Order #",
+      sortable: true,
       render: (order) => (
         <span className="font-medium text-ink">
           {orderNumberLabel(order.orderNumber)}
@@ -145,8 +179,9 @@ export function LogisticsListView() {
       ),
     },
     {
-      key: "customer",
+      key: "customerName",
       header: "Customer",
+      sortable: true,
       render: (order) => (
         <div className="flex flex-col">
           {canOpenLead ? (
@@ -161,7 +196,19 @@ export function LogisticsListView() {
     {
       key: "status",
       header: "Status",
+      sortable: true,
       render: (order) => <LogisticsStatusBadge status={order.status} />,
+    },
+    {
+      key: "deliveryDate",
+      header: "Delivery Date",
+      sortable: true,
+      render: (order) => (
+        <LogisticsDeliveryDate
+          date={order.deliveryDate}
+          bucket={order.deliveryBucket}
+        />
+      ),
     },
     {
       key: "awbNumber",
@@ -174,13 +221,15 @@ export function LogisticsListView() {
       render: (order) => order.courier ?? dash,
     },
     {
-      key: "created",
+      key: "convertedAt",
       header: "Created",
+      sortable: true,
       render: (order) => formatDateTime(order.convertedAt),
     },
     {
-      key: "updated",
+      key: "statusChangedAt",
       header: "Updated",
+      sortable: true,
       render: (order) => formatDateTime(order.statusChangedAt),
     },
     {
@@ -188,10 +237,7 @@ export function LogisticsListView() {
       header: "Actions",
       render: (order) => (
         <Tooltip content="View Details">
-          <IconButton
-            aria-label="View Details"
-            onClick={() => setSelected(order)}
-          >
+          <IconButton aria-label="View Details" onClick={() => onOpen(order)}>
             <IconEye size={18} stroke={1.75} aria-hidden="true" />
           </IconButton>
         </Tooltip>
@@ -199,48 +245,61 @@ export function LogisticsListView() {
     },
   ];
 
-  const narrowed = status !== ALL || debouncedSearch.trim() !== "";
+  const narrowed =
+    state.status.length +
+      state.delivery.length +
+      state.country.length +
+      state.city.length >
+      0 ||
+    state.deliveryOn !== null ||
+    state.q !== "";
 
   return (
     <TablePageLayout
       title="Logistics"
       tableLabel="Logistics orders table"
       toolbarLeft={
-        <TabStrip
-          tabs={TABS}
-          value={status}
-          onValueChange={(next) => {
-            setStatus(next);
-            setPage(1);
-          }}
-        />
+        <>
+          {toolbarLeft}
+          <TabStrip
+            tabs={TABS}
+            value={
+              state.status.length === 0
+                ? ALL
+                : state.status.length === 1
+                  ? state.status[0]
+                  : ""
+            }
+            onValueChange={(next) =>
+              update({
+                status: next === ALL ? [] : [next as LogisticsStatus],
+                page: 1,
+              })
+            }
+          />
+        </>
       }
-      toolbarActions={
-        <ToolbarSearch
-          value={search}
-          onChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          placeholder="Search order #, customer, phone or AWB"
-        />
-      }
+      toolbarActions={toolbarActions}
+      summary={summary}
       pagination={{
-        page,
+        page: state.page,
         pageCount,
         total,
-        onPageChange: setPage,
-        pageSize: size,
-        onPageSizeChange: (next) => {
-          setSize(next);
-          setPage(1);
-        },
+        onPageChange: (page) => update({ page }),
+        pageSize: state.size,
+        onPageSizeChange: (size) => update({ size, page: 1 }),
       }}
     >
       <Table
         columns={columns}
         rows={rows}
         getRowId={(order) => order.id}
+        sort={{ key: state.sort, direction: state.direction }}
+        onSortChange={(sort) => {
+          if (isLogisticsSortKey(sort.key)) {
+            update({ sort: sort.key, direction: sort.direction, page: 1 });
+          }
+        }}
         isLoading={isLoading}
         emptyState={
           <EmptyState
@@ -248,32 +307,21 @@ export function LogisticsListView() {
             title={narrowed ? "No matching orders" : "No orders yet"}
             description={
               narrowed
-                ? "Try another status or search."
+                ? "Try other filters or another search."
                 : "An order is created here when a lead is won."
             }
           />
         }
         errorState={
-          isError ? (
+          error ? (
             <ErrorState
               title="Couldn’t load orders"
-              description="Something went wrong while loading orders. Check your connection and try again."
-              onRetry={refetch}
+              description={ordersLoadError(error.status)}
+              onRetry={error.status === 400 ? onReset : retry}
             />
           ) : undefined
         }
       />
-
-      {selected && (
-        <LogisticsOrderDrawer
-          order={selected}
-          onClose={() => setSelected(null)}
-          onOrderChange={(next) => {
-            setSelected(next);
-            refetch();
-          }}
-        />
-      )}
     </TablePageLayout>
   );
 }

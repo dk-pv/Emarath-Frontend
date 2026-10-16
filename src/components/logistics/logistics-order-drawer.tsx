@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import { CustomerJourney } from "@/components/leads/customer-journey";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
 import { LogisticsOrderActions } from "@/components/logistics/logistics-order-actions";
+import { LogisticsDeliveryDate } from "@/components/logistics/logistics-delivery-date";
 import { LogisticsStatusBadge } from "@/components/logistics/logistics-status-badge";
 import { can } from "@/constants/permissions";
 import { formatAED, formatDateTime } from "@/lib/format";
@@ -124,6 +125,15 @@ export function LogisticsOrderDrawer({
               {
                 label: "Status",
                 value: <LogisticsStatusBadge status={order.status} />,
+              },
+              {
+                label: "Delivery Date",
+                value: (
+                  <LogisticsDeliveryDate
+                    date={order.deliveryDate}
+                    bucket={order.deliveryBucket}
+                  />
+                ),
               },
               { label: "Created", value: when(order.convertedAt) },
               { label: "Last Updated", value: when(order.statusChangedAt) },

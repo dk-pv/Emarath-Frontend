@@ -18,6 +18,7 @@ import { Dropdown, type DropdownItem } from "@/components/ui/Dropdown";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { LeadStatusBadge } from "@/components/leads/lead-status-badge";
 import { LeadTagPicker } from "@/components/leads/lead-tag-picker";
+import { LogisticsOrderLink } from "@/components/logistics/logistics-order-link";
 import { tagPillClass } from "@/lib/tag-palette";
 import {
   CONVERTED_STATUS,
@@ -256,6 +257,10 @@ export function LeadDetailBasicInfo({
               />
             )}
           </div>
+          {/* The order this lead converted into (ADR-0085). */}
+          {lead.logisticsOrder && (
+            <LogisticsOrderLink order={lead.logisticsOrder} />
+          )}
         </div>
       </div>
 

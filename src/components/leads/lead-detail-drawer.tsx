@@ -27,6 +27,7 @@ import { orderLockReason } from "@/lib/logistics-orders";
 import { whatsappUrl } from "@/lib/whatsapp";
 import { LeadTimeline } from "@/components/leads/lead-timeline";
 import { LeadDuplicateNotice } from "@/components/leads/lead-duplicate-notice";
+import { LogisticsOrderLink } from "@/components/logistics/logistics-order-link";
 import { TYPE_LABEL } from "@/components/activities/activity-form-parts";
 import {
   fetchLeadActivities,
@@ -288,6 +289,11 @@ export function LeadDetailDrawer({
         {/* Workpex: 136px label column, 32px between rows, a thick rule before the feed. */}
         <div className="flex-none border-b-4 border-hairline/60 px-6 py-6">
           <LeadDuplicateNotice lead={lead} className="mb-6" />
+          {/* Additive, and only once the lead has a Logistics order (ADR-0085): the order
+              comes with the lead's own row, so nothing extra is fetched. */}
+          {lead.logisticsOrder && (
+            <LogisticsOrderLink order={lead.logisticsOrder} className="mb-6" />
+          )}
           <dl className="grid grid-cols-[136px_1fr] gap-x-6 gap-y-8">
             {nextFollowUp ? (
               <>

@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-
-/**
- * The overlays open right now, innermost last. Escape dismisses only the last one, so a
- * select or date picker open inside a drawer or modal closes on its own instead of taking
- * the drawer — and the form in it — down with it.
- */
-const openOverlays: object[] = [];
+import { claimEscape, closeOverlay, openOverlay } from "@/lib/overlay-stack";
 
 /**
  * Closes an overlay on Escape or a pointer press outside it.
@@ -29,21 +23,20 @@ export function useDismissable(
   const token = useRef<object | null>(null);
   useEffect(() => {
     if (!isOpen) return;
-    const mine = {};
+    const mine = openOverlay();
     token.current = mine;
-    openOverlays.push(mine);
-    return () => {
-      openOverlays.splice(openOverlays.indexOf(mine), 1);
-    };
+    return () => closeOverlay(mine);
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     const list = Array.isArray(refs) ? refs : [refs];
+    // Only the innermost overlay answers, once per press (`overlay-stack.ts`).
     const onKeyDown = (event: KeyboardEvent) => {
-      const innermost = openOverlays[openOverlays.length - 1];
-      if (event.key === "Escape" && innermost === token.current) onDismiss();
+      if (event.key === "Escape" && claimEscape(event, token.current)) {
+        onDismiss();
+      }
     };
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;

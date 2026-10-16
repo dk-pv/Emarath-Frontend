@@ -91,7 +91,12 @@ export type FilterField = {
 } & (
   | { type: "text" }
   | { type: "select"; options: readonly SelectOption[] }
-  | { type: "multi"; options: readonly SelectOption[] }
+  | {
+      type: "multi";
+      options: readonly SelectOption[];
+      /** A type-ahead box in the dropdown, for a long list of values. */
+      searchable?: boolean;
+    }
   | { type: "date" }
   | { type: "number" }
 );

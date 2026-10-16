@@ -44,6 +44,12 @@ export type TablePageLayoutProps = {
    */
   toolbarLeft?: React.ReactNode;
 
+  /**
+   * A row between the toolbar and the table card — the Logistics count cards. Omitted by every
+   * other list, which is unchanged.
+   */
+  summary?: React.ReactNode;
+
   /** The table itself — already scrolls horizontally via ResponsiveTableContainer. */
   children: React.ReactNode;
 
@@ -87,6 +93,7 @@ export function TablePageLayout({
   filters,
   toolbarActions,
   toolbarLeft,
+  summary,
   children,
   pagination,
   tableLabel,
@@ -130,6 +137,8 @@ export function TablePageLayout({
           onClearSearch={() => search.onChange("")}
         />
       )}
+
+      {summary}
 
       {/* The table card (Workpex parity): the scroll region, its horizontal
           scrollbar and the pagination footer share one rounded, hairline-bordered

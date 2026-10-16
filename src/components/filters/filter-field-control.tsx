@@ -25,6 +25,7 @@ export function FilterFieldControl({
         value={Array.isArray(value) ? value : []}
         onChange={onChange}
         placeholder={`Any ${field.label.toLowerCase()}`}
+        searchable={field.searchable}
       />
     );
   }

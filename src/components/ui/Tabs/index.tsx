@@ -71,6 +71,10 @@ export function TabStrip({
     >
       {tabs.map((tab, index) => {
         const isActive = tab.id === value;
+        // With no tab selected (a filter no single tab stands for), the first takes the focus
+        // stop, so the strip stays reachable by keyboard.
+        const isFocusStop =
+          isActive || (index === 0 && !tabs.some((t) => t.id === value));
         return (
           <button
             key={tab.id}
@@ -78,7 +82,7 @@ export function TabStrip({
             role="tab"
             id={`${baseId}-tab-${tab.id}`}
             aria-selected={isActive}
-            tabIndex={isActive ? 0 : -1}
+            tabIndex={isFocusStop ? 0 : -1}
             onClick={() => onValueChange(tab.id)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={cn(TAB_CLASS, isActive && ACTIVE_TAB_CLASS)}

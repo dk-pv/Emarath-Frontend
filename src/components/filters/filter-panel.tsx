@@ -74,7 +74,9 @@ export function FilterPanel({
         </span>
       }
     >
-      <div className="w-80 max-w-full p-4">
+      {/* Below `lg` the sidebar is always its rail, so a trigger at the toolbar's right edge
+          leaves the panel only the viewport less the rail and the page's gutters. */}
+      <div className="w-80 max-w-[calc(100vw-var(--spacing-sidebar-collapsed)-2rem)] p-4">
         {title && (
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-ink">{title}</h3>

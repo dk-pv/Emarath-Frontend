@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -45,6 +45,7 @@ const DONE: Record<OrderAction, string> = {
   RESUBMIT: "resubmitted to QC",
   EDIT: "updated",
   SET_DELIVERY_DATE: "delivery date updated",
+  CORRECT_DELIVERY_DATE: "delivery date corrected",
   CORRECT_AWB: "AWB corrected",
   DISPATCH: "dispatched",
   DELIVER: "marked as delivered",
@@ -92,7 +93,6 @@ export function LogisticsOrderActions({
   const [text, setText] = useState("");
   // The delivery day being chosen, `YYYY-MM-DD`, or "" for none.
   const [deliveryDate, setDeliveryDate] = useState("");
-  const deliveryDateField = useRef<HTMLDivElement>(null);
   const [fieldError, setFieldError] = useState<string | undefined>();
 
   // Reset on unmount too: a successful action can leave no actions, and the panel goes with
@@ -144,7 +144,11 @@ export function LogisticsOrderActions({
         setFieldError(message);
         return;
       }
-      if (input.action === "SET_DELIVERY_DATE" && status === 400) {
+      if (
+        (input.action === "SET_DELIVERY_DATE" ||
+          input.action === "CORRECT_DELIVERY_DATE") &&
+        status === 400
+      ) {
         setFieldError(message);
         return;
       }
@@ -421,28 +425,30 @@ export function LogisticsOrderActions({
           () =>
             void submit({
               action: "SET_DELIVERY_DATE",
-              deliveryDate: deliveryDate || null,
+              deliveryDate,
             }),
           false,
-          (deliveryDate || null) === order.deliveryDate,
+          !deliveryDate || deliveryDate === order.deliveryDate,
         )}
       >
         <div className="flex flex-col gap-4">
-          {/* Describes `setDeliveryDate` as built — provisional defaults P2 and P4 (ADR-0094),
-              pending open client questions D3 and D4. */}
+          {/* Describes `setDeliveryDate` as built: provisional defaults P2 and P4 (ADR-0094), and
+              the client's answer to D3 (2026-10-17) — every order must have a date, so it can be
+              changed but never cleared, and QC does not verify an order without one. */}
           <p className="text-ink-muted">
-            The day the customer asked for. It can change until QC verifies the
-            order; after that, the Logistics Manager edits it.
+            The day the customer asked for. QC can’t verify the order without
+            it. It can change until QC verifies the order; after that, the
+            Logistics Manager edits it.
           </p>
           <FormField
             label="Delivery Date"
-            hint="Today or a later day. Clear it to leave the order undated."
+            hint="Today or a later day."
             error={fieldError}
           >
             {(control) => (
               // A calendar day: the picker's local date is kept as its YYYY-MM-DD parts, never
               // converted to an instant, so no timezone can move it.
-              <div ref={deliveryDateField} className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <DatePicker
                   numeric
                   className="min-w-0 flex-1"
@@ -459,27 +465,72 @@ export function LogisticsOrderActions({
                   }
                   aria-describedby={control["aria-describedby"]}
                 />
-                {deliveryDate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Clear the delivery date"
-                    onClick={() => {
-                      setDeliveryDate("");
-                      if (fieldError) setFieldError(undefined);
-                      // This button goes with the date, which would drop focus to the page: hand
-                      // it to the picker instead, as a search box's ✕ does (`clearSearchInput`).
-                      deliveryDateField.current
-                        ?.querySelector<HTMLButtonElement>(
-                          'button[aria-haspopup="dialog"]',
-                        )
-                        ?.focus();
-                    }}
-                  >
-                    Clear
-                  </Button>
-                )}
               </div>
+            )}
+          </FormField>
+        </div>
+      </Modal>
+
+      <Modal
+        open={open === "CORRECT_DELIVERY_DATE"}
+        onClose={dismiss}
+        title={`Correct the delivery date of order ${label}`}
+        size="sm"
+        footer={footer(
+          "Save correction",
+          () =>
+            void submit({
+              action: "CORRECT_DELIVERY_DATE",
+              deliveryDate,
+              reason: text,
+            }),
+          false,
+          !deliveryDate || deliveryDate === order.deliveryDate || !text.trim(),
+        )}
+      >
+        <div className="flex flex-col gap-4">
+          {/* The client's answer of 2026-10-17: the Logistics team corrects the date once QC has
+              verified the order, before or after dispatch; it can't be cleared, and the reason
+              is kept on the order's Journey. */}
+          <p className="text-ink-muted">
+            Re-dates this order when the customer’s day changes. The date can’t
+            be cleared, and the reason is kept in the order’s Journey.
+          </p>
+          <FormField
+            label="Delivery Date"
+            required
+            hint="Today or a later day."
+            error={fieldError}
+          >
+            {(control) => (
+              // A calendar day: the picker's local date is kept as its YYYY-MM-DD parts, never
+              // converted to an instant, so no timezone can move it.
+              <DatePicker
+                numeric
+                value={keyBound(deliveryDate).day}
+                onChange={(day) => {
+                  setDeliveryDate(day ? dateKey(day) : "");
+                  if (fieldError) setFieldError(undefined);
+                }}
+                placeholder="DD/MM/YYYY"
+                aria-label={
+                  deliveryDate
+                    ? `Delivery Date, ${formatDateOnly(deliveryDate)}`
+                    : "Delivery Date, not set"
+                }
+                aria-describedby={control["aria-describedby"]}
+              />
+            )}
+          </FormField>
+          <FormField label="Reason for the correction" required>
+            {(control) => (
+              <Textarea
+                {...control}
+                value={text}
+                maxLength={REASON_MAX_LENGTH}
+                rows={3}
+                onChange={(event) => setText(event.target.value)}
+              />
             )}
           </FormField>
         </div>

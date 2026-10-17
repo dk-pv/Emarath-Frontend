@@ -17,11 +17,20 @@ export function setLeadStatus(
   status: string,
   /** Why the lead was lost — sent only for a move to LOST; the server clears it otherwise. */
   lostReason?: string,
+  /**
+   * The requested delivery day, `YYYY-MM-DD` — sent only when the change converts the lead to
+   * WON, whose order must have one (client, 2026-10-17); the server refuses it otherwise.
+   */
+  deliveryDate?: string,
   signal?: AbortSignal,
 ): Promise<LeadListItem> {
   return apiPost<LeadListItem>(
     `/leads/${id}/status`,
-    lostReason ? { status, lostReason } : { status },
+    {
+      status,
+      ...(lostReason ? { lostReason } : {}),
+      ...(deliveryDate ? { deliveryDate } : {}),
+    },
     signal,
   );
 }

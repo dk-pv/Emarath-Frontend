@@ -34,6 +34,11 @@ import {
   LOST_STATUS,
   useLostReasonPrompt,
 } from "@/components/leads/lost-reason-prompt";
+import {
+  DELIVERY_DATE_CANCELLED,
+  useDeliveryDatePrompt,
+} from "@/components/leads/delivery-date-prompt";
+import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
 import type { LeadListItem } from "@/services/leads-service";
 
 /** The selected pipeline survives the session (KAN-06.1 AC4). */
@@ -327,6 +332,19 @@ function KanbanBoardView({
     [ask, moveCard],
   );
 
+  // A drop into WON converts the lead, and its new order must have the requested delivery date
+  // (client, 2026-10-17): the card moves only once a day is confirmed. Cancelling never moved
+  // it, so it is still in its own column, in its own place.
+  const { ask: askDate, modal: deliveryDateModal } = useDeliveryDatePrompt();
+  const askDeliveryDate = useCallback(
+    async (lead: LeadListItem, from: string, to: string) => {
+      const day = await askDate(lead);
+      if (day === DELIVERY_DATE_CANCELLED) return;
+      moveCard(lead.id, from, to, undefined, day);
+    },
+    [askDate, moveCard],
+  );
+
   const dnd = useMemo<KanbanDnd>(
     () => ({
       canDrag: !readOnly,
@@ -353,11 +371,20 @@ function KanbanBoardView({
             return;
           }
         }
+        if (toStage === CONVERTED_STATUS && current.from !== toStage) {
+          const lead = stateRef.current?.[current.from]?.find(
+            (row) => row.id === current.id,
+          );
+          if (lead) {
+            void askDeliveryDate(lead, current.from, toStage);
+            return;
+          }
+        }
         moveCard(current.id, current.from, toStage);
       },
       getDraggingFrom: () => dragging.current?.from ?? null,
     }),
-    [moveCard, askLostReason, readOnly],
+    [moveCard, askLostReason, askDeliveryDate, readOnly],
   );
 
   if (phase === "error") {
@@ -398,6 +425,7 @@ function KanbanBoardView({
             })}
       </ColumnRow>
       {lostReasonModal}
+      {deliveryDateModal}
     </KanbanDndProvider>
   );
 }

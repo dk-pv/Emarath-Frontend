@@ -497,7 +497,13 @@ export function useKanbanBoard(
   );
 
   const moveCard = useCallback(
-    (leadId: string, from: string, to: string, lostReason?: string) => {
+    (
+      leadId: string,
+      from: string,
+      to: string,
+      lostReason?: string,
+      deliveryDate?: string,
+    ) => {
       if (from === to) return;
       const col = stateRef.current.columns[from];
       if (!col) return;
@@ -513,7 +519,7 @@ export function useKanbanBoard(
       inFlight.current.add(leadId);
       dispatch({ type: "move", lead, from, to });
 
-      patchLeadStage(leadId, to, lostReason)
+      patchLeadStage(leadId, to, lostReason, deliveryDate)
         .then((response) => {
           // The KAN-04.1 recount is unfiltered. With no toolbar filter that is the
           // authoritative count for the two columns; with a filter applied it would

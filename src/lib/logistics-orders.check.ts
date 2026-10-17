@@ -467,12 +467,33 @@ assert.deepEqual(
     "CORRECT_AWB",
     "EDIT",
     "SET_DELIVERY_DATE",
+    "CORRECT_DELIVERY_DATE",
     "RESUBMIT",
     "QC_VERIFY",
     "DELIVER",
     "DISPATCH",
   ],
   "every action the backend can offer, in the footer's order: secondary first, forward last",
+);
+// The Logistics team's correction of the date once QC has verified the order (client, 2026-10-17):
+// shown only when the backend offers it, before the forward step, with its own request.
+assert.equal(ORDER_ACTION_LABEL.CORRECT_DELIVERY_DATE, "Correct delivery date");
+assert.deepEqual(renderableActions(["DISPATCH", "CORRECT_DELIVERY_DATE"]), [
+  "CORRECT_DELIVERY_DATE",
+  "DISPATCH",
+]);
+assert.deepEqual(
+  orderActionRequest(ORDER, {
+    action: "CORRECT_DELIVERY_DATE",
+    deliveryDate: "2026-10-22",
+    reason: "  Customer moved the day  ",
+  }),
+  {
+    method: "PATCH",
+    path: `/logistics/orders/${ORDER}/delivery-date-correction`,
+    body: { deliveryDate: "2026-10-22", reason: "Customer moved the day" },
+  },
+  "a day and a trimmed reason, never null",
 );
 // A Sales Manager on a QC-rejected order: the date, then the forward step.
 assert.deepEqual(renderableActions(["RESUBMIT", "SET_DELIVERY_DATE"]), [
@@ -569,7 +590,7 @@ assert.deepEqual(
   orderActionRequest(ORDER, { action: "EDIT", changes: { city: "Abu Dhabi" } }),
   { method: "PATCH", path: at(""), body: { city: "Abu Dhabi" } },
 );
-// Sales' delivery date (Phase 2D): a calendar day, or null to clear it — never "".
+// Sales' delivery date (Phase 2D): a calendar day — never null or "": it can't be cleared.
 assert.deepEqual(
   orderActionRequest(ORDER, {
     action: "SET_DELIVERY_DATE",
@@ -580,14 +601,6 @@ assert.deepEqual(
     path: at("/delivery-date"),
     body: { deliveryDate: "2026-10-20" },
   },
-);
-assert.deepEqual(
-  orderActionRequest(ORDER, {
-    action: "SET_DELIVERY_DATE",
-    deliveryDate: null,
-  }),
-  { method: "PATCH", path: at("/delivery-date"), body: { deliveryDate: null } },
-  "a clear sends null",
 );
 // The backend DTOs' limits, which the forms enforce.
 assert.equal(AWB_MAX_LENGTH, 64);
@@ -744,7 +757,8 @@ for (const value of [
 assert.equal(formatDateOnly("2026-10-15"), "15-10-2026");
 assert.equal(formatDateOnly("2026-01-01"), "01-01-2026");
 assert.equal(formatDateOnly("not a date"), "not a date");
-// The Manager's edit carries the date: blank clears it, a non-day is refused before sending.
+// The Manager's edit carries the date: it is sent when it changes, a non-day is refused before
+// sending, and the form offers no way to clear it (asserted on the source below).
 assert.equal(initial.deliveryDate, "", "an undated order's date starts blank");
 assert.deepEqual(
   orderEditChanges(initial, { ...initial, deliveryDate: "2026-10-20" }),
@@ -753,10 +767,10 @@ assert.deepEqual(
 assert.deepEqual(
   orderEditChanges(
     { ...initial, deliveryDate: "2026-10-20" },
-    { ...initial, deliveryDate: "" },
+    { ...initial, deliveryDate: "2026-10-22" },
   ),
-  { deliveryDate: "" },
-  "a cleared date is sent blank, which the backend clears",
+  { deliveryDate: "2026-10-22" },
+  "a changed date is sent",
 );
 assert.ok(
   "deliveryDate" in orderEditErrors({ ...initial, deliveryDate: "2026-02-30" }),
@@ -982,15 +996,21 @@ for (const action of ORDER_ACTIONS) {
     `the actions panel has a dialog for ${action}`,
   );
 }
-// The delivery date's Clear button disappears with the date it clears, so its handler must hand
-// focus to the picker's trigger, or a keyboard user is dropped onto the page behind the dialog.
-const clearAt = panel.indexOf('aria-label="Clear the delivery date"');
-const clearButton = panel.slice(clearAt, panel.indexOf("</Button>", clearAt));
+// Every order must have a delivery date (client, 2026-10-17): neither date dialog offers a Clear,
+// the Sales dialog never sends null, and it saves only a day that differs from the order's.
+const editForm = readFileSync(
+  "src/components/logistics/logistics-order-edit.tsx",
+  "utf8",
+);
 assert.ok(
-  clearAt > 0 &&
-    clearButton.includes('button[aria-haspopup="dialog"]') &&
-    clearButton.includes("?.focus()"),
-  "Clear moves keyboard focus to the date picker",
+  !panel.includes("Clear the delivery date") && !/>\s*Clear\s*</.test(panel),
+  "the Sales date dialog has no Clear",
+);
+assert.ok(!/>\s*Clear\s*</.test(editForm), "the Manager's edit has no Clear");
+assert.ok(
+  !panel.includes("deliveryDate || null") &&
+    panel.includes("!deliveryDate || deliveryDate === order.deliveryDate"),
+  "the Sales dialog sends a day, and only a new one",
 );
 
 // A lead with an order has its Delete, Convert, status and pipeline controls off, and says why

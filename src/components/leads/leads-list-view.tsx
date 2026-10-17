@@ -111,6 +111,10 @@ import {
   LOST_STATUS,
   useLostReasonPrompt,
 } from "@/components/leads/lost-reason-prompt";
+import {
+  DELIVERY_DATE_CANCELLED,
+  useDeliveryDatePrompt,
+} from "@/components/leads/delivery-date-prompt";
 
 /**
  * useFilters supplies the search state; Leads renders no shared FilterPanel, so it
@@ -628,26 +632,31 @@ export function LeadsListView({
 
   // Convert (ADR-0048). A confirm dialog, then the existing set-status API sets the
   // lead's status to the approved converted value (WON — the Converted Leads report /
-  // quick filter definition). Non-optimistic: the dialog's own loading covers the wait;
-  // on success the row is patched to the persisted status (so its Status badge and the
-  // green Convert icon both update) and the dialog closes; on failure nothing changes and
-  // the dialog stays open to retry. A ref makes a double-click fire exactly one mutation.
-  const [convertTarget, setConvertTarget] = useState<LeadListItem | null>(null);
-  const [convertBusy, setConvertBusy] = useState(false);
+  // quick filter definition). Converting creates the lead's Logistics order, which must have a
+  // delivery date (client, 2026-10-17), so the prompt asks for it and is the confirmation:
+  // Cancel changes nothing. Non-optimistic: on success the row is patched to the persisted
+  // status (so its Status badge and the green Convert icon both update); on failure nothing
+  // changes and the server's reason is shown. A ref makes a double-click fire one mutation.
+  const { ask: askDeliveryDate, modal: deliveryDateModal } =
+    useDeliveryDatePrompt();
   const convertingRef = useRef(false);
 
-  const handleConvert = async () => {
-    const lead = convertTarget;
-    if (!lead || convertingRef.current) return;
+  const handleConvert = async (lead: LeadListItem) => {
+    if (convertingRef.current) return;
+    const deliveryDate = await askDeliveryDate(lead);
+    if (deliveryDate === DELIVERY_DATE_CANCELLED) return;
     convertingRef.current = true;
-    setConvertBusy(true);
     try {
-      const updated = await setLeadStatus(lead.id, CONVERTED_STATUS);
+      const updated = await setLeadStatus(
+        lead.id,
+        CONVERTED_STATUS,
+        undefined,
+        deliveryDate,
+      );
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       syncDetail(lead.id, { ...updated, isPinned: lead.isPinned });
       // An open Detail drawer's timeline gains the move to WON.
       setDetailRefresh((token) => token + 1);
-      setConvertTarget(null);
       toast({ title: `${lead.name} converted`, tone: "success" });
     } catch (error) {
       toast({
@@ -657,7 +666,6 @@ export function LeadsListView({
       });
     } finally {
       convertingRef.current = false;
-      setConvertBusy(false);
     }
   };
 
@@ -669,7 +677,7 @@ export function LeadsListView({
     onAddNote: (lead: LeadListItem) => setNoteTarget(lead),
     onEdit: (lead: LeadListItem) => void handleEdit(lead),
     onPin: (lead: LeadListItem) => void handleTogglePin(lead),
-    onConvert: (lead: LeadListItem) => setConvertTarget(lead),
+    onConvert: (lead: LeadListItem) => void handleConvert(lead),
     pendingId: rowPending?.id ?? null,
     pendingAction: rowPending?.action ?? null,
     canReassign,
@@ -684,17 +692,28 @@ export function LeadsListView({
   const { ask: askLostReason, modal: lostReasonModal } = useLostReasonPrompt();
   const handleStatusChange = async (lead: LeadListItem, status: string) => {
     // A move to LOST asks why first; skipping still sets LOST (no reason recorded),
-    // cancelling abandons the change.
+    // cancelling abandons the change. A move to WON converts the lead, so it asks for the
+    // requested delivery date first; cancelling abandons the change.
     let lostReason: string | undefined;
+    let deliveryDate: string | undefined;
     if (status === LOST_STATUS) {
       const answer = await askLostReason(lead);
       if (answer === CANCELLED) return;
       lostReason = answer;
+    } else if (status === CONVERTED_STATUS) {
+      const answer = await askDeliveryDate(lead);
+      if (answer === DELIVERY_DATE_CANCELLED) return;
+      deliveryDate = answer;
     }
     setStatusPendingId(lead.id);
     patchRow(lead.id, { ...lead, status });
     try {
-      const updated = await setLeadStatus(lead.id, status, lostReason);
+      const updated = await setLeadStatus(
+        lead.id,
+        status,
+        lostReason,
+        deliveryDate,
+      );
       // Preserve the caller's pin — the status response doesn't carry it (ADR-0031).
       patchRow(lead.id, { ...updated, isPinned: lead.isPinned });
       // An open Detail drawer's timeline gains this status move.
@@ -1067,6 +1086,7 @@ export function LeadsListView({
               </LeadTagsProvider>
             </LeadStatusProvider>
             {lostReasonModal}
+            {deliveryDateModal}
           </LeadRowActionsProvider>
         </LeadDetailProvider>
       </TablePageLayout>
@@ -1121,20 +1141,6 @@ export function LeadsListView({
         description="Would you like to mark this activity as completed?"
         confirmLabel="Yes"
         tone="brand"
-      />
-
-      {/* Convert (ADR-0048) — confirm, then set the lead's status to WON via the existing
-          set-status API. `busy` keeps the dialog open with a loading Convert button and
-          blocks accidental dismissal while the mutation runs. */}
-      <ConfirmDialog
-        open={convertTarget !== null}
-        onCancel={() => setConvertTarget(null)}
-        onConfirm={() => void handleConvert()}
-        title="Convert lead?"
-        description="Are you sure you want to convert this lead?"
-        confirmLabel="Convert"
-        tone="brand"
-        busy={convertBusy}
       />
 
       {selectedIds.size > 0 && (

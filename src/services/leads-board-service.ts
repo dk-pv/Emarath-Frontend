@@ -94,11 +94,17 @@ export async function patchLeadStage(
   stage: string,
   /** Why the lead was lost — sent only for a move into LOST; the server clears it otherwise. */
   lostReason?: string,
+  /** The requested delivery day, `YYYY-MM-DD` — sent only for a move that converts to WON. */
+  deliveryDate?: string,
   signal?: AbortSignal,
 ): Promise<MoveLeadStageResponse> {
   return apiPatch<MoveLeadStageResponse>(
     `/leads/${leadId}/stage`,
-    lostReason ? { stage, lostReason } : { stage },
+    {
+      stage,
+      ...(lostReason ? { lostReason } : {}),
+      ...(deliveryDate ? { deliveryDate } : {}),
+    },
     signal,
   );
 }

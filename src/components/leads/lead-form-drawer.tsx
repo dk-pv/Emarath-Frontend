@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { ApiError } from "@/lib/api-client";
 import { customFieldsPayload } from "@/lib/lead-custom-values";
 import { orderLockReason } from "@/lib/logistics-orders";
+import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
 import { MOVE_PIPELINE_HINT } from "@/lib/pipeline-access";
 import { COUNTRIES, STATES_BY_COUNTRY } from "@/constants/countries";
 import { useAuth } from "@/components/auth/auth-context";
@@ -93,6 +94,8 @@ type FormState = {
   city: string;
   nationalCode: string;
   bookingDate: Date | null;
+  /** The requested delivery day, asked for only when this save converts the lead to WON. */
+  deliveryDate: Date | null;
   pipeline: string | null;
   category: string | null;
   actualAmount: string;
@@ -126,6 +129,7 @@ function initialForm(): FormState {
     city: "",
     nationalCode: "",
     bookingDate: null,
+    deliveryDate: null,
     pipeline: "Lead Pipeline",
     category: null,
     actualAmount: "",
@@ -197,6 +201,7 @@ function formFromEdit(lead: LeadEditData): FormState {
     city: lead.city ?? "",
     nationalCode: lead.nationalCode ?? "",
     bookingDate: lead.bookingDate ? fromDateOnly(lead.bookingDate) : null,
+    deliveryDate: null,
     pipeline: lead.pipeline,
     category: lead.category,
     actualAmount: lead.actualAmount ?? "",
@@ -401,6 +406,13 @@ export function LeadFormDrawer({
   // Edit mode: a Logistics order owns the lead's status and pipeline (the server refuses a
   // change, 409), so both fields are shown but locked; every other field stays editable.
   const orderLock = orderLockReason(lead?.logisticsOrder);
+  // Saving as WON converts a lead that is not converted yet, and the order that creates must
+  // have the requested delivery date (client, 2026-10-17) — never the Booking Date. A lead that
+  // is already WON, or already has its order, does not convert again and is asked nothing.
+  const alreadyConverted =
+    lead !== undefined &&
+    (lead.status === CONVERTED_STATUS || Boolean(lead.logisticsOrder));
+  const convertsToWon = form.status === CONVERTED_STATUS && !alreadyConverted;
   // Edit mode: only a manager or an administrator moves a lead to another pipeline (ADR-0093
   // B5), so for anyone else Pipeline is shown but locked. Its current value stays listed even
   // when the lookup does not offer it — a pipeline closed to this user, on a lead they see
@@ -458,6 +470,9 @@ export function LeadFormDrawer({
       next.primaryPhone = "Primary Phone is required";
     if (!form.pipeline) next.pipeline = "Lead Pipeline is required";
     if (!form.status) next.status = "Lead Status is required";
+    if (convertsToWon && !form.deliveryDate)
+      next.deliveryDate =
+        "Delivery Date is required to convert the lead to WON";
     if (form.actualAmount.trim() && !isNumeric(form.actualAmount))
       next.actualAmount = "Actual Amount must be a number";
     if (form.forecastedAmount.trim() && !isNumeric(form.forecastedAmount))
@@ -521,6 +536,10 @@ export function LeadFormDrawer({
         bookingDate: form.bookingDate
           ? toDateOnly(form.bookingDate)
           : undefined,
+        deliveryDate:
+          convertsToWon && form.deliveryDate
+            ? toDateOnly(form.deliveryDate)
+            : undefined,
         category: form.category ?? undefined,
         actualAmount: form.actualAmount.trim() || undefined,
         forecastedAmount: form.forecastedAmount.trim() || undefined,
@@ -634,24 +653,42 @@ export function LeadFormDrawer({
               </FormField>
     ),
     status: (
-      <FormField
-        label="Lead Status"
-        required
-        error={errors.status}
-        hint={orderLock ?? undefined}
-      >
-              <SearchableSelect
-                searchable={false}
-                clearable
-                disabled={orderLock !== null}
-                options={statusOptions}
-                value={form.status}
-                onChange={(v) => set("status", v)}
-                loading={statusLoading}
-                invalid={Boolean(errors.status)}
-                placeholder="Lead Status"
-              />
-            </FormField>
+      <>
+        <FormField
+          label="Lead Status"
+          required
+          error={errors.status}
+          hint={orderLock ?? undefined}
+        >
+          <SearchableSelect
+            searchable={false}
+            clearable
+            disabled={orderLock !== null}
+            options={statusOptions}
+            value={form.status}
+            onChange={(v) => set("status", v)}
+            loading={statusLoading}
+            invalid={Boolean(errors.status)}
+            placeholder="Lead Status"
+          />
+        </FormField>
+        {convertsToWon && (
+          <FormField
+            label="Delivery Date"
+            required
+            error={errors.deliveryDate}
+            hint="The day the customer asked for: today or a later day. Converting the lead to WON creates its Logistics order, which needs it."
+          >
+            <DatePicker
+              numeric
+              value={form.deliveryDate}
+              onChange={(d) => set("deliveryDate", d)}
+              placeholder="DD/MM/YYYY"
+              aria-label="Delivery Date"
+            />
+          </FormField>
+        )}
+      </>
     ),
     tagIds: (
       <FormField

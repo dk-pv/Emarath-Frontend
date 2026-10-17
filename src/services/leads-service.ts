@@ -373,6 +373,11 @@ export interface CreateLeadInput {
   city?: string;
   nationalCode?: string;
   bookingDate?: string;
+  /**
+   * The requested delivery day, `YYYY-MM-DD` — sent only when this create or edit converts the
+   * lead to WON (client, 2026-10-17). Never the Booking Date.
+   */
+  deliveryDate?: string;
   category?: string;
   actualAmount?: string;
   forecastedAmount?: string;

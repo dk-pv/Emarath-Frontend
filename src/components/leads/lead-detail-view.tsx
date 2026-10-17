@@ -6,6 +6,10 @@ import { IconArrowLeft, IconLoader2, IconUserOff } from "@tabler/icons-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Avatar } from "@/components/ui/Avatar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  DELIVERY_DATE_CANCELLED,
+  useDeliveryDatePrompt,
+} from "@/components/leads/delivery-date-prompt";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useToast } from "@/components/ui/Toast";
@@ -197,7 +201,8 @@ export function LeadDetailView({
   const [editPending, setEditPending] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [convertOpen, setConvertOpen] = useState(false);
+  const { ask: askDeliveryDate, modal: deliveryDateModal } =
+    useDeliveryDatePrompt();
   const [converting, setConverting] = useState(false);
 
   useEffect(() => {
@@ -452,12 +457,22 @@ export function LeadDetailView({
     }
   };
 
-  /** Convert = set the lead's status to WON (ADR-0048), the Leads list' own flow. */
+  /**
+   * Convert = set the lead's status to WON (ADR-0048), the Leads list' own flow: the requested
+   * delivery date its new order must have (client, 2026-10-17) is asked for first, and that
+   * prompt is the confirmation — Cancel changes nothing.
+   */
   const confirmConvert = async () => {
-    setConvertOpen(false);
+    const deliveryDate = await askDeliveryDate(lead);
+    if (deliveryDate === DELIVERY_DATE_CANCELLED) return;
     setConverting(true);
     try {
-      const updated = await setLeadStatus(lead.id, CONVERTED_STATUS);
+      const updated = await setLeadStatus(
+        lead.id,
+        CONVERTED_STATUS,
+        undefined,
+        deliveryDate,
+      );
       setLoaded({ id, lead: { ...updated, isPinned: lead.isPinned } });
       // The move is now a timeline entry; the feed was fetched before it happened.
       setNotesRefresh((token) => token + 1);
@@ -600,7 +615,7 @@ export function LeadDetailView({
             onRemoveTag: TAG_PICKER_ORIGINS.has(from ?? "")
               ? (tagId: string) => void removeTag(tagId)
               : undefined,
-            onConvert: () => setConvertOpen(true),
+            onConvert: () => void confirmConvert(),
             onSelectPipeline: (pipeline) => void selectPipeline(pipeline),
           }}
         />
@@ -798,15 +813,7 @@ export function LeadDetailView({
         />
       )}
 
-      <ConfirmDialog
-        open={convertOpen}
-        onCancel={() => setConvertOpen(false)}
-        onConfirm={() => void confirmConvert()}
-        title="Convert lead"
-        description={`Mark “${lead.name}” as converted? This sets the lead's status to ${CONVERTED_STATUS}.`}
-        confirmLabel="Convert"
-        busy={converting}
-      />
+      {deliveryDateModal}
 
       <ConfirmDialog
         open={deleteOpen}

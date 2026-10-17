@@ -95,27 +95,17 @@ export function LogisticsOrderEditModal({
               {(control) =>
                 "date" in field ? (
                   // A calendar day: the picker's local date is kept as its YYYY-MM-DD parts,
-                  // never converted to an instant, so no timezone can move it.
-                  <div className="flex items-center gap-2">
-                    <DatePicker
-                      numeric
-                      className="min-w-0 flex-1"
-                      value={keyBound(draft[field.key]).day}
-                      onChange={(day) =>
-                        setValue(field.key, day ? dateKey(day) : "")
-                      }
-                      placeholder="DD/MM/YYYY"
-                    />
-                    {draft[field.key] && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setValue(field.key, "")}
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
+                  // never converted to an instant, so no timezone can move it. It can be changed
+                  // but not cleared — every order must have a delivery date (client, 2026-10-17).
+                  <DatePicker
+                    numeric
+                    className="min-w-0"
+                    value={keyBound(draft[field.key]).day}
+                    onChange={(day) =>
+                      setValue(field.key, day ? dateKey(day) : "")
+                    }
+                    placeholder="DD/MM/YYYY"
+                  />
                 ) : (
                   <Input
                     {...control}

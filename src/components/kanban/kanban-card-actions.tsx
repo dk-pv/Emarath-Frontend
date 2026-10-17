@@ -1,7 +1,17 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  DELIVERY_DATE_CANCELLED,
+  useDeliveryDatePrompt,
+} from "@/components/leads/delivery-date-prompt";
 import { useToast } from "@/components/ui/Toast";
 import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
 import { LeadNoteDrawer } from "@/components/leads/lead-note-drawer";
@@ -94,15 +104,17 @@ export function KanbanCardActionsProvider({
 
   const [emailTarget, setEmailTarget] = useState<LeadListItem | null>(null);
   const [noteTarget, setNoteTarget] = useState<LeadListItem | null>(null);
-  const [pipelineTarget, setPipelineTarget] = useState<LeadListItem | null>(null);
-  const [convertTarget, setConvertTarget] = useState<LeadListItem | null>(null);
+  const [pipelineTarget, setPipelineTarget] = useState<LeadListItem | null>(
+    null,
+  );
+  const { ask: askDeliveryDate, modal: deliveryDateModal } =
+    useDeliveryDatePrompt();
   const [deleteTarget, setDeleteTarget] = useState<LeadListItem | null>(null);
   const [editLead, setEditLead] = useState<{
     lead: LeadEditData;
     customFields: LeadCustomField[];
   } | null>(null);
   const [pendingEditId, setPendingEditId] = useState<string | null>(null);
-  const [convertBusy, setConvertBusy] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const convertingRef = useRef(false);
   const deletingRef = useRef(false);
@@ -186,17 +198,17 @@ export function KanbanCardActionsProvider({
     }
   };
 
-  // Convert (ADR-0048): the existing set-status API to WON, behind a confirm dialog.
-  // A ref makes a double-click fire exactly one mutation; the board reloads so the
+  // Convert (ADR-0048): the existing set-status API to WON, behind the delivery-date prompt —
+  // the new order must have the requested date (client, 2026-10-17), and Cancel changes
+  // nothing. A ref makes a double-click fire exactly one mutation; the board reloads so the
   // card moves to (or leaves) the WON column.
-  const handleConvert = async () => {
-    const lead = convertTarget;
-    if (!lead || convertingRef.current) return;
+  const handleConvert = async (lead: LeadListItem) => {
+    if (convertingRef.current) return;
+    const deliveryDate = await askDeliveryDate(lead);
+    if (deliveryDate === DELIVERY_DATE_CANCELLED) return;
     convertingRef.current = true;
-    setConvertBusy(true);
     try {
-      await setLeadStatus(lead.id, CONVERTED_STATUS);
-      setConvertTarget(null);
+      await setLeadStatus(lead.id, CONVERTED_STATUS, undefined, deliveryDate);
       toast({ title: `${lead.name} converted`, tone: "success" });
       onBoardChanged();
     } catch (error) {
@@ -207,7 +219,6 @@ export function KanbanCardActionsProvider({
       });
     } finally {
       convertingRef.current = false;
-      setConvertBusy(false);
     }
   };
 
@@ -243,7 +254,7 @@ export function KanbanCardActionsProvider({
     onEmail: (lead) => setEmailTarget(lead),
     onAddNote: (lead) => setNoteTarget(lead),
     onChangePipeline: (lead) => setPipelineTarget(lead),
-    onConvert: (lead) => setConvertTarget(lead),
+    onConvert: (lead) => void handleConvert(lead),
     onArchive: (lead) => void handleArchive(lead),
     onEdit: (lead) => void openEdit(lead),
     onDelete: (lead) => setDeleteTarget(lead),
@@ -303,16 +314,7 @@ export function KanbanCardActionsProvider({
         />
       )}
 
-      <ConfirmDialog
-        open={convertTarget !== null}
-        onCancel={() => setConvertTarget(null)}
-        onConfirm={() => void handleConvert()}
-        title="Convert lead?"
-        description="Are you sure you want to convert this lead?"
-        confirmLabel="Convert"
-        tone="brand"
-        busy={convertBusy}
-      />
+      {deliveryDateModal}
       <ConfirmDialog
         open={deleteTarget !== null}
         onCancel={() => setDeleteTarget(null)}

@@ -93,6 +93,11 @@ import {
   LOST_STATUS,
   useLostReasonPrompt,
 } from "@/components/leads/lost-reason-prompt";
+import {
+  DELIVERY_DATE_CANCELLED,
+  useDeliveryDatePrompt,
+} from "@/components/leads/delivery-date-prompt";
+import { CONVERTED_STATUS } from "@/components/leads/lead-row-actions";
 
 const NO_OPTIONS: {
   agents: SelectOption[];
@@ -473,6 +478,8 @@ export function ActivitiesListView() {
     });
 
   const { ask: askLostReason, modal: lostReasonModal } = useLostReasonPrompt();
+  const { ask: askDeliveryDate, modal: deliveryDateModal } =
+    useDeliveryDatePrompt();
   /**
    * Lead Status is editable from the worklist, as it is on the Leads list: the same
    * `LeadStatusProvider` + `setLeadStatus` API, so both pages share one status
@@ -481,17 +488,28 @@ export function ActivitiesListView() {
    */
   const handleStatusChange = async (row: ActivityListItem, status: string) => {
     // A move to LOST asks why first; skipping still sets LOST (no reason recorded),
-    // cancelling abandons the change.
+    // cancelling abandons the change. A move to WON converts the lead, so it asks for the
+    // requested delivery date first; cancelling abandons the change.
     let lostReason: string | undefined;
+    let deliveryDate: string | undefined;
     if (status === LOST_STATUS) {
       const answer = await askLostReason(row.lead);
       if (answer === CANCELLED) return;
       lostReason = answer;
+    } else if (status === CONVERTED_STATUS) {
+      const answer = await askDeliveryDate(row.lead);
+      if (answer === DELIVERY_DATE_CANCELLED) return;
+      deliveryDate = answer;
     }
     setStatusPendingId(row.lead.id);
     applyOverride(row.id, { lead: { ...row.lead, status } });
     try {
-      const updated = await setLeadStatus(row.lead.id, status, lostReason);
+      const updated = await setLeadStatus(
+        row.lead.id,
+        status,
+        lostReason,
+        deliveryDate,
+      );
       applyOverride(row.id, {
         lead: { ...updated, isPinned: row.lead.isPinned },
       });
@@ -814,6 +832,7 @@ export function ActivitiesListView() {
         </LeadStatusProvider>
       </LeadDetailProvider>
       {lostReasonModal}
+      {deliveryDateModal}
     </ActivityRowProvider>
   );
 

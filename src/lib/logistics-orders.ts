@@ -517,6 +517,7 @@ export const ORDER_ACTIONS = [
   "CORRECT_AWB",
   "EDIT",
   "SET_DELIVERY_DATE",
+  "CORRECT_DELIVERY_DATE",
   "RESUBMIT",
   "QC_VERIFY",
   "DELIVER",
@@ -531,6 +532,7 @@ export const ORDER_ACTION_LABEL: Record<OrderAction, string> = {
   RESUBMIT: "Resubmit to QC",
   EDIT: "Edit order",
   SET_DELIVERY_DATE: "Set delivery date",
+  CORRECT_DELIVERY_DATE: "Correct delivery date",
   CORRECT_AWB: "Correct AWB",
   DISPATCH: "Dispatch",
   DELIVER: "Mark as delivered",
@@ -589,7 +591,8 @@ export const ORDER_EDIT_FIELDS = [
   },
   { key: "orderValue", label: "Order Value", maxLength: 14, numeric: true },
   { key: "paymentMethod", label: "Payment Method", maxLength: 64 },
-  // Open client question D4 (ADR-0094): until answered, the date follows this edit's rules.
+  // The date follows this edit's rules (ADR-0094) and can be changed but not cleared: every order
+  // must have one (client, 2026-10-17).
   { key: "deliveryDate", label: "Delivery Date", maxLength: 10, date: true },
 ] as const;
 
@@ -647,13 +650,16 @@ export type OrderActionInput =
   | { action: "CANCEL" | "RTO"; reason: string }
   | { action: "CORRECT_AWB"; awbNumber: string }
   | { action: "EDIT"; changes: Partial<OrderEditValues> }
-  | { action: "SET_DELIVERY_DATE"; deliveryDate: string | null };
+  | { action: "SET_DELIVERY_DATE"; deliveryDate: string }
+  | { action: "CORRECT_DELIVERY_DATE"; deliveryDate: string; reason: string };
 
 /**
  * The request for one action. Status moves are `POST /logistics/orders/:id/<route>`; the
  * Manager's two corrections are `PATCH /logistics/orders/:id` (the order's data) and
  * `PATCH /logistics/orders/:id/awb`; Sales' delivery date is
- * `PATCH /logistics/orders/:id/delivery-date`, a `YYYY-MM-DD` day or null to clear it. Required
+ * `PATCH /logistics/orders/:id/delivery-date`, a `YYYY-MM-DD` day — never null: an order's date
+ * can't be cleared (client, 2026-10-17); the Logistics team's correction once QC has verified the
+ * order is `PATCH /logistics/orders/:id/delivery-date-correction`, a day and a reason. Required
  * values are sent trimmed; an optional note or courier left blank is left out rather than sent
  * empty.
  */
@@ -710,6 +716,12 @@ export function orderActionRequest(
         method: "PATCH",
         path: `${order}/delivery-date`,
         body: { deliveryDate: input.deliveryDate },
+      };
+    case "CORRECT_DELIVERY_DATE":
+      return {
+        method: "PATCH",
+        path: `${order}/delivery-date-correction`,
+        body: { deliveryDate: input.deliveryDate, reason: input.reason.trim() },
       };
   }
 }

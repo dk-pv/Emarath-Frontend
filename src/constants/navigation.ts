@@ -38,8 +38,8 @@ export type NavItem = {
   /**
    * Capability required to see this item (AUTH-02.2); absent ⇒ visible to every role.
    * The sales modules are gated away from the post-sale roles (ADR-0084), and Logistics to
-   * its order readers (`useLogistics`, which leaves out Accounts); every sales role still sees
-   * the full menu.
+   * its order readers (`useLogistics`, Accounts included for the Delivered orders); every sales
+   * role still sees the full menu.
    */
   requires?: Capability;
 };
@@ -143,8 +143,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
 
 /**
  * Where a signed-in user lands: the Dashboard for the sales roles; for a post-sale role, which
- * holds no sales module (ADR-0084), its own queue — Logistics — or, until Accounts has a
- * screen of its own, Documents.
+ * holds no sales module (ADR-0084), the Logistics queue — for Accounts, its Delivered orders.
+ * Documents is the fallback for a role that reads neither.
  */
 export function homePath(role: UserRole | null | undefined): string {
   if (!role || can(role, "useSalesModules")) return "/dashboard";

@@ -26,15 +26,50 @@ export interface OwnerCountRow {
   noActivityCount: number;
   convertedCount: number;
   lostCount: number;
+  /**
+   * The owner's leads in this report that have a Logistics order, whatever its status since —
+   * not the same as `convertedCount` (a WON lead from before Logistics has no order).
+   */
+  ordersCount: number;
   /** Percentage 0–100. */
   conversionRatio: number;
   /** Null: Emarath has no qualification stage or flag. */
   qualifiedRatio: number | null;
-  /** Null: Emarath has no sales-target model. */
+  /**
+   * Σ actualAmount of the owner's WON leads in the report ÷ their monthly goal, as a percentage,
+   * uncapped. Null when there is no goal (or a zero one), and for the Unassigned bucket.
+   */
   targetAchievement: number | null;
   /** Σ actualAmount, AED, as a Decimal string — pass to `formatAED`. */
   leadValue: string;
 }
+
+/**
+ * One team's subtotal of the owner rows, mirroring `TeamSubtotalRow`. `team` null is the owners
+ * with no team; the Unassigned bucket belongs to no team and is left out.
+ */
+export interface TeamSubtotalRow {
+  team: string | null;
+  /** How many owner rows the subtotal adds up. */
+  owners: number;
+  count: number;
+  newCount: number;
+  contactedCount: number;
+  noActivityCount: number;
+  convertedCount: number;
+  lostCount: number;
+  ordersCount: number;
+  conversionRatio: number;
+  /** WON value ÷ the team's active members' goals; null with no goal and for no team. */
+  targetAchievement: number | null;
+  leadValue: string;
+}
+
+/** The summary: per-owner rows, the distinct lead total, and the team subtotals. */
+export type LeadsByOwnershipSummary = ListResult<OwnerCountRow> & {
+  /** Empty for a sales agent, who sees only their own row. */
+  teams: TeamSubtotalRow[];
+};
 
 /** The report's filters — the same surface as Leads By Status / By Source. */
 export interface LeadsByOwnershipFilters {
@@ -84,14 +119,14 @@ export function fetchLeadsByOwnershipDetailed(
   );
 }
 
-/** Per-owner metrics (summary view — drives the table and the chart). */
+/** Per-owner metrics (summary view — drives the table and the chart) and the team subtotals. */
 export function fetchLeadsByOwnershipSummary(
   filters: LeadsByOwnershipFilters,
   signal?: AbortSignal,
-): Promise<ListResult<OwnerCountRow>> {
+): Promise<LeadsByOwnershipSummary> {
   const params = new URLSearchParams();
   appendFilters(params, filters);
-  return apiGet<ListResult<OwnerCountRow>>(
+  return apiGet<LeadsByOwnershipSummary>(
     "/reports/leads/by-ownership/summary",
     params,
     signal,

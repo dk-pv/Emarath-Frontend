@@ -54,6 +54,8 @@ export type LeadLogisticsOrder = {
   id: string;
   orderNumber: number;
   status: LogisticsStatus;
+  /** Its planned delivery day, `YYYY-MM-DD` (ADR-0094), or null when none is set. */
+  deliveryDate: string | null;
 };
 
 /** The Logistics screen with this order's panel open — where a lead links to its order. */
@@ -185,12 +187,13 @@ export function dayIn(timeZone: string, now: Date = new Date()): string {
 /** The filter limits the backend's DTO sets: its columns' lengths and a value count. */
 export const COUNTRY_MAX_LENGTH = 64;
 export const CITY_MAX_LENGTH = 120;
+export const STATE_MAX_LENGTH = 120;
 export const MAX_FILTER_VALUES = 100;
 
 /**
- * What narrows the orders: any of the chosen statuses, delivery buckets, countries and cities (none
- * chosen is no filter), and the search. The List, every Pipeline column and the counts send the
- * same filters.
+ * What narrows the orders: any of the chosen statuses, delivery buckets, countries, cities, states
+ * (areas), delivery partners and sales executives (none chosen is no filter), and the search. The
+ * List, every Pipeline column and the counts send the same filters.
  */
 export type LogisticsFilters = {
   status?: readonly LogisticsStatus[];
@@ -199,11 +202,25 @@ export type LogisticsFilters = {
   deliveryOn?: string;
   country?: readonly string[];
   city?: readonly string[];
+  /** The order's State — its country's first-level region (an Emirate, a province). */
+  state?: readonly string[];
+  /** The delivery partner: the courier recorded at dispatch. */
+  courier?: readonly string[];
+  /** User ids: orders whose lead is assigned to any of them now. */
+  assignedAgent?: readonly string[];
   search?: string;
 };
 
 /** The filter keys sent as repeated values, in the order they are sent. */
-const MULTI_FILTERS = ["status", "delivery", "country", "city"] as const;
+const MULTI_FILTERS = [
+  "status",
+  "delivery",
+  "country",
+  "city",
+  "state",
+  "courier",
+  "assignedAgent",
+] as const;
 
 export type LogisticsOrdersQuery = LogisticsFilters & {
   page: number;
@@ -242,6 +259,9 @@ export function readLogisticsFilters(
     deliveryOn: isDateOnly(deliveryOn) ? deliveryOn : undefined,
     country: params.getAll("country"),
     city: params.getAll("city"),
+    state: params.getAll("state"),
+    courier: params.getAll("courier"),
+    assignedAgent: params.getAll("assignedAgent"),
     search: params.get("search") ?? undefined,
   };
 }
@@ -338,10 +358,19 @@ export function isDeliveryChoice(
   );
 }
 
-/** The country and city values the filter offers (`GET /logistics/orders/filter-options`). */
+/** The values the filter offers (`GET /logistics/orders/filter-options`). */
 export const LOGISTICS_FILTER_OPTIONS_PATH = `${LOGISTICS_ORDERS_PATH}/filter-options`;
 
-export type LogisticsFilterOptions = { countries: string[]; cities: string[] };
+/** A sales executive the filter offers: a user a caller's order's lead is assigned to. */
+export type LogisticsAssigneeOption = { id: string; name: string };
+
+export type LogisticsFilterOptions = {
+  countries: string[];
+  cities: string[];
+  states: string[];
+  couriers: string[];
+  assignees: LogisticsAssigneeOption[];
+};
 
 /** The statuses a screen shows: the chosen ones, or every status when none is chosen. */
 export function shownStatuses(
@@ -364,6 +393,9 @@ export type LogisticsUrlState = {
   deliveryOn: string | null;
   country: string[];
   city: string[];
+  state: string[];
+  courier: string[];
+  assignedAgent: string[];
   q: string;
   page: number;
   size: number;
@@ -413,6 +445,11 @@ export function parseLogisticsUrl(
     deliveryOn: isDateOnly(deliveryOn) ? deliveryOn : null,
     country: filterValues(params.getAll("country"), COUNTRY_MAX_LENGTH),
     city: filterValues(params.getAll("city"), CITY_MAX_LENGTH),
+    state: filterValues(params.getAll("state"), STATE_MAX_LENGTH),
+    courier: filterValues(params.getAll("courier"), COURIER_MAX_LENGTH),
+    assignedAgent: filterValues(params.getAll("assignedAgent"), 36).filter(
+      (id) => UUID.test(id),
+    ),
     q: (params.get("q") ?? "").trim().slice(0, limits.searchMax),
     page: Number.isSafeInteger(page) && page >= 1 ? page : 1,
     size: limits.pageSizes.includes(size) ? size : limits.defaultSize,
@@ -467,11 +504,11 @@ export function ordersLoadError(status: number | undefined): string {
 
 /**
  * The actions this screen has a control for — every one the backend can offer (client
- * clarification of 2026-10-01) — in the order the panel's footer shows them: secondary steps
- * first, the forward step last, where the primary button sits. Which of them apply to an order
- * and its caller is the backend's call alone (`allowedActions` on every order, ADR-0085): the
- * UI never works it out from role or status. Any other action the backend lists is left alone
- * rather than guessed at.
+ * clarification of 2026-10-01, and Sales' delivery date of Phase 2D) — in the order the panel's
+ * footer shows them: secondary steps first, the forward step last, where the primary button
+ * sits. Which of them apply to an order and its caller is the backend's call alone
+ * (`allowedActions` on every order, ADR-0085): the UI never works it out from role or status.
+ * Any other action the backend lists is left alone rather than guessed at.
  */
 export const ORDER_ACTIONS = [
   "QC_REJECT",
@@ -479,6 +516,7 @@ export const ORDER_ACTIONS = [
   "RTO",
   "CORRECT_AWB",
   "EDIT",
+  "SET_DELIVERY_DATE",
   "RESUBMIT",
   "QC_VERIFY",
   "DELIVER",
@@ -492,6 +530,7 @@ export const ORDER_ACTION_LABEL: Record<OrderAction, string> = {
   QC_REJECT: "QC Reject",
   RESUBMIT: "Resubmit to QC",
   EDIT: "Edit order",
+  SET_DELIVERY_DATE: "Set delivery date",
   CORRECT_AWB: "Correct AWB",
   DISPATCH: "Dispatch",
   DELIVER: "Mark as delivered",
@@ -607,13 +646,16 @@ export type OrderActionInput =
   | { action: "DELIVER" }
   | { action: "CANCEL" | "RTO"; reason: string }
   | { action: "CORRECT_AWB"; awbNumber: string }
-  | { action: "EDIT"; changes: Partial<OrderEditValues> };
+  | { action: "EDIT"; changes: Partial<OrderEditValues> }
+  | { action: "SET_DELIVERY_DATE"; deliveryDate: string | null };
 
 /**
  * The request for one action. Status moves are `POST /logistics/orders/:id/<route>`; the
  * Manager's two corrections are `PATCH /logistics/orders/:id` (the order's data) and
- * `PATCH /logistics/orders/:id/awb`. Required values are sent trimmed; an optional note or
- * courier left blank is left out rather than sent empty.
+ * `PATCH /logistics/orders/:id/awb`; Sales' delivery date is
+ * `PATCH /logistics/orders/:id/delivery-date`, a `YYYY-MM-DD` day or null to clear it. Required
+ * values are sent trimmed; an optional note or courier left blank is left out rather than sent
+ * empty.
  */
 export function orderActionRequest(
   orderId: string,
@@ -621,7 +663,7 @@ export function orderActionRequest(
 ): {
   method: "POST" | "PATCH";
   path: string;
-  body: Record<string, string>;
+  body: Record<string, string | null>;
 } {
   const order = `${LOGISTICS_ORDERS_PATH}/${orderId}`;
   const post = (route: string, body: Record<string, string> = {}) => ({
@@ -662,6 +704,12 @@ export function orderActionRequest(
         method: "PATCH",
         path: order,
         body: input.changes as Record<string, string>,
+      };
+    case "SET_DELIVERY_DATE":
+      return {
+        method: "PATCH",
+        path: `${order}/delivery-date`,
+        body: { deliveryDate: input.deliveryDate },
       };
   }
 }

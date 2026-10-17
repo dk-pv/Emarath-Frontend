@@ -12,11 +12,11 @@ import type { UserRole } from "./roles";
  *   • useSalesModules — the sales modules belong to the five sales roles; the post-sale
  *     roles (Logistics, QC, Accounts) hold no sales access, and the backend refuses them
  *     (ADR-0084). Hiding here only spares them screens that would answer 403.
- *   • useLogistics — the order queue: the Logistics roles and QC work every order and the
+ *   • useLogistics — the order queue: the Logistics roles and QC work every order, the
  *     sales roles read their own converted leads' (client clarifications 2026-09-23 CD-8/CD-10
- *     and 2026-10-01 Q1).
- *     It mirrors the backend's LOGISTICS_READ_ROLES, which is what actually enforces it;
- *     Accounts is refused there until its own phase.
+ *     and 2026-10-01 Q1), and Accounts reads the Delivered orders only, with no action.
+ *     It mirrors the backend's LOGISTICS_READ_ROLES, which is what actually enforces it — the
+ *     Delivered-only scope and the empty actions included.
  *   • manageStages — add, rename, recolour, reorder and delete pipeline stages: admins and
  *     sales managers only (owner decision 2026-10-07, KAN-05.2 AC5). Mirrors the
  *     backend's @Roles on the stage writes, which is what actually enforces it.
@@ -62,6 +62,7 @@ const CAPABILITY_ROLES: Record<Capability, readonly UserRole[]> = {
     "LOGISTICS_MANAGER",
     "LOGISTICS_EXECUTIVE",
     "QC",
+    "ACCOUNTS_EXECUTIVE",
   ],
   beAssignedLeads: ["SALES_AGENT", "SALES_MANAGER", "CUSTOMER_SERVICE_AGENT"],
   moveLeadPipelines: MANAGERS_AND_ADMINS,

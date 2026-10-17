@@ -168,6 +168,9 @@ const filterSet = {
   delivery: ["tomorrow", "overdue"],
   country: ["Oman"],
   city: ["Muscat", "Sohar"],
+  state: ["Dubai"],
+  courier: ["Aramex", "DHL"],
+  assignedAgent: ["22222222-2222-4222-8222-222222222222"],
   search: "Acme",
 } as const;
 const countsParams = logisticsFilterParams(filterSet);
@@ -193,8 +196,17 @@ assert.deepEqual(readLogisticsFilters(countsParams), {
   deliveryOn: undefined,
   country: ["Oman"],
   city: ["Muscat", "Sohar"],
+  state: ["Dubai"],
+  courier: ["Aramex", "DHL"],
+  assignedAgent: ["22222222-2222-4222-8222-222222222222"],
   search: "Acme",
 });
+// The new filters go out under the backend DTO's own parameter names.
+assert.deepEqual(countsParams.getAll("courier"), ["Aramex", "DHL"]);
+assert.deepEqual(countsParams.getAll("state"), ["Dubai"]);
+assert.deepEqual(countsParams.getAll("assignedAgent"), [
+  "22222222-2222-4222-8222-222222222222",
+]);
 assert.deepEqual(countsParams.getAll("delivery"), ["tomorrow", "overdue"]);
 assert.deepEqual(readLogisticsFilters(new URLSearchParams()), {
   status: [],
@@ -202,6 +214,9 @@ assert.deepEqual(readLogisticsFilters(new URLSearchParams()), {
   deliveryOn: undefined,
   country: [],
   city: [],
+  state: [],
+  courier: [],
+  assignedAgent: [],
   search: undefined,
 });
 // The statuses a view shows: the chosen ones in lifecycle order, or all of them.
@@ -224,6 +239,9 @@ assert.deepEqual(url(""), {
   deliveryOn: null,
   country: [],
   city: [],
+  state: [],
+  courier: [],
+  assignedAgent: [],
   q: "",
   page: 1,
   size: 100,
@@ -242,6 +260,9 @@ assert.deepEqual(
     deliveryOn: null,
     country: [],
     city: [],
+    state: [],
+    courier: [],
+    assignedAgent: [],
     q: "Acme",
     page: 3,
     size: 25,
@@ -253,7 +274,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   url(
-    "view=board&status=SHIPPED&page=-2&size=7&sort=awbNumber&direction=up&order=1;drop&country=+&city=",
+    "view=board&status=SHIPPED&page=-2&size=7&sort=awbNumber&direction=up&order=1;drop&country=+&city=&state=&courier=+&assignedAgent=not-a-uuid",
   ),
   url(""),
   "every malformed value falls back to its default",
@@ -281,6 +302,21 @@ assert.equal(
   100,
   "at most the API's value count",
 );
+// States, delivery partners and sales executives follow the same rules, at their own columns'
+// lengths; a sales executive that is not a user id is dropped.
+assert.deepEqual(
+  url(`state=+Dubai+&state=Dubai&state=${"s".repeat(121)}`).state,
+  ["Dubai"],
+);
+assert.deepEqual(url(`courier=${"k".repeat(65)}&courier=Aramex`).courier, [
+  "Aramex",
+]);
+assert.deepEqual(
+  url(
+    "assignedAgent=22222222-2222-4222-8222-222222222222&assignedAgent=1;drop&assignedAgent=22222222-2222-4222-8222-222222222222",
+  ).assignedAgent,
+  ["22222222-2222-4222-8222-222222222222"],
+);
 assert.equal(url("page=2.5").page, 1);
 assert.equal(url("page=99999999999999999999").page, 1);
 assert.equal(
@@ -306,16 +342,29 @@ const filtered = url(
       status: ["QC_VERIFIED", "DISPATCHED"],
       country: ["United Arab Emirates", "Oman"],
       city: ["Dubai, Al Barsha", "Abu Dhabi & Al Ain", "دبي", "50% off_"],
+      state: ["Ras Al Khaimah", "Umm Al Quwain"],
+      courier: ["Fetchr & Co", "DHL"],
+      assignedAgent: ["22222222-2222-4222-8222-222222222222"],
     },
     100,
   ).toString(),
 );
 assert.deepEqual(
-  [filtered.status, filtered.country, filtered.city],
+  [
+    filtered.status,
+    filtered.country,
+    filtered.city,
+    filtered.state,
+    filtered.courier,
+    filtered.assignedAgent,
+  ],
   [
     ["QC_VERIFIED", "DISPATCHED"],
     ["United Arab Emirates", "Oman"],
     ["Dubai, Al Barsha", "Abu Dhabi & Al Ain", "دبي", "50% off_"],
+    ["Ras Al Khaimah", "Umm Al Quwain"],
+    ["Fetchr & Co", "DHL"],
+    ["22222222-2222-4222-8222-222222222222"],
   ],
   "filters with commas, ampersands, other scripts and % round-trip exactly",
 );
@@ -379,8 +428,9 @@ assert.equal(
 );
 assert.equal(orderNumberLabel(1001), "#1001");
 
-// The menu follows the backend's readers: both Logistics roles, QC and every sales role (their
-// own converted leads only — the API scopes it); Accounts is refused until its own phase.
+// The menu follows the backend's readers: both Logistics roles, QC, every sales role (their
+// own converted leads only — the API scopes it) and Accounts (the Delivered orders only, with no
+// action — the API scopes and refuses that too).
 for (const role of [
   "SUPERADMIN",
   "SALES_MANAGER",
@@ -390,10 +440,14 @@ for (const role of [
   "LOGISTICS_MANAGER",
   "LOGISTICS_EXECUTIVE",
   "QC",
+  "ACCOUNTS_EXECUTIVE",
 ] as const) {
   assert.equal(can(role, "useLogistics"), true, `${role} sees Logistics`);
 }
-assert.equal(can("ACCOUNTS_EXECUTIVE", "useLogistics"), false);
+// Accounts holds no sales module, so it lands on its Delivered orders.
+assert.equal(can("ACCOUNTS_EXECUTIVE", "useSalesModules"), false);
+// No action is offered unless the backend lists it — Accounts' list is empty.
+assert.deepEqual(renderableActions([]), []);
 assert.equal(can(undefined, "useLogistics"), false, "no role, no menu");
 // The Logistics roles still hold no sales module (ADR-0084).
 assert.equal(can("LOGISTICS_MANAGER", "useSalesModules"), false);
@@ -412,6 +466,7 @@ assert.deepEqual(
     "RTO",
     "CORRECT_AWB",
     "EDIT",
+    "SET_DELIVERY_DATE",
     "RESUBMIT",
     "QC_VERIFY",
     "DELIVER",
@@ -419,6 +474,12 @@ assert.deepEqual(
   ],
   "every action the backend can offer, in the footer's order: secondary first, forward last",
 );
+// A Sales Manager on a QC-rejected order: the date, then the forward step.
+assert.deepEqual(renderableActions(["RESUBMIT", "SET_DELIVERY_DATE"]), [
+  "SET_DELIVERY_DATE",
+  "RESUBMIT",
+]);
+assert.equal(ORDER_ACTION_LABEL.SET_DELIVERY_DATE, "Set delivery date");
 assert.deepEqual(renderableActions([]), [], "no allowed actions, no controls");
 assert.deepEqual(
   renderableActions(["DELIVER", "CANCEL", "RTO", "CORRECT_AWB"]),
@@ -507,6 +568,26 @@ assert.deepEqual(
 assert.deepEqual(
   orderActionRequest(ORDER, { action: "EDIT", changes: { city: "Abu Dhabi" } }),
   { method: "PATCH", path: at(""), body: { city: "Abu Dhabi" } },
+);
+// Sales' delivery date (Phase 2D): a calendar day, or null to clear it — never "".
+assert.deepEqual(
+  orderActionRequest(ORDER, {
+    action: "SET_DELIVERY_DATE",
+    deliveryDate: "2026-10-20",
+  }),
+  {
+    method: "PATCH",
+    path: at("/delivery-date"),
+    body: { deliveryDate: "2026-10-20" },
+  },
+);
+assert.deepEqual(
+  orderActionRequest(ORDER, {
+    action: "SET_DELIVERY_DATE",
+    deliveryDate: null,
+  }),
+  { method: "PATCH", path: at("/delivery-date"), body: { deliveryDate: null } },
+  "a clear sends null",
 );
 // The backend DTOs' limits, which the forms enforce.
 assert.equal(AWB_MAX_LENGTH, 64);
@@ -901,14 +982,41 @@ for (const action of ORDER_ACTIONS) {
     `the actions panel has a dialog for ${action}`,
   );
 }
+// The delivery date's Clear button disappears with the date it clears, so its handler must hand
+// focus to the picker's trigger, or a keyboard user is dropped onto the page behind the dialog.
+const clearAt = panel.indexOf('aria-label="Clear the delivery date"');
+const clearButton = panel.slice(clearAt, panel.indexOf("</Button>", clearAt));
+assert.ok(
+  clearAt > 0 &&
+    clearButton.includes('button[aria-haspopup="dialog"]') &&
+    clearButton.includes("?.focus()"),
+  "Clear moves keyboard focus to the date picker",
+);
 
 // A lead with an order has its Delete, Convert, status and pipeline controls off, and says why
 // with the order's own number; a lead without one — a legacy WON lead included — keeps them.
 assert.equal(
-  orderLockReason({ id: "order-42", orderNumber: 42, status: "QC_REJECTED" }),
+  orderLockReason({
+    id: "order-42",
+    orderNumber: 42,
+    status: "QC_REJECTED",
+    deliveryDate: null,
+  }),
   "Logistics order #42 manages this lead’s status and pipeline, and the lead can’t be deleted.",
 );
 assert.equal(orderLockReason(null), null);
+
+// The lead screens' order link shows the order's delivery date, or "No Delivery Date" (Phase 2D),
+// as text rearranged from its parts, so no timezone can move it.
+const orderLink = readFileSync(
+  "src/components/logistics/logistics-order-link.tsx",
+  "utf8",
+);
+assert.ok(
+  orderLink.includes("formatDateOnly(order.deliveryDate)") &&
+    orderLink.includes("DELIVERY_BUCKET_LABEL.none"),
+  "the order link shows the delivery date or No Delivery Date",
+);
 assert.equal(orderLockReason(undefined), null);
 
 console.log("logistics-orders.ts: all checks passed");

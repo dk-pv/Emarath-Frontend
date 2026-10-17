@@ -95,6 +95,9 @@ const NO_FILTERS: LogisticsChosenFilters = {
   deliveryOn: null,
   country: [],
   city: [],
+  state: [],
+  courier: [],
+  assignedAgent: [],
 };
 
 /**
@@ -121,6 +124,9 @@ export function LogisticsView() {
     deliveryOn: state.deliveryOn ?? undefined,
     country: state.country,
     city: state.city,
+    state: state.state,
+    courier: state.courier,
+    assignedAgent: state.assignedAgent,
     search: state.q,
   }).toString();
   const filters = useMemo(

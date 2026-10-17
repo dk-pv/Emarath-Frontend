@@ -25,6 +25,10 @@ export type DatePickerProps = {
   className?: string;
   /** Show the trigger as DD/MM/YYYY — the New Lead drawer's format (LEAD-06.2). */
   numeric?: boolean;
+  /** The trigger's accessible name, for a picker its field's label can't name by itself. */
+  "aria-label"?: string;
+  /** The hint and error a field shows for this picker (`FormField`'s control). */
+  "aria-describedby"?: string;
 };
 
 /** Pinned locale: the server and the browser must format identically or hydration fails. */
@@ -308,6 +312,8 @@ export function DatePicker({
   disabled,
   className,
   numeric,
+  "aria-label": ariaLabel,
+  "aria-describedby": ariaDescribedBy,
 }: DatePickerProps) {
   const triggerFormat = numeric ? NUMERIC_TRIGGER_FORMAT : TRIGGER_FORMAT;
   const root = useRef<HTMLDivElement>(null);
@@ -340,7 +346,8 @@ export function DatePicker({
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        aria-label={hasVisibleLabel ? undefined : "Select date"}
+        aria-label={ariaLabel ?? (hasVisibleLabel ? undefined : "Select date")}
+        aria-describedby={ariaDescribedBy}
         onClick={toggle}
         className={TRIGGER_CLASS}
       >

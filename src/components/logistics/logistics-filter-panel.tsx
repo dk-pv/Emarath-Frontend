@@ -11,6 +11,7 @@ import {
   weekdayOf,
   type BusinessDay,
   type DeliveryBucket,
+  type LogisticsAssigneeOption,
   type LogisticsFilterOptions,
   type LogisticsStatus,
 } from "@/lib/logistics-orders";
@@ -23,7 +24,20 @@ export type LogisticsChosenFilters = {
   deliveryOn: string | null;
   country: string[];
   city: string[];
+  state: string[];
+  courier: string[];
+  assignedAgent: string[];
 };
+
+/** The multi-value filters each read and written under their own key. */
+type ValueKey = "country" | "city" | "state" | "courier" | "assignedAgent";
+const VALUE_KEYS: readonly string[] = [
+  "country",
+  "city",
+  "state",
+  "courier",
+  "assignedAgent",
+] satisfies readonly ValueKey[];
 
 /** The Delivery Date field's value for a chosen day — one more choice beside the buckets. */
 const onDay = (date: string) => `on:${date}`;
@@ -75,8 +89,24 @@ function choices(offered: readonly string[], chosen: readonly string[]) {
 }
 
 /**
- * The countries and cities in the caller's own orders, read again after an order action (an
- * edit can bring a new city). Non-critical: if they can't be read, the filters still apply and
+ * The sales executives offered, by name, then any chosen id the options no longer hold — named
+ * as such so it still shows, and can be removed, in the panel.
+ */
+function assigneeChoices(
+  offered: readonly LogisticsAssigneeOption[],
+  chosen: readonly string[],
+) {
+  return [
+    ...offered.map(({ id, name }) => ({ value: id, label: name })),
+    ...chosen
+      .filter((id) => !offered.some((option) => option.id === id))
+      .map((id) => ({ value: id, label: "Unknown user" })),
+  ];
+}
+
+/**
+ * The values in the caller's own orders, read again after an order action (an edit can bring a
+ * new city, a dispatch a new delivery partner). Non-critical: if they can't be read, the filters still apply and
  * the dropdowns offer only what is already chosen.
  */
 function useFilterOptions(reloadToken: number) {
@@ -93,7 +123,8 @@ function useFilterOptions(reloadToken: number) {
 
 /**
  * The Logistics screen's Filter control: the shared filter popover (FND-03.2) with Status,
- * Delivery Date, Country and City, each taking any number of values. A change applies at once and
+ * Delivery Date, Country, City, State / Area, Delivery Partner and Sales Executive, each taking
+ * any number of values. A change applies at once and
  * is written to the address by the screen, which takes the List, the Pipeline and the counts with
  * it.
  */
@@ -140,8 +171,38 @@ export function LogisticsFilterPanel({
         searchable: true,
         options: choices(options?.cities ?? [], value.city),
       },
+      {
+        key: "state",
+        label: "State / Area",
+        type: "multi",
+        searchable: true,
+        options: choices(options?.states ?? [], value.state),
+      },
+      {
+        key: "courier",
+        label: "Delivery Partner",
+        type: "multi",
+        searchable: true,
+        options: choices(options?.couriers ?? [], value.courier),
+      },
+      {
+        key: "assignedAgent",
+        label: "Sales Executive",
+        type: "multi",
+        searchable: true,
+        options: assigneeChoices(options?.assignees ?? [], value.assignedAgent),
+      },
     ],
-    [options, businessDay, value.deliveryOn, value.country, value.city],
+    [
+      options,
+      businessDay,
+      value.deliveryOn,
+      value.country,
+      value.city,
+      value.state,
+      value.courier,
+      value.assignedAgent,
+    ],
   );
   const delivery = value.deliveryOn
     ? [...value.delivery, onDay(value.deliveryOn)]
@@ -152,18 +213,24 @@ export function LogisticsFilterPanel({
       title="Filters"
       fields={fields}
       activeCount={
-        [value.status, delivery, value.country, value.city].filter(
-          (chosen) => chosen.length > 0,
-        ).length
+        [
+          value.status,
+          delivery,
+          value.country,
+          value.city,
+          value.state,
+          value.courier,
+          value.assignedAgent,
+        ].filter((chosen) => chosen.length > 0).length
       }
       valueOf={(key) =>
         key === "status"
           ? value.status
           : key === "delivery"
             ? delivery
-            : key === "country"
-              ? value.country
-              : value.city
+            : VALUE_KEYS.includes(key)
+              ? value[key as ValueKey]
+              : []
       }
       onChange={(key, next) => {
         const values = Array.isArray(next) ? next : [];
@@ -183,10 +250,8 @@ export function LogisticsFilterPanel({
                 ? value.deliveryOn
                 : null,
           });
-        } else if (key === "country") {
-          onChange({ country: values });
-        } else {
-          onChange({ city: values });
+        } else if (VALUE_KEYS.includes(key)) {
+          onChange({ [key as ValueKey]: values });
         }
       }}
       onClear={onClear}

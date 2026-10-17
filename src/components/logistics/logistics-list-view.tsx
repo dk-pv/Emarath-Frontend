@@ -249,7 +249,10 @@ export function LogisticsListView({
     state.status.length +
       state.delivery.length +
       state.country.length +
-      state.city.length >
+      state.city.length +
+      state.state.length +
+      state.courier.length +
+      state.assignedAgent.length >
       0 ||
     state.deliveryOn !== null ||
     state.q !== "";

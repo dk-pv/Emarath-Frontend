@@ -8,7 +8,11 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation";
-import { IconFilter as IconPipeline, IconUser } from "@tabler/icons-react";
+import {
+  IconFilter as IconPipeline,
+  IconUser,
+  IconUsers,
+} from "@tabler/icons-react";
 import { findReport } from "./report-registry";
 import { BreakdownDonutChart, DONUT_PALETTE } from "./breakdown-donut-chart";
 import { ReportDateFilter } from "./report-date-filter";
@@ -53,6 +57,7 @@ import {
   type LeadsByOwnershipFilters,
   type LeadsByOwnershipLeadRow,
   type OwnerCountRow,
+  type TeamSubtotalRow,
 } from "@/services/leads-by-ownership-report-service";
 import type { TableColumn } from "@/types";
 
@@ -117,6 +122,22 @@ function percent(value: number | null) {
     `${value.toFixed(2)}%`
   );
 }
+
+function target(value: number | null) {
+  return value === null ? (
+    <span className="text-ink-muted">No Target Set</span>
+  ) : (
+    percent(value)
+  );
+}
+
+const count = (value: number) => value.toLocaleString("en-US");
+
+/**
+ * Orders: the owner's leads in the report that have a Logistics order (whatever its status
+ * since). A plain number — the Leads list has no condition that reproduces it to open.
+ */
+const ORDERS_HEADER = "Orders";
 
 /** A colour-coded status pill, using the status's real Stage colour (never an invented hue). */
 function StatusPill({
@@ -190,11 +211,17 @@ function summaryColumns(
             aria-label={`Open ${row.ownerName}'s ${header.toLowerCase()} in a new tab`}
             className={COUNT_LINK_CLASS}
           >
-            {(row[key] as number).toLocaleString("en-US")}
+            {count(row[key] as number)}
           </Link>
         ),
       }),
     ),
+    {
+      key: "ordersCount",
+      header: ORDERS_HEADER,
+      align: "right",
+      render: (row) => count(row.ordersCount),
+    },
     {
       key: "conversionRatio",
       header: "Conversion Ratio",
@@ -209,16 +236,11 @@ function summaryColumns(
       render: (row) => percent(row.qualifiedRatio),
     },
     {
-      // Emarath has no sales-target model, so the server sends null.
+      // WON value against the owner's monthly goal (Target Settings); null without one.
       key: "targetAchievement",
       header: "Target Achievement",
       align: "right",
-      render: (row) =>
-        row.targetAchievement === null ? (
-          <span className="text-ink-muted">No Target Set</span>
-        ) : (
-          percent(row.targetAchievement)
-        ),
+      render: (row) => target(row.targetAchievement),
     },
     {
       key: "leadValue",
@@ -228,6 +250,53 @@ function summaryColumns(
     },
   ];
 }
+
+/** The team subtotals: the owner table's figures added up per team, as plain numbers. */
+const TEAM_COLUMNS: readonly TableColumn<TeamSubtotalRow>[] = [
+  {
+    key: "team",
+    header: "Team",
+    className: STICKY_FIRST,
+    render: (row) =>
+      row.team ?? <span className="text-ink-subtle">No Team</span>,
+  },
+  {
+    key: "owners",
+    header: "Users",
+    align: "right",
+    render: (row) => count(row.owners),
+  },
+  ...COUNT_COLUMNS.map(({ key, header }): TableColumn<TeamSubtotalRow> => ({
+    key,
+    header,
+    align: "right",
+    render: (row) => count(row[key as keyof TeamSubtotalRow] as number),
+  })),
+  {
+    key: "ordersCount",
+    header: ORDERS_HEADER,
+    align: "right",
+    render: (row) => count(row.ordersCount),
+  },
+  {
+    key: "conversionRatio",
+    header: "Conversion Ratio",
+    align: "right",
+    render: (row) => percent(row.conversionRatio),
+  },
+  {
+    key: "targetAchievement",
+    header: "Target Achievement",
+    align: "right",
+    render: (row) => target(row.targetAchievement),
+  },
+  {
+    key: "leadValue",
+    header: "Total Lead Value",
+    align: "right",
+    render: (row) => formatAED(row.leadValue),
+  },
+];
 
 /** Remembers this report's detailed-column arrangement separately from every other module. */
 const COLUMN_PREFS_MODULE = "reports:leads-by-ownership";
@@ -303,10 +372,10 @@ const DETAILED_COLUMNS: readonly TableColumn<LeadsByOwnershipLeadRow>[] = [
 /**
  * Leads By Ownership report (RPT-02.5). Renders inside the shared ReportShell (RPT-01.2): it
  * owns the toolbar filters and the data, the shell owns the chrome and the loading/empty/error
- * states. Summary view sits the donut + legend beside per-owner metrics (grouped in the DB);
- * detailed view lists the underlying leads, paginated. Every filter — Sales Agent, Pipeline,
- * By Date and the Filter condition builder — is a real server query param, so the ring, the
- * counts and the export always describe the same set.
+ * states. Summary view sits the donut + legend beside per-owner metrics (grouped in the DB),
+ * with the team subtotals below them; detailed view lists the underlying leads, paginated.
+ * Every filter — Sales Agent, Team, Pipeline, By Date and the Filter condition builder — is a
+ * real server query param, so the ring, the counts and the export always describe the same set.
  */
 export function LeadsByOwnershipReport({
   category,
@@ -338,6 +407,7 @@ export function LeadsByOwnershipReport({
   // applied `conditions` payload rides every report query beside the toolbar pills.
   const advancedFilter = useAdvancedFilter({ onApplied: resetPage });
   const pipelines = useLookup("pipelines");
+  const teams = useLookup("teams");
 
   const view: ReportViewMode =
     params.get("view") === "detailed" ? "detailed" : "summary";
@@ -348,12 +418,17 @@ export function LeadsByOwnershipReport({
   const customFrom = params.get("from") ?? undefined;
   const customTo = params.get("to") ?? undefined;
   const agentKey = params.get("agent") ?? "";
+  const teamKey = params.get("team") ?? "";
   const pipelineKey = params.get("pipeline") ?? "";
   const unassignedOnly = params.get("unassigned") === "true";
 
   const agentIds = useMemo(
     () => (agentKey ? agentKey.split(",").filter(Boolean) : []),
     [agentKey],
+  );
+  const teamValues = useMemo(
+    () => (teamKey ? teamKey.split(",").filter(Boolean) : []),
+    [teamKey],
   );
   const pipelineValues = useMemo(
     () => (pipelineKey ? [pipelineKey] : []),
@@ -367,6 +442,7 @@ export function LeadsByOwnershipReport({
         : {}),
       dateField,
       agent: agentIds,
+      team: teamValues,
       pipeline: pipelineKey || undefined,
       conditions: advancedFilter.appliedConditions,
       unassigned: unassignedOnly || undefined,
@@ -377,16 +453,27 @@ export function LeadsByOwnershipReport({
       customTo,
       dateField,
       agentIds,
+      teamValues,
       pipelineKey,
       advancedFilter.appliedConditions,
       unassignedOnly,
     ],
   );
 
+  // The summary's team subtotals, kept with the filters they were read under so a slower
+  // earlier response can never show beside a newer one's owner rows.
+  const [teamSubtotals, setTeamSubtotals] = useState<{
+    filters: LeadsByOwnershipFilters;
+    rows: TeamSubtotalRow[];
+  } | null>(null);
+
   const dataSource: ListDataSource<Row> = useCallback(
     (listQuery, signal) =>
       view === "summary"
-        ? fetchLeadsByOwnershipSummary(filters, signal)
+        ? fetchLeadsByOwnershipSummary(filters, signal).then((summary) => {
+            setTeamSubtotals({ filters, rows: summary.teams ?? [] });
+            return summary;
+          })
         : fetchLeadsByOwnershipDetailed(
             listQuery.page,
             listQuery.size,
@@ -499,6 +586,12 @@ export function LeadsByOwnershipReport({
   // Per-owner counts sum past the distinct total (a co-assigned lead counts for each owner),
   // so the ring is shares of that sum while the centre keeps the distinct total.
   const sliceTotal = summaryRows.reduce((sum, row) => sum + row.count, 0);
+  const teamRows =
+    view === "summary" &&
+    state === "ready" &&
+    teamSubtotals?.filters === filters
+      ? teamSubtotals.rows
+      : [];
 
   const filterBar = (
     <div className="flex flex-wrap items-center gap-1 empty:hidden">
@@ -515,6 +608,20 @@ export function LeadsByOwnershipReport({
         options={(options?.agents ?? []).map((agent) => ({
           value: agent.id,
           label: agent.name,
+        }))}
+      />
+      <ReportToolbarSelect
+        label="Team"
+        icon={IconUsers}
+        multiple
+        value={teamValues}
+        onChange={(value) => {
+          setParams({ team: value.length ? value.join(",") : null });
+          resetPage();
+        }}
+        options={teams.options.map((option) => ({
+          value: option.value,
+          label: option.label,
         }))}
       />
       <ReportToolbarSelect
@@ -648,6 +755,27 @@ export function LeadsByOwnershipReport({
             />
           )}
         </div>
+
+        {teamRows.length > 0 && (
+          <section
+            aria-labelledby="ownership-team-subtotals"
+            className="border-t border-hairline"
+          >
+            <h2
+              id="ownership-team-subtotals"
+              className="px-4 pt-4 pb-2 text-sm font-semibold text-ink"
+            >
+              Team Subtotals
+            </h2>
+            <ResponsiveTableContainer label="Leads By Ownership team subtotals">
+              <Table<TeamSubtotalRow>
+                columns={TEAM_COLUMNS}
+                rows={teamRows}
+                getRowId={(row) => row.team ?? "no-team"}
+              />
+            </ResponsiveTableContainer>
+          </section>
+        )}
       </div>
     </ReportShell>
   );

@@ -121,6 +121,8 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
         label: "Roles & Permissions",
         href: "/settings/users-access/roles-permissions",
       },
+      // Not in the Workpex reference: the client's audit trail (AUD-02), Super Admin only.
+      { label: "Audit Log", href: "/settings/users-access/audit-log" },
     ],
   },
   {

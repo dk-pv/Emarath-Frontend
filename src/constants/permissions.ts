@@ -17,6 +17,9 @@ import type { UserRole } from "./roles";
  *     and 2026-10-01 Q1), and Accounts reads the Delivered orders only, with no action.
  *     It mirrors the backend's LOGISTICS_READ_ROLES, which is what actually enforces it — the
  *     Delivered-only scope and the empty actions included.
+ *   • useAccounts — the Accounts records (ADR-0096): the Accounts Executive and the admin. It
+ *     mirrors the backend's ACCOUNTS_READ_ROLES, which is what actually enforces it; what each
+ *     may do to a record is the record's own `allowedMoves` / `canCorrect`.
  *   • manageStages — add, rename, recolour, reorder and delete pipeline stages: admins and
  *     sales managers only (owner decision 2026-10-07, KAN-05.2 AC5). Mirrors the
  *     backend's @Roles on the stage writes, which is what actually enforces it.
@@ -35,6 +38,7 @@ export type Capability =
   | "viewTeamMetrics"
   | "useSalesModules"
   | "useLogistics"
+  | "useAccounts"
   | "manageStages"
   | "beAssignedLeads"
   | "moveLeadPipelines";
@@ -64,6 +68,7 @@ const CAPABILITY_ROLES: Record<Capability, readonly UserRole[]> = {
     "QC",
     "ACCOUNTS_EXECUTIVE",
   ],
+  useAccounts: ["SUPERADMIN", "ACCOUNTS_EXECUTIVE"],
   beAssignedLeads: ["SALES_AGENT", "SALES_MANAGER", "CUSTOMER_SERVICE_AGENT"],
   moveLeadPipelines: MANAGERS_AND_ADMINS,
 };

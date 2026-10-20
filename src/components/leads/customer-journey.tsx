@@ -213,9 +213,9 @@ export function CustomerJourney({ leadId }: { leadId: string }) {
 /**
  * One event: what happened to which record, when and by whom, then the fields it changed and
  * any detail it carries. The raw record sits behind Details, so nothing the log holds is lost to
- * the readable summary above it.
+ * the readable summary above it. The Audit Log's event panel (AUD-02) renders the same item.
  */
-function JourneyItem({
+export function JourneyItem({
   event,
   labels,
 }: {

@@ -11,6 +11,8 @@ import {
   IconPhoneFilled,
   IconPuzzle,
   IconPuzzleFilled,
+  IconReceipt,
+  IconReceiptFilled,
   IconReportAnalytics,
   IconRun,
   IconTrendingUp,
@@ -132,6 +134,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     activeIcon: IconTruckFilled,
     requires: "useLogistics",
   },
+  // The client workflow's payment records (ADR-0096), after Logistics as the journey runs.
+  {
+    label: "Accounts",
+    title: "Accounts",
+    href: "/accounts",
+    icon: IconReceipt,
+    activeIcon: IconReceiptFilled,
+    requires: "useAccounts",
+  },
   {
     label: "Settings",
     title: "Settings",
@@ -143,11 +154,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
 
 /**
  * Where a signed-in user lands: the Dashboard for the sales roles; for a post-sale role, which
- * holds no sales module (ADR-0084), the Logistics queue — for Accounts, its Delivered orders.
- * Documents is the fallback for a role that reads neither.
+ * holds no sales module (ADR-0084), its own pipeline — the Accounts records for Accounts
+ * (ADR-0096), the Logistics queue for the Logistics roles and QC. Documents is the fallback for a
+ * role that reads neither.
  */
 export function homePath(role: UserRole | null | undefined): string {
   if (!role || can(role, "useSalesModules")) return "/dashboard";
+  if (can(role, "useAccounts")) return "/accounts";
   return can(role, "useLogistics") ? "/logistics" : "/documents";
 }
 

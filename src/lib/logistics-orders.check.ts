@@ -444,7 +444,7 @@ for (const role of [
 ] as const) {
   assert.equal(can(role, "useLogistics"), true, `${role} sees Logistics`);
 }
-// Accounts holds no sales module, so it lands on its Delivered orders.
+// Accounts holds no sales module; it reads its Delivered orders here beside its own records.
 assert.equal(can("ACCOUNTS_EXECUTIVE", "useSalesModules"), false);
 // No action is offered unless the backend lists it — Accounts' list is empty.
 assert.deepEqual(renderableActions([]), []);

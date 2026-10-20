@@ -24,8 +24,11 @@ import {
   type LeadsByStatusDateField,
 } from "@/services/leads-by-status-report-service";
 
+/** The dates a window can apply to; a report offers the ones its endpoint reads. */
+export type ReportDateField = LeadsByStatusDateField | "orderCreated";
+
 export type DateFilterValue = {
-  field: LeadsByStatusDateField;
+  field: ReportDateField;
   period: DatePeriodKey | null;
   /**
    * The Custom range's bounds as date keys — `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` when a
@@ -46,6 +49,8 @@ type ReportDateFilterProps = {
    * reading "By Date" with its count badge.
    */
   showActiveLabel?: boolean;
+  /** The date-field radios; the Created / Status Changed pair unless a report offers others. */
+  fields?: readonly { value: ReportDateField; label: string }[];
 };
 
 /**
@@ -72,6 +77,7 @@ export function ReportDateFilter({
   onApply,
   onClear,
   showActiveLabel = false,
+  fields = DATE_FIELD_OPTIONS,
 }: ReportDateFilterProps) {
   const { open, setOpen, pos, triggerRef, panelRef } =
     useAnchoredPanel(MAX_PANEL);
@@ -99,7 +105,7 @@ export function ReportDateFilter({
       : null;
 
   const heading =
-    DATE_FIELD_OPTIONS.find((option) => option.value === draft.field)?.label ??
+    fields.find((option) => option.value === draft.field)?.label ??
     "Created Date";
 
   const panel = pos && (
@@ -126,7 +132,7 @@ export function ReportDateFilter({
       </div>
 
       <div className="mb-7 flex flex-wrap items-center gap-x-7 gap-y-3">
-        {DATE_FIELD_OPTIONS.map((option) => (
+        {fields.map((option) => (
           <label key={option.value} className={OPTION_LABEL_CLASS}>
             <Radio
               name="report-date-field"

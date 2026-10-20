@@ -16,6 +16,7 @@ import { LeadsByStatusReport } from "@/components/reports/leads-by-status-report
 import { LeadsBySourceReport } from "@/components/reports/leads-by-source-report";
 import { LeadsByOwnershipReport } from "@/components/reports/leads-by-ownership-report";
 import { TeamPerformanceReport } from "@/components/reports/team-performance-report";
+import { FinancialDashboardReport } from "@/components/reports/financial-dashboard-report";
 import { ConvertedLeadsReport } from "@/components/reports/converted-leads-report";
 import { LostLeadsReport } from "@/components/reports/lost-leads-report";
 import { OverdueFollowUpsReport } from "@/components/reports/overdue-follow-ups-report";
@@ -87,7 +88,9 @@ export default async function ReportPage({
                               ? LeadFirstResponseReport
                               : slug === "duplicate-enquiries"
                                 ? DuplicateEnquiriesReport
-                                : ReportView;
+                                : slug === "financial-dashboard"
+                                  ? FinancialDashboardReport
+                                  : ReportView;
 
   return (
     <PageContainer>

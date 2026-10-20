@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/ui/StatCard";
 import { LOGISTICS_STATUS_TONE } from "@/components/logistics/logistics-status-badge";
 import { isAbortError } from "@/lib/api-client";
+import { cn } from "@/lib/cn";
 import {
   LOGISTICS_STATUSES,
   LOGISTICS_STATUS_LABEL,
@@ -86,12 +87,18 @@ export function LogisticsSummaryCards({
   summary,
   isError,
   onRetry,
+  onChoose,
+  regions = true,
 }: {
   /** The Status filter: the statuses it leaves out read "Not in filter"; empty is none. */
   status: readonly LogisticsStatus[];
   summary: LogisticsSummary | null;
   isError: boolean;
   onRetry: () => void;
+  /** The Dashboard's: a card opens the List of the orders it counts. A card out of the filter does not. */
+  onChoose?: (status: LogisticsStatus) => void;
+  /** The total and country/city lines; the Dashboard shows its own breakdowns instead. */
+  regions?: boolean;
 }) {
   if (!summary && isError) {
     return (
@@ -122,24 +129,42 @@ export function LogisticsSummaryCards({
               );
             }
             const inFilter = status.length === 0 || status.includes(each);
+            const count = summary.counts[each];
+            // StatCard is a div; as a control it takes the button role and Enter/Space, the
+            // same contract the shared Table gives a clickable row.
+            const opens = inFilter && onChoose !== undefined;
             return (
               <StatCard
                 key={each}
                 label={LOGISTICS_STATUS_LABEL[each]}
-                value={
-                  inFilter ? summary.counts[each].toLocaleString("en-AE") : "—"
-                }
+                value={inFilter ? count.toLocaleString("en-AE") : "—"}
                 caption={inFilter ? undefined : "Not in filter"}
                 tone={inFilter ? LOGISTICS_STATUS_TONE[each] : "neutral"}
                 icon={ICONS[each]}
-                className="min-w-[150px] flex-1"
+                className={cn(
+                  "min-w-[150px] flex-1",
+                  opens &&
+                    "focus-ring cursor-pointer transition-colors duration-(--duration-shell) ease-shell hover:border-brand/60",
+                )}
+                {...(opens && {
+                  role: "button",
+                  tabIndex: 0,
+                  "aria-label": `${LOGISTICS_STATUS_LABEL[each]}: ${count} ${count === 1 ? "order" : "orders"} — open the list`,
+                  onClick: () => onChoose(each),
+                  onKeyDown: (event: React.KeyboardEvent) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onChoose(each);
+                    }
+                  },
+                })}
               />
             );
           })}
         </MetricCardsRow>
       </section>
 
-      {!summary ? (
+      {!regions ? null : !summary ? (
         <Skeleton className="h-12 w-full rounded-surface" />
       ) : (
         summary.total > 0 && (

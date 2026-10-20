@@ -4,10 +4,22 @@
  *
  * The counting rules are the server's, restated so the screen can say them: a BDE's row counts
  * the leads assigned to them (a shared lead counts for each owner); a team's row counts the team's
- * leads once, however many members share one; the total counts the filtered set once.
+ * leads once, however many members share one; the total counts the filtered set once. The
+ * Financial Dashboard reads the same endpoint for its money figures.
  */
+import type { LogisticsStatus } from "./logistics-orders";
 
 export const TEAM_PERFORMANCE_PATH = "/reports/team-performance";
+
+/** One Logistics status among a row's orders: how many are in it now, and Σ their Order Value. */
+export interface OrderStatusFigures {
+  status: LogisticsStatus;
+  orders: number;
+  /** AED, a Decimal string — the value recorded on the orders, never a payment. */
+  value: string;
+  /** Of `orders`, those with no Order Value recorded. */
+  unvalued: number;
+}
 
 export interface TeamPerformanceFigures {
   leads: number;
@@ -17,6 +29,12 @@ export interface TeamPerformanceFigures {
   conversionRate: number;
   /** AED, a Decimal string. */
   wonValue: string;
+  /** Won leads with no Actual Amount: counted in `won`, adding nothing to `wonValue`. */
+  wonUnvalued: number;
+  /** Σ Order Value of the row's orders, whatever their status (AED, a Decimal string). */
+  orderValue: string;
+  /** The orders by their status now: every status, in pipeline order. */
+  orderStatus: OrderStatusFigures[];
 }
 
 export interface TeamPerformanceTeamRow extends TeamPerformanceFigures {
@@ -48,10 +66,14 @@ export interface TeamPerformanceFilterOptions {
   agents: { id: string; name: string; team: string | null }[];
 }
 
+/** The date the window applies to: the lead's creation, its last status change, or its order's. */
+export type TeamPerformanceDateField =
+  "created" | "statusChanged" | "orderCreated";
+
 export interface TeamPerformanceFilters {
   from?: string;
   to?: string;
-  dateField?: "created" | "statusChanged";
+  dateField?: TeamPerformanceDateField;
   team: readonly string[];
   agent: readonly string[];
   source: readonly string[];

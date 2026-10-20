@@ -15,7 +15,18 @@ import {
   type TeamPerformanceResult,
 } from "./team-performance";
 
-// Unset filters send nothing; lists repeat their key; the default date field is implied.
+// Unset filters send nothing; lists repeat their key; the default date field is implied, and the
+// order-created basis (the Financial Dashboard's) is sent like any other.
+assert.equal(
+  teamPerformanceParams({
+    team: [],
+    agent: [],
+    source: [],
+    manager: null,
+    dateField: "orderCreated",
+  }).toString(),
+  "dateField=orderCreated",
+);
 assert.equal(
   teamPerformanceParams({
     team: [],
@@ -45,11 +56,17 @@ assert.equal(barShare(10, [10, 5, 0]), 100);
 assert.equal(barShare(0, [0, 0]), 0);
 assert.equal(barShare(3, [3]), 100);
 
-const empty: TeamPerformanceResult = {
-  teams: [],
-  people: [],
-  total: { leads: 0, won: 0, orders: 0, conversionRate: 0, wonValue: "0" },
+const none = {
+  leads: 0,
+  won: 0,
+  orders: 0,
+  conversionRate: 0,
+  wonValue: "0",
+  wonUnvalued: 0,
+  orderValue: "0",
+  orderStatus: [],
 };
+const empty: TeamPerformanceResult = { teams: [], people: [], total: none };
 assert.equal(isTeamPerformanceEmpty(empty), true);
 // A team member with nothing yet is still something to show.
 assert.equal(
@@ -60,11 +77,7 @@ assert.equal(
         userId: "u",
         name: "Zed",
         team: "Alpha",
-        leads: 0,
-        won: 0,
-        orders: 0,
-        conversionRate: 0,
-        wonValue: "0",
+        ...none,
         target: null,
         achievement: null,
       },

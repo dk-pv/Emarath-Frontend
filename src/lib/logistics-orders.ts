@@ -278,18 +278,20 @@ export function logisticsOrdersParams(
   return params;
 }
 
-/** How many orders hold one country or city value; `null` is an order with none recorded. */
+/** How many orders hold one country, city or area value; `null` is an order with none recorded. */
 export type RegionCount = { value: string | null; count: number };
 
 /**
  * How many of the caller's orders the filters select: per status (every status, zero included)
- * and per country and city, most first, none recorded last.
+ * and per country, city and area (the order's State, the Area filter's field), most first, none
+ * recorded last.
  */
 export type LogisticsSummary = {
   counts: Record<LogisticsStatus, number>;
   total: number;
   countries: RegionCount[];
   cities: RegionCount[];
+  states: RegionCount[];
   /** The business day the delivery buckets were measured against. */
   businessDay: BusinessDay;
 };
@@ -379,8 +381,13 @@ export function shownStatuses(
   return status.length > 0 ? status : LOGISTICS_STATUSES;
 }
 
-/** The two ways the screen shows the same orders. */
-export type LogisticsView = "list" | "pipeline";
+/**
+ * The three ways the screen shows the same orders: the List, the Pipeline board, and the Dashboard
+ * of their counts, each count opening the List narrowed to it.
+ */
+export type LogisticsView = "list" | "pipeline" | "dashboard";
+
+const VIEWS: readonly LogisticsView[] = ["list", "pipeline", "dashboard"];
 
 /**
  * Everything the Logistics screen keeps in its address, so a reload or a shared link opens it
@@ -438,7 +445,7 @@ export function parseLogisticsUrl(
   const buckets = params.getAll("delivery");
   const deliveryOn = params.get("deliveryOn") ?? "";
   return {
-    view: params.get("view") === "pipeline" ? "pipeline" : "list",
+    view: VIEWS.find((view) => view === params.get("view")) ?? "list",
     // In lifecycle order whatever the address's order, so one choice is always one address.
     status: LOGISTICS_STATUSES.filter((status) => statuses.includes(status)),
     delivery: DELIVERY_BUCKETS.filter((bucket) => buckets.includes(bucket)),

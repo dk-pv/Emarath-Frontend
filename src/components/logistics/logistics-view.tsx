@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { IconLayoutKanban, IconList } from "@tabler/icons-react";
+import {
+  IconLayoutDashboard,
+  IconLayoutKanban,
+  IconList,
+} from "@tabler/icons-react";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
 import {
   SegmentedControl,
@@ -10,6 +14,7 @@ import {
 } from "@/components/ui/SegmentedControl";
 import { useToast } from "@/components/ui/Toast";
 import { LogisticsBoard } from "@/components/logistics/logistics-board";
+import { LogisticsDashboard } from "@/components/logistics/logistics-dashboard";
 import {
   LogisticsDeliverySchedule,
   useBusinessDayRollover,
@@ -56,6 +61,7 @@ const LIMITS = {
 const VIEWS: readonly SegmentedOption<View>[] = [
   { value: "list", label: "List", icon: IconList },
   { value: "pipeline", label: "Pipeline", icon: IconLayoutKanban },
+  { value: "dashboard", label: "Dashboard", icon: IconLayoutDashboard },
 ];
 
 /**
@@ -111,6 +117,8 @@ const NO_FILTERS: LogisticsChosenFilters = {
  * The view, filters, search, page, sort and open order live in the address, so a reload or a
  * shared link — the Lead Detail page links an order this way — opens the screen as it was. Above
  * the counts, the delivery schedule (ADR-0094) chooses a delivery bucket or day for both views.
+ * The Dashboard (Logistics Dashboard v1) is the third view: the same counts, laid out by delivery
+ * date, status, day and region, each opening the List narrowed to it.
  */
 export function LogisticsView() {
   const [state, update] = useLogisticsUrl();
@@ -184,13 +192,26 @@ export function LogisticsView() {
     [update],
   );
 
+  // On a phone three labelled segments run under the search and filter controls, so below `sm`
+  // they show icons only — each label stays its tooltip and its accessible name.
   const toggle = (
-    <SegmentedControl
-      aria-label="Logistics view"
-      options={VIEWS}
-      value={state.view}
-      onChange={(view) => update({ view })}
-    />
+    <>
+      <SegmentedControl
+        aria-label="Logistics view"
+        iconOnly
+        className="sm:hidden"
+        options={VIEWS}
+        value={state.view}
+        onChange={(view) => update({ view })}
+      />
+      <SegmentedControl
+        aria-label="Logistics view"
+        className="hidden sm:inline-flex"
+        options={VIEWS}
+        value={state.view}
+        onChange={(view) => update({ view })}
+      />
+    </>
   );
   const toolbarActions = (
     <>
@@ -229,9 +250,33 @@ export function LogisticsView() {
     </div>
   );
 
+  const reset = () => {
+    setSearch("");
+    update({
+      ...NO_FILTERS,
+      q: "",
+      page: 1,
+      sort: DEFAULT_LOGISTICS_SORT.key,
+      direction: DEFAULT_LOGISTICS_SORT.direction,
+    });
+  };
+
   return (
     <>
-      {state.view === "pipeline" ? (
+      {state.view === "dashboard" ? (
+        <LogisticsDashboard
+          state={state}
+          filters={filters}
+          update={update}
+          counts={counts}
+          schedule={schedule}
+          reloadToken={reloadToken}
+          toolbarLeft={toggle}
+          toolbarActions={toolbarActions}
+          onOpen={openOrder}
+          onReset={reset}
+        />
+      ) : state.view === "pipeline" ? (
         <LogisticsBoard
           filters={filters}
           sort={state.sort}
@@ -252,16 +297,7 @@ export function LogisticsView() {
           summary={summary}
           reloadToken={reloadToken}
           onOpen={openOrder}
-          onReset={() => {
-            setSearch("");
-            update({
-              ...NO_FILTERS,
-              q: "",
-              page: 1,
-              sort: DEFAULT_LOGISTICS_SORT.key,
-              direction: DEFAULT_LOGISTICS_SORT.direction,
-            });
-          }}
+          onReset={reset}
         />
       )}
 

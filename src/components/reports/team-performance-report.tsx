@@ -31,6 +31,7 @@ import { formatAED } from "@/lib/format";
 import {
   barShare,
   isTeamPerformanceEmpty,
+  type TeamPerformanceDateField,
   type TeamPerformanceFigures,
   type TeamPerformanceFilterOptions,
   type TeamPerformanceFilters,
@@ -39,9 +40,9 @@ import {
   type TeamPerformanceTeamRow,
 } from "@/lib/team-performance";
 import {
+  DATE_FIELD_OPTIONS,
   isDatePeriodKey,
   periodRange,
-  type LeadsByStatusDateField,
 } from "@/services/leads-by-status-report-service";
 import {
   fetchTeamPerformance,
@@ -53,7 +54,7 @@ const count = (value: number) => value.toLocaleString("en-US");
 const percent = (value: number) => `${value.toFixed(2)}%`;
 
 /** A figure with a bar of its share of the column's largest, so rows compare at a glance. */
-function BarCell({ label, share }: { label: string; share: number }) {
+export function BarCell({ label, share }: { label: string; share: number }) {
   return (
     <span className="inline-flex items-center justify-end gap-2">
       <span
@@ -70,7 +71,7 @@ function BarCell({ label, share }: { label: string; share: number }) {
   );
 }
 
-function Achievement({ value }: { value: number | null }) {
+export function Achievement({ value }: { value: number | null }) {
   return value === null ? (
     <span className="text-ink-muted">No Target Set</span>
   ) : (
@@ -196,21 +197,16 @@ const list = (value: string | null): string[] =>
   value ? value.split(",").filter(Boolean) : [];
 
 /**
- * Team Performance (Teams v1, client acceptance criterion 11): teams compared with teams and BDEs
- * with BDEs on leads, won leads, orders, conversion and target achievement, filtered by date, team,
- * Sales Manager, BDE and lead source. Every filter is a server query param kept in the URL, and the
- * server decides what each caller sees — every team for the admin, a Sales Manager's own team, a
- * sales agent's own row. A new client screen with no Workpex reference, so it reuses the report
- * shell, toolbar, metric cards and tables (CLAUDE.md §1A).
+ * The `GET /reports/team-performance` query kept in the address, and the response read under it —
+ * shared by Team Performance and the Financial Dashboard, which read the same rows. Filters: team,
+ * Sales Manager, BDE, lead source and a date window over one of `dateFields`. Every filter is a
+ * server query param kept in the URL, and the server decides what each caller sees — every team for
+ * the admin, a Sales Manager's own team, a sales agent's own row. Returns the toolbar's filter bar,
+ * the response shown beside the filters it was read under, and the screen state.
  */
-export function TeamPerformanceReport({
-  category,
-  slug,
-}: {
-  category: string;
-  slug: string;
-}) {
-  const resolved = findReport(category, slug);
+export function useTeamPerformanceReport(
+  dateFields: readonly { value: TeamPerformanceDateField; label: string }[],
+) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -228,8 +224,9 @@ export function TeamPerformanceReport({
 
   const periodParam = params.get("period");
   const periodKey = isDatePeriodKey(periodParam) ? periodParam : null;
-  const dateField: LeadsByStatusDateField =
-    params.get("dateField") === "statusChanged" ? "statusChanged" : "created";
+  const dateParam = params.get("dateField");
+  const dateField: TeamPerformanceDateField =
+    dateFields.find((option) => option.value === dateParam)?.value ?? "created";
   const customFrom = params.get("from") ?? undefined;
   const customTo = params.get("to") ?? undefined;
   const teamKey = params.get("team");
@@ -292,8 +289,6 @@ export function TeamPerformanceReport({
     },
     [params, pathname, router],
   );
-
-  if (!resolved) notFound();
 
   // A response is shown only beside the filters it was read under.
   const data = result?.key === requestKey ? result.data : null;
@@ -367,6 +362,7 @@ export function TeamPerformanceReport({
           from: customFrom,
           to: customTo,
         }}
+        fields={dateFields}
         onApply={(next) =>
           setParams({
             period: next.period,
@@ -382,6 +378,33 @@ export function TeamPerformanceReport({
     </div>
   );
 
+  const retry = () => {
+    setFailedKey(null);
+    setReloadToken((token) => token + 1);
+  };
+
+  return { data, filters, state, retry, filterBar };
+}
+
+/**
+ * Team Performance (Teams v1, client acceptance criterion 11): teams compared with teams and BDEs
+ * with BDEs on leads, won leads, orders, conversion and target achievement, filtered by date, team,
+ * Sales Manager, BDE and lead source. A new client screen with no Workpex reference, so it reuses
+ * the report shell, toolbar, metric cards and tables (CLAUDE.md §1A).
+ */
+export function TeamPerformanceReport({
+  category,
+  slug,
+}: {
+  category: string;
+  slug: string;
+}) {
+  const resolved = findReport(category, slug);
+  const { data, state, retry, filterBar } =
+    useTeamPerformanceReport(DATE_FIELD_OPTIONS);
+
+  if (!resolved) notFound();
+
   return (
     <ReportShell
       report={resolved.report}
@@ -391,10 +414,7 @@ export function TeamPerformanceReport({
       emptyTitle="Nothing to compare"
       emptyDescription="No leads match the selected filters and no team has members to show."
       errorMessage="The report couldn’t be loaded. Please try again."
-      onRetry={() => {
-        setFailedKey(null);
-        setReloadToken((token) => token + 1);
-      }}
+      onRetry={retry}
     >
       {data && <TeamPerformanceBody data={data} />}
     </ReportShell>

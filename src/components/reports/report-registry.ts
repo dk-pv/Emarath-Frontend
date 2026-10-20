@@ -11,6 +11,7 @@ import {
   IconFilterDollar,
   IconFilterX,
   IconHourglassLow,
+  IconReportAnalytics,
   IconReportMoney,
   IconStatusChange,
   IconTrendingUp,
@@ -247,6 +248,22 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
         description: "Follow ups scheduled for future dates",
         icon: IconCalendarUp,
         accent: "rose",
+      },
+    ]),
+  },
+  // Client-requested (Financial Dashboard v1, acceptance criterion 13): no backlog task, no
+  // Workpex card. Workpex's own Revenue Report stays the Sales placeholder below.
+  {
+    key: "financial",
+    title: "Financial",
+    reports: withHrefs("/reports/financial", [
+      {
+        slug: "financial-dashboard",
+        title: "Financial Dashboard",
+        description:
+          "Won value, orders and delivered, cancelled and RTO outcomes by team and BDE",
+        icon: IconReportAnalytics,
+        accent: "emerald",
       },
     ]),
   },

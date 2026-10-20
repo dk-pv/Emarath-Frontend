@@ -17,8 +17,8 @@ export function ReportsHub({
 }: {
   variant?: "reports" | "analytics";
 }) {
-  // The Reports hub lists the Leads and Follow Ups sections; the Sales reports belong to
-  // the Analytics module and are listed there, not here.
+  // The Reports hub lists the Leads, Follow Ups and Financial sections; the Sales reports
+  // belong to the Analytics module and are listed there, not here.
   const categories =
     variant === "analytics" ? ANALYTICS_CATEGORIES : REPORT_CATEGORIES;
 

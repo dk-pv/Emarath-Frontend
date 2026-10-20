@@ -15,6 +15,7 @@ import { TodayLeadsReport } from "@/components/reports/today-leads-report";
 import { LeadsByStatusReport } from "@/components/reports/leads-by-status-report";
 import { LeadsBySourceReport } from "@/components/reports/leads-by-source-report";
 import { LeadsByOwnershipReport } from "@/components/reports/leads-by-ownership-report";
+import { TeamPerformanceReport } from "@/components/reports/team-performance-report";
 import { ConvertedLeadsReport } from "@/components/reports/converted-leads-report";
 import { LostLeadsReport } from "@/components/reports/lost-leads-report";
 import { OverdueFollowUpsReport } from "@/components/reports/overdue-follow-ups-report";
@@ -68,23 +69,25 @@ export default async function ReportPage({
             ? LeadsBySourceReport
             : slug === "leads-by-ownership"
               ? LeadsByOwnershipReport
-              : slug === "converted-leads"
-                ? ConvertedLeadsReport
-                : slug === "lost-leads"
-                  ? LostLeadsReport
-                  : slug === "overdue-follow-ups"
-                    ? OverdueFollowUpsReport
-                    : slug === "todays-follow-ups"
-                      ? TodaysFollowUpsReport
-                      : slug === "upcoming-follow-ups"
-                        ? UpcomingFollowUpsReport
-                        : slug === "lead-aging-stale-leads"
-                          ? LeadAgingReport
-                          : slug === "lead-first-response"
-                            ? LeadFirstResponseReport
-                            : slug === "duplicate-enquiries"
-                              ? DuplicateEnquiriesReport
-                              : ReportView;
+              : slug === "team-performance"
+                ? TeamPerformanceReport
+                : slug === "converted-leads"
+                  ? ConvertedLeadsReport
+                  : slug === "lost-leads"
+                    ? LostLeadsReport
+                    : slug === "overdue-follow-ups"
+                      ? OverdueFollowUpsReport
+                      : slug === "todays-follow-ups"
+                        ? TodaysFollowUpsReport
+                        : slug === "upcoming-follow-ups"
+                          ? UpcomingFollowUpsReport
+                          : slug === "lead-aging-stale-leads"
+                            ? LeadAgingReport
+                            : slug === "lead-first-response"
+                              ? LeadFirstResponseReport
+                              : slug === "duplicate-enquiries"
+                                ? DuplicateEnquiriesReport
+                                : ReportView;
 
   return (
     <PageContainer>

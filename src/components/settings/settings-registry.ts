@@ -117,6 +117,8 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     accent: "rose",
     items: [
       { label: "Team Members", href: "/settings/users-access/team-members" },
+      // Not in the Workpex reference: the client's BDE teams (Teams v1), Super Admin only.
+      { label: "Teams", href: "/settings/users-access/teams" },
       {
         label: "Roles & Permissions",
         href: "/settings/users-access/roles-permissions",

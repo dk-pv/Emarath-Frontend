@@ -45,8 +45,9 @@ export interface OwnerCountRow {
 }
 
 /**
- * One team's subtotal of the owner rows, mirroring `TeamSubtotalRow`. `team` null is the owners
- * with no team; the Unassigned bucket belongs to no team and is left out.
+ * One team's subtotal, mirroring `TeamSubtotalRow`: the team's own leads, each counted once (a lead
+ * two members share counts once, unlike the owner rows). `team` null is the owners with no team;
+ * the Unassigned bucket belongs to no team and is left out.
  */
 export interface TeamSubtotalRow {
   team: string | null;

@@ -15,6 +15,7 @@ import {
   IconStatusChange,
   IconTrendingUp,
   IconUsers,
+  IconUsersGroup,
 } from "@tabler/icons-react";
 
 /**
@@ -161,6 +162,15 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
         description: "Track leads assigned to different team members",
         icon: IconUsers,
         accent: "rose",
+      },
+      // Client-requested (Teams v1, acceptance criterion 11): no backlog task, no Workpex card.
+      {
+        slug: "team-performance",
+        title: "Team Performance",
+        description:
+          "Compare teams and BDEs on leads, conversions, orders and targets",
+        icon: IconUsersGroup,
+        accent: "sky",
       },
       {
         taskId: "RPT-02.6",

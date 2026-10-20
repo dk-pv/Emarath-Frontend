@@ -251,7 +251,10 @@ function summaryColumns(
   ];
 }
 
-/** The team subtotals: the owner table's figures added up per team, as plain numbers. */
+/**
+ * The team subtotals, as plain numbers. Each team's figures are its own leads counted once, so a
+ * lead two of its members share counts once here though it appears in both owners' rows.
+ */
 const TEAM_COLUMNS: readonly TableColumn<TeamSubtotalRow>[] = [
   {
     key: "team",

@@ -174,6 +174,8 @@ export type TeamMemberConfigInput = {
   jobTitle?: string | null;
   roleId?: string;
   reportingToId?: string | null;
+  /** Teams v1: an existing team's name, or null for none. */
+  team?: string | null;
   leadFormId?: string | null;
   pipelines?: string[];
   isActive?: boolean;

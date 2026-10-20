@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Stepper } from "@/components/ui/Stepper";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError, isAbortError } from "@/lib/api-client";
+import { TEAM_MEMBER_ROLES } from "@/lib/teams";
 import { fetchLookup } from "@/services/lookups-service";
 import {
   createTeamMember,
@@ -60,6 +61,7 @@ type WizardForm = {
   jobTitle: string;
   roleId: string | null;
   reportingToId: string | null;
+  team: string | null;
   pipelines: string[];
   isActive: boolean;
   leadFormId: string | null;
@@ -83,6 +85,7 @@ const INITIAL_FORM: WizardForm = {
   jobTitle: "",
   roleId: null,
   reportingToId: null,
+  team: null,
   pipelines: [],
   isActive: true,
   leadFormId: null,
@@ -99,12 +102,13 @@ type WizardOptions = {
   catalog: PermissionCatalogRow[];
   pipelines: { value: string; label: string }[];
   managers: { id: string; name: string }[];
+  teams: { value: string; label: string }[];
 };
 
 /** Sends a rejected save back to the step that owns the offending field. */
 function stepForError(message: string): number | null {
   if (/email|password|phone|name/i.test(message)) return 0;
-  if (/role|pipeline|report/i.test(message)) return 1;
+  if (/role|pipeline|report|join a team/i.test(message)) return 1;
   if (/lead form|permission|module|whatsapp/i.test(message)) return 2;
   return null;
 }
@@ -171,7 +175,7 @@ export function TeamMemberFormDrawer({
     let active = true;
 
     const load = async () => {
-      const [roles, leadForms, catalog, pipelines, managers] =
+      const [roles, leadForms, catalog, pipelines, managers, teams] =
         await Promise.all([
           fetchNamedRoles(controller.signal),
           fetchLeadForms(controller.signal),
@@ -182,6 +186,7 @@ export function TeamMemberFormDrawer({
             undefined,
             controller.signal,
           ),
+          fetchLookup("teams", controller.signal),
         ]);
       if (!active) return;
       setOptions({
@@ -190,6 +195,7 @@ export function TeamMemberFormDrawer({
         catalog,
         pipelines,
         managers: withoutSelf(managers.rows, member?.id),
+        teams,
       });
 
       if (member) {
@@ -217,6 +223,7 @@ export function TeamMemberFormDrawer({
           monthlyGoal: detail.monthlyGoalAmount ?? "",
           roleId: detail.roleId,
           reportingToId: detail.reportingToId,
+          team: detail.team,
           pipelines: detail.pipelines,
           isActive: detail.isActive,
           leadFormId: detail.leadFormId,
@@ -281,6 +288,7 @@ export function TeamMemberFormDrawer({
         jobTitle: form.jobTitle.trim() || null,
         roleId: form.roleId ?? undefined,
         reportingToId: form.reportingToId,
+        team: form.team,
         leadFormId: form.leadFormId,
         pipelines: form.pipelines,
         isActive: form.isActive,
@@ -426,7 +434,12 @@ export function TeamMemberFormDrawer({
             onFileError={(message) => setError(message)}
           />
         ) : step === 1 ? (
-          <StepRoleAccess form={form} patch={patch} options={options} />
+          <StepRoleAccess
+            form={form}
+            patch={patch}
+            options={options}
+            savedTeam={member?.team ?? null}
+          />
         ) : (
           <StepPermission form={form} patch={patch} options={options} />
         )}
@@ -596,11 +609,25 @@ function StepRoleAccess({
   form,
   patch,
   options,
+  savedTeam,
 }: {
   form: WizardForm;
   patch: (changes: Partial<WizardForm>) => void;
   options: WizardOptions;
+  /** The team the member is saved in — what a role that cannot join a team falls back to. */
+  savedTeam: string | null;
 }) {
+  const mayJoinTeam = (roleId: string | null) => {
+    const role = options.roles.find((candidate) => candidate.id === roleId);
+    return role === undefined || TEAM_MEMBER_ROLES.includes(role.baseRole);
+  };
+  const teamOpen = mayJoinTeam(form.roleId);
+  // The member's own team stays selectable even if no live account carries it any more.
+  const teamOptions =
+    form.team && !options.teams.some((team) => team.value === form.team)
+      ? [{ value: form.team, label: form.team }, ...options.teams]
+      : options.teams;
+
   return (
     <div className="flex flex-col gap-4">
       <FormField
@@ -631,7 +658,12 @@ function StepRoleAccess({
           }))}
           value={form.roleId}
           placeholder="Select"
-          onChange={(roleId) => patch({ roleId })}
+          onChange={(roleId) =>
+            // Only sales users join a team: a role that cannot keeps the saved team untouched.
+            patch(
+              mayJoinTeam(roleId) ? { roleId } : { roleId, team: savedTeam },
+            )
+          }
         />
       </FormField>
 
@@ -651,6 +683,28 @@ function StepRoleAccess({
           value={form.reportingToId}
           placeholder="Select"
           onChange={(reportingToId) => patch({ reportingToId })}
+        />
+      </FormField>
+
+      {/* Teams v1: one team per member. New teams are created on the Teams screen. */}
+      <FormField
+        label="Team"
+        htmlFor="tm-team"
+        hint={
+          teamOpen
+            ? "Decides which Sales Manager sees this member's leads and which team tag permissions apply. Create new teams in Settings → Users & Access → Teams."
+            : "Teams are for sales users; administrators and post-sale roles are not placed in teams."
+        }
+      >
+        <SearchableSelect
+          id="tm-team"
+          searchable
+          clearable
+          disabled={!teamOpen}
+          options={teamOptions}
+          value={form.team}
+          placeholder="No team"
+          onChange={(team) => patch({ team })}
         />
       </FormField>
 

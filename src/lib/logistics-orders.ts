@@ -82,6 +82,9 @@ export const LOGISTICS_ORDERS_PATH = "/logistics/orders";
 /** The queue's counts per status (`GET /logistics/orders/summary`). */
 export const LOGISTICS_SUMMARY_PATH = `${LOGISTICS_ORDERS_PATH}/summary`;
 
+/** The QC-verified orders under the filters, as a CSV for the delivery partner (3PL-01). */
+export const LOGISTICS_EXPORT_PATH = `${LOGISTICS_ORDERS_PATH}/export`;
+
 /** The columns the queue can be ordered by — the backend's whitelist, nothing else. */
 export const LOGISTICS_SORT_KEYS = [
   "orderNumber",

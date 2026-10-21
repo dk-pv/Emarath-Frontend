@@ -15,6 +15,7 @@ import {
 import { useToast } from "@/components/ui/Toast";
 import { LogisticsBoard } from "@/components/logistics/logistics-board";
 import { LogisticsDashboard } from "@/components/logistics/logistics-dashboard";
+import { LogisticsExportButton } from "@/components/logistics/logistics-export-button";
 import {
   LogisticsDeliverySchedule,
   useBusinessDayRollover,
@@ -227,6 +228,10 @@ export function LogisticsView() {
         reloadToken={reloadToken}
         onChange={(changes) => update({ ...changes, page: 1 })}
         onClear={() => update({ ...NO_FILTERS, page: 1 })}
+      />
+      <LogisticsExportButton
+        filters={filters}
+        qcVerified={counts.summary?.counts.QC_VERIFIED}
       />
     </>
   );

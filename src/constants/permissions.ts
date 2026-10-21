@@ -30,6 +30,8 @@ import type { UserRole } from "./roles";
  *     detail page's pipeline switcher, the edit form's Pipeline field): admins and sales
  *     managers only (ADR-0093 B5). Mirrors the backend's PIPELINE_MOVE_ROLES, which is what
  *     actually enforces it.
+ *   • exportLogistics — download the QC-verified orders for the delivery partner (3PL-01): the
+ *     roles that dispatch. Mirrors the backend's EXPORT_ROLES, which is what actually enforces it.
  * Every other role/menu mapping is unresolved (awaiting Product Owner) and deliberately
  * absent, so nothing here restricts a surface the business has not signed off.
  */
@@ -41,7 +43,8 @@ export type Capability =
   | "useAccounts"
   | "manageStages"
   | "beAssignedLeads"
-  | "moveLeadPipelines";
+  | "moveLeadPipelines"
+  | "exportLogistics";
 
 const MANAGERS_AND_ADMINS: readonly UserRole[] = [
   "SUPERADMIN",
@@ -71,6 +74,7 @@ const CAPABILITY_ROLES: Record<Capability, readonly UserRole[]> = {
   useAccounts: ["SUPERADMIN", "ACCOUNTS_EXECUTIVE"],
   beAssignedLeads: ["SALES_AGENT", "SALES_MANAGER", "CUSTOMER_SERVICE_AGENT"],
   moveLeadPipelines: MANAGERS_AND_ADMINS,
+  exportLogistics: ["SUPERADMIN", "LOGISTICS_MANAGER", "LOGISTICS_EXECUTIVE"],
 };
 
 /** True when the role holds the capability. Unknown/absent role holds nothing (fail-closed). */

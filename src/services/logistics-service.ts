@@ -1,5 +1,7 @@
-import { apiGet, apiPatch, apiPost } from "@/lib/api-client";
+import { apiGet, apiGetBlob, apiPatch, apiPost } from "@/lib/api-client";
+import { saveBlob } from "@/lib/download";
 import {
+  LOGISTICS_EXPORT_PATH,
   LOGISTICS_FILTER_OPTIONS_PATH,
   LOGISTICS_ORDERS_PATH,
   LOGISTICS_SCHEDULE_PATH,
@@ -113,6 +115,25 @@ export function fetchLogisticsDeliverySchedule(
     logisticsFilterParams(filters),
     signal,
   );
+}
+
+/**
+ * Downloads the QC-verified orders under the screen's filters as a CSV for the delivery partner
+ * (3PL-01). The server forces QC Verified and applies the caller's scope; the filters can only
+ * narrow it. Fetched through the API client, as the Leads export is, so an expired session is
+ * refreshed and a refusal throws an `ApiError` the screen can show.
+ */
+export async function downloadLogisticsExport(
+  filters: LogisticsFilters,
+): Promise<void> {
+  const blob = await apiGetBlob(
+    LOGISTICS_EXPORT_PATH,
+    logisticsFilterParams(filters),
+  );
+  const now = new Date();
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  saveBlob(blob, `qc-verified-orders-${stamp}.csv`);
 }
 
 /** The countries and cities in the caller's own orders — what the filter offers. */

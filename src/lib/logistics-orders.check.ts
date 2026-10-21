@@ -16,6 +16,7 @@ import {
   COUNTRY_MAX_LENGTH,
   COURIER_MAX_LENGTH,
   DEFAULT_LOGISTICS_SORT,
+  LOGISTICS_EXPORT_PATH,
   LOGISTICS_FILTER_OPTIONS_PATH,
   LOGISTICS_ORDERS_PATH,
   LOGISTICS_SCHEDULE_PATH,
@@ -154,6 +155,7 @@ for (const key of ["awbNumber", "id", "convertedAt desc", ""]) {
 
 // The counts: every filter the list sends, its statuses included, never its page or sort.
 assert.equal(LOGISTICS_SUMMARY_PATH, "/logistics/orders/summary");
+assert.equal(LOGISTICS_EXPORT_PATH, "/logistics/orders/export");
 assert.equal(LOGISTICS_FILTER_OPTIONS_PATH, "/logistics/orders/filter-options");
 assert.deepEqual(
   Object.fromEntries(logisticsFilterParams({ search: " Acme " })),
@@ -453,6 +455,23 @@ assert.equal(can(undefined, "useLogistics"), false, "no role, no menu");
 assert.equal(can("LOGISTICS_MANAGER", "useSalesModules"), false);
 assert.equal(can("LOGISTICS_EXECUTIVE", "useSalesModules"), false);
 assert.equal(can("QC", "useSalesModules"), false, "QC holds no sales module");
+
+// The delivery-partner export (3PL-01) is offered to the roles that dispatch: the backend's
+// EXPORT_ROLES, which refuses everyone else with a 403.
+for (const [role, may] of [
+  ["SUPERADMIN", true],
+  ["LOGISTICS_MANAGER", true],
+  ["LOGISTICS_EXECUTIVE", true],
+  ["QC", false],
+  ["ACCOUNTS_EXECUTIVE", false],
+  ["SALES_MANAGER", false],
+  ["SALES_AGENT", false],
+  ["CUSTOMER_SERVICE_AGENT", false],
+  ["MARKETING_ANALYST", false],
+] as const) {
+  assert.equal(can(role, "exportLogistics"), may, `${role} export`);
+}
+assert.equal(can(undefined, "exportLogistics"), false, "no role, no export");
 
 // ---------------------------------------------------------------------------------------------
 // Actions. The backend decides which apply (`allowedActions`); the screen renders every action it

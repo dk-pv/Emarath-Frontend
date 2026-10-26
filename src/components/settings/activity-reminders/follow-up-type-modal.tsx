@@ -22,8 +22,7 @@ import {
 } from "@/services/activity-settings-service";
 
 export type FollowUpTypeFormState =
-  | { mode: "create" }
-  | { mode: "edit"; type: FollowUpType };
+  { mode: "create" } | { mode: "edit"; type: FollowUpType };
 
 const ALL_KEYS = FOLLOW_UP_FIELDS.map((field) => field.key);
 
@@ -48,7 +47,11 @@ export function FollowUpTypeModal({
 }: {
   state: FollowUpTypeFormState | null;
   onClose: () => void;
-  onSaved: (types: FollowUpType[], name: string, mode: "create" | "edit") => void;
+  onSaved: (
+    types: FollowUpType[],
+    name: string,
+    mode: "create" | "edit",
+  ) => void;
 }) {
   if (!state) return null;
   return (
@@ -68,7 +71,11 @@ function FollowUpTypeForm({
 }: {
   state: FollowUpTypeFormState;
   onClose: () => void;
-  onSaved: (types: FollowUpType[], name: string, mode: "create" | "edit") => void;
+  onSaved: (
+    types: FollowUpType[],
+    name: string,
+    mode: "create" | "edit",
+  ) => void;
 }) {
   const editing = state.mode === "edit" ? state.type : null;
 

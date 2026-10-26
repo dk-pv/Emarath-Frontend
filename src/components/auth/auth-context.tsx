@@ -16,8 +16,13 @@ import {
   logout as logoutRequest,
   type AuthUser,
 } from "@/services/auth-service";
+import { ApiError } from "@/lib/api-client";
 import { announce, PIPELINES_CHANGED } from "@/lib/catalog-events";
-import { registerSessionBridge } from "@/lib/session";
+import {
+  refreshOutcome,
+  registerSessionBridge,
+  type RefreshOutcome,
+} from "@/lib/session";
 
 /**
  * App-wide authentication state (AUTH-01.6 foundation). Holds the signed-in user and
@@ -91,18 +96,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refreshSession = useCallback(async (): Promise<boolean> => {
+  // Only a session the server has ended (401) is cleared: a 429, a 5xx or a dropped connection
+  // keeps the user signed in, and the next request tries again.
+  const renewSession = useCallback(async (): Promise<RefreshOutcome> => {
     try {
       const current = await fetchSession();
       setUser(current);
       setStatus("authenticated");
-      return true;
-    } catch {
-      setUser(null);
-      setStatus("unauthenticated");
-      return false;
+      return "renewed";
+    } catch (error) {
+      const outcome = refreshOutcome(
+        error instanceof ApiError ? error.status : undefined,
+      );
+      if (outcome === "expired") {
+        setUser(null);
+        setStatus("unauthenticated");
+      }
+      return outcome;
     }
   }, []);
+
+  const refreshSession = useCallback(
+    async () => (await renewSession()) === "renewed",
+    [renewSession],
+  );
 
   // Ends a session the server has already rejected (refresh failed): clear locally and return
   // to /login. No /auth/logout call — the refresh token is already invalid.
@@ -115,8 +132,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Hand the api-client a way to refresh/expire the session, so a 401 on any request can
   // recover without duplicating auth logic outside this provider (AUTH-01.6 final phase).
   useEffect(() => {
-    registerSessionBridge(refreshSession, handleExpired);
-  }, [refreshSession, handleExpired]);
+    registerSessionBridge(renewSession, handleExpired);
+  }, [renewSession, handleExpired]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ user, status, login, logout, refreshSession }),

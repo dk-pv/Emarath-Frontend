@@ -247,7 +247,8 @@ export function LeadSourcesView() {
           <h2 className="text-xl font-semibold text-ink">Lead Sources</h2>
           {/* Reference wording, kept verbatim (CLAUDE.md §1). */}
           <p className="mt-0.5 text-sm text-ink-muted">
-            Configure your Company&apos;s Basic Settings and Regional Preferences
+            Configure your Company&apos;s Basic Settings and Regional
+            Preferences
           </p>
         </div>
         <Button

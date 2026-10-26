@@ -33,9 +33,7 @@ export interface UpdateCategoryInput {
   parentId?: string | null;
 }
 
-export function fetchCategories(
-  signal?: AbortSignal,
-): Promise<CategoryNode[]> {
+export function fetchCategories(signal?: AbortSignal): Promise<CategoryNode[]> {
   return apiGet<CategoryNode[]>("/categories", undefined, signal);
 }
 

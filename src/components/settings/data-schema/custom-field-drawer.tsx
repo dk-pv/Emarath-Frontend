@@ -25,8 +25,7 @@ import type {
 } from "@/services/leads-custom-fields-service";
 
 export type CustomFieldFormState =
-  | { mode: "create" }
-  | { mode: "edit"; field: LeadCustomField };
+  { mode: "create" } | { mode: "edit"; field: LeadCustomField };
 
 type DraftOption = { key: string; label: string };
 
@@ -237,7 +236,10 @@ function CustomFieldForm({
 
         {/* The reference's filled status row, with its information icon. */}
         <div className="flex min-h-control-lg items-center justify-between gap-3 rounded-control border border-hairline bg-canvas px-4 py-2">
-          <SettingLabel htmlFor="custom-field-status" className="cursor-pointer">
+          <SettingLabel
+            htmlFor="custom-field-status"
+            className="cursor-pointer"
+          >
             Status : {isActive ? "Active" : "Inactive"}
           </SettingLabel>
           <Switch
@@ -321,7 +323,12 @@ function OptionEditor({
         <span className="text-sm text-ink-muted">
           Options <span className="text-danger">*</span>
         </span>
-        <Button size="sm" variant="ghost" aria-label="Add Option" onClick={onAdd}>
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label="Add Option"
+          onClick={onAdd}
+        >
           <IconPlus size={16} stroke={2} aria-hidden="true" />
           Add Option
         </Button>

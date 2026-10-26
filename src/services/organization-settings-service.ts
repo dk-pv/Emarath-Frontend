@@ -169,9 +169,7 @@ export function addHostDomain(
   );
 }
 
-export function deleteHostDomain(
-  id: string,
-): Promise<OrganizationHostMapping> {
+export function deleteHostDomain(id: string): Promise<OrganizationHostMapping> {
   return apiDelete<OrganizationHostMapping>(
     `/settings/organization/host-mapping/domains/${id}`,
   );

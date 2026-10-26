@@ -15,7 +15,10 @@ import { announce, STAGES_CHANGED } from "@/lib/catalog-events";
  */
 export const STAGE_INCLUSIONS = [
   { value: "INCLUDE_IN_SALES_PIPELINE", label: "Include In Sales Pipeline" },
-  { value: "EXCLUDE_FROM_SALES_PIPELINE", label: "Exclude From Sales Pipeline" },
+  {
+    value: "EXCLUDE_FROM_SALES_PIPELINE",
+    label: "Exclude From Sales Pipeline",
+  },
 ] as const;
 
 /** A closed stage's outcome. */

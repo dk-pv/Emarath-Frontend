@@ -106,7 +106,10 @@ export function CategoriesView() {
    * The server owns the rules, so a refused move (a cycle) surfaces as a toast and the tree
    * reloads to the truth — no optimistic local reshuffle to unwind.
    */
-  const applyDrop = async (target: CategoryTreeNode, mode: "into" | "before") => {
+  const applyDrop = async (
+    target: CategoryTreeNode,
+    mode: "into" | "before",
+  ) => {
     const source = dragged;
     setDragged(null);
     setDropTarget(null);
@@ -236,7 +239,9 @@ export function CategoriesView() {
     // squeezed off the edge on a narrow screen — the scroller below takes the overflow, so
     // the icons stay reachable rather than clipped. On a wide card the ul simply fills it.
     return (
-      <ul className="flex min-w-max flex-col gap-2 pl-5">{renderNodes(tree)}</ul>
+      <ul className="flex min-w-max flex-col gap-2 pl-5">
+        {renderNodes(tree)}
+      </ul>
     );
   };
 
@@ -250,7 +255,9 @@ export function CategoriesView() {
           </p>
         </div>
         <Button
-          onClick={() => setForm({ mode: "create", parent: null, category: null })}
+          onClick={() =>
+            setForm({ mode: "create", parent: null, category: null })
+          }
           disabled={failed !== false}
         >
           <IconPlus size={16} stroke={2} aria-hidden="true" />

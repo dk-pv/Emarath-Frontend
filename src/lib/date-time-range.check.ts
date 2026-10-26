@@ -14,6 +14,7 @@
  */
 import assert from "node:assert/strict";
 import {
+  rescheduledEnd,
   boundEnd,
   boundStart,
   dateKey,
@@ -495,6 +496,29 @@ if (process.env.TZ === "Asia/Dubai") {
     ["2026-10-13T00:30", "2026-10-13T00:45"],
   );
 }
+
+// A rescheduled Meeting keeps its length; one without an end stays without one (FE-3).
+assert.equal(
+  rescheduledEnd(
+    { dueAt: "2026-10-22T06:00:00.000Z", endAt: "2026-10-22T07:00:00.000Z" },
+    "2026-10-29T10:30:00.000Z",
+  ),
+  "2026-10-29T11:30:00.000Z",
+);
+assert.equal(
+  rescheduledEnd(
+    { dueAt: "2026-10-22T06:00:00.000Z", endAt: "2026-10-22T07:00:00.000Z" },
+    "2026-10-20T06:00:00.000Z",
+  ),
+  "2026-10-20T07:00:00.000Z",
+);
+assert.equal(
+  rescheduledEnd(
+    { dueAt: "2026-10-22T06:00:00.000Z", endAt: null },
+    "2026-10-29T06:00:00.000Z",
+  ),
+  null,
+);
 
 console.log(
   `date-time-range.check: all assertions passed (TZ=${process.env.TZ ?? "system"})`,

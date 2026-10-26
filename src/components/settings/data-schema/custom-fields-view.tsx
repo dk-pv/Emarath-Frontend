@@ -400,7 +400,8 @@ export function CustomFieldsView() {
         onSaved={(field, mode) => {
           setForm(null);
           toast({
-            title: mode === "create" ? `${field.name} added` : `${field.name} saved`,
+            title:
+              mode === "create" ? `${field.name} added` : `${field.name} saved`,
             tone: "success",
           });
           reload();

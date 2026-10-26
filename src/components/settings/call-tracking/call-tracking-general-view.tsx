@@ -20,10 +20,8 @@ import {
   type CallType,
 } from "@/services/call-tracking-settings-service";
 
-const same = (
-  a: CallTrackingGeneralSettings,
-  b: CallTrackingGeneralSettings,
-) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a: CallTrackingGeneralSettings, b: CallTrackingGeneralSettings) =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 /**
  * Settings → Call Tracking → General Settings.

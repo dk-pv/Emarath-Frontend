@@ -55,10 +55,13 @@ const MASKING_ROLE_OPTIONS: SelectOption[] = (
   Object.keys(USER_ROLE_LABELS) as UserRole[]
 ).map((role) => ({ value: role, label: USER_ROLE_LABELS[role] }));
 
-const MASK_DIGIT_OPTIONS: SelectOption[] = Array.from({ length: 8 }, (_, i) => ({
-  value: String(i + 1),
-  label: String(i + 1),
-}));
+const MASK_DIGIT_OPTIONS: SelectOption[] = Array.from(
+  { length: 8 },
+  (_, i) => ({
+    value: String(i + 1),
+    label: String(i + 1),
+  }),
+);
 
 /** Matches the DTO's bounds, so the form refuses what the API would reject anyway. */
 const MIN_THRESHOLD = 1;
@@ -144,7 +147,9 @@ export function GeneralSettingsView() {
   const errors = useMemo(() => {
     if (!form) return {} as Record<string, string>;
     const found: Record<string, string> = {};
-    for (const key of Object.keys(form.fieldNames) as (keyof CustomFieldNames)[]) {
+    for (const key of Object.keys(
+      form.fieldNames,
+    ) as (keyof CustomFieldNames)[]) {
       if (form.fieldNames[key].trim() === "") {
         found[key] = "This name is required.";
       }
@@ -169,7 +174,9 @@ export function GeneralSettingsView() {
 
   const setFieldName = (key: keyof CustomFieldNames, value: string) =>
     setForm((prev) =>
-      prev ? { ...prev, fieldNames: { ...prev.fieldNames, [key]: value } } : prev,
+      prev
+        ? { ...prev, fieldNames: { ...prev.fieldNames, [key]: value } }
+        : prev,
     );
 
   const submit = async () => {
@@ -471,8 +478,10 @@ export function GeneralSettingsView() {
                       min={MIN_THRESHOLD}
                       max={MAX_THRESHOLD}
                       size="lg"
-                    className="text-sm"
-                      aria-invalid={errors.noActivityThreshold ? true : undefined}
+                      className="text-sm"
+                      aria-invalid={
+                        errors.noActivityThreshold ? true : undefined
+                      }
                       aria-describedby={
                         errors.noActivityThreshold
                           ? "no-activity-threshold-error"
@@ -488,7 +497,8 @@ export function GeneralSettingsView() {
                       onChange={(event) =>
                         set(
                           "noActivityThreshold",
-                          Number(event.target.value.replace(/[^0-9]/g, "")) || 0,
+                          Number(event.target.value.replace(/[^0-9]/g, "")) ||
+                            0,
                         )
                       }
                     />

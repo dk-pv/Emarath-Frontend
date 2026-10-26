@@ -36,14 +36,17 @@ const EMPTY_FORM: CreateHostDomainInput = {
 const DOMAIN_PATTERN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-function validate(form: CreateHostDomainInput): Partial<Record<FieldKey, string>> {
+function validate(
+  form: CreateHostDomainInput,
+): Partial<Record<FieldKey, string>> {
   const errors: Partial<Record<FieldKey, string>> = {};
 
   const domain = form.domainName.trim();
   if (domain === "") {
     errors.domainName = "Domain Name is required.";
   } else if (!DOMAIN_PATTERN.test(domain)) {
-    errors.domainName = "Enter a valid domain name, for example emarathglobal.com.";
+    errors.domainName =
+      "Enter a valid domain name, for example emarathglobal.com.";
   }
 
   const email = form.fromEmailAddress.trim();
@@ -105,8 +108,12 @@ export function OrganizationHostMappingView() {
   const [reloadToken, setReloadToken] = useState(0);
 
   const [form, setForm] = useState<CreateHostDomainInput | null>(null);
-  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
-  const [apiErrors, setApiErrors] = useState<Partial<Record<FieldKey, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>(
+    {},
+  );
+  const [apiErrors, setApiErrors] = useState<Partial<Record<FieldKey, string>>>(
+    {},
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<HostDomain | null>(null);
@@ -226,7 +233,9 @@ export function OrganizationHostMappingView() {
     {
       key: "domainName",
       header: "Domain Name",
-      render: (row) => <span className="truncate text-ink">{row.domainName}</span>,
+      render: (row) => (
+        <span className="truncate text-ink">{row.domainName}</span>
+      ),
     },
     {
       key: "status",

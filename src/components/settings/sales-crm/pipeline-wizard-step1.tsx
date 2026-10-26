@@ -107,7 +107,11 @@ export function PipelineWizardStep1({
       })
       .catch(ignore);
 
-    fetchTeamMembers({ page: 1, size: ROSTER_PAGE_SIZE }, undefined, controller.signal)
+    fetchTeamMembers(
+      { page: 1, size: ROSTER_PAGE_SIZE },
+      undefined,
+      controller.signal,
+    )
       .then((users) => {
         if (active) {
           setUserOptions(
@@ -296,14 +300,17 @@ export function PipelineWizardStep1({
                     id={`permission-target-${row.key}`}
                     size="lg"
                     placeholder={
-                      row.permissionType === "ROLE" ? "Select role" : "Select user"
+                      row.permissionType === "ROLE"
+                        ? "Select role"
+                        : "Select user"
                     }
                     options={
                       row.permissionType === "ROLE" ? roleOptions : userOptions
                     }
                     value={
-                      (row.permissionType === "ROLE" ? row.roleId : row.userId) ??
-                      null
+                      (row.permissionType === "ROLE"
+                        ? row.roleId
+                        : row.userId) ?? null
                     }
                     onChange={(next) =>
                       setRow(
@@ -338,7 +345,9 @@ export function PipelineWizardStep1({
       </section>
 
       <section className="p-5">
-        <h3 className="text-base font-semibold text-ink">Clone from a template</h3>
+        <h3 className="text-base font-semibold text-ink">
+          Clone from a template
+        </h3>
         <p className="mt-0.5 text-sm text-ink-muted">
           Create this pipeline by copying stages and settings from an existing
           template.

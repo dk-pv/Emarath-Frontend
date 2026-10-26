@@ -38,7 +38,9 @@ export function PipelineSwitcher({
       trigger={
         <span className="inline-flex h-control-sm items-center gap-2 rounded-control bg-brand-subtle px-3 text-sm font-medium text-brand-strong">
           <IconChartFunnel size={16} stroke={1.75} aria-hidden="true" />
-          <span className="truncate">{isLoading ? "Lead Pipeline" : value}</span>
+          <span className="truncate">
+            {isLoading ? "Lead Pipeline" : value}
+          </span>
           <IconChevronDown size={16} stroke={1.75} aria-hidden="true" />
         </span>
       }

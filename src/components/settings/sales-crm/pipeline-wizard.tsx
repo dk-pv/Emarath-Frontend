@@ -147,7 +147,11 @@ export function PipelineWizard({
     const controller = new AbortController();
     let active = true;
 
-    fetchTeamMembers({ page: 1, size: ROSTER_PAGE_SIZE }, undefined, controller.signal)
+    fetchTeamMembers(
+      { page: 1, size: ROSTER_PAGE_SIZE },
+      undefined,
+      controller.signal,
+    )
       .then((page) => {
         if (active) setMembers(page.rows);
       })

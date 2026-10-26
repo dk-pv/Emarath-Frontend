@@ -32,10 +32,8 @@ import {
 /** Minutes are two digits in the reference ("00"), hours are not ("7"). */
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-const same = (
-  a: OrganizationGeneralSettings,
-  b: OrganizationGeneralSettings,
-) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a: OrganizationGeneralSettings, b: OrganizationGeneralSettings) =>
+  JSON.stringify(a) === JSON.stringify(b);
 
 /**
  * Settings → Organization Setup → General Settings.
@@ -165,7 +163,11 @@ export function OrganizationGeneralView() {
 
             {/* ---------- Basic settings ---------- */}
             <section className="grid gap-x-6 gap-y-5 border-b border-hairline p-5 sm:grid-cols-2">
-              <Field id="org-currency" label="Currency" hint="The currency amounts are shown in across the product.">
+              <Field
+                id="org-currency"
+                label="Currency"
+                hint="The currency amounts are shown in across the product."
+              >
                 <SearchableSelect
                   portal
                   size="lg"
@@ -271,12 +273,19 @@ export function OrganizationGeneralView() {
                   onPeriod={(next) => set("shiftEndPeriod", next)}
                 />
 
-                <Field id="org-off-days" label="Off Days" hint="Days the business does not operate.">
+                <Field
+                  id="org-off-days"
+                  label="Off Days"
+                  hint="Days the business does not operate."
+                >
                   <MultiSelect
                     id="org-off-days"
                     aria-label="Off Days"
                     placeholder="Select days"
-                    options={WEEKDAYS.map((day) => ({ value: day, label: day }))}
+                    options={WEEKDAYS.map((day) => ({
+                      value: day,
+                      label: day,
+                    }))}
                     value={value.offDays}
                     onChange={(next) => set("offDays", next as Weekday[])}
                   />

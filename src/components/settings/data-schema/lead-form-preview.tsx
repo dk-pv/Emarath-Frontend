@@ -32,12 +32,7 @@ export function LeadFormPreview({
     .filter((group) => group.fields.length > 0);
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      size="sm"
-      title="Lead Form"
-    >
+    <Modal open={open} onClose={onClose} size="sm" title="Lead Form">
       <div className="flex flex-col gap-4">
         {/* The reference's own subtitle, under the dialog's "Lead Form" heading. */}
         <p className="-mt-2 flex items-center gap-2 text-sm text-ink-muted">

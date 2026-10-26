@@ -49,7 +49,11 @@ export function anchoredStyle(
   const asked = side === "top" ? above : below;
   const other = side === "top" ? below : above;
   const placed: AnchorSide =
-    asked < MIN_SIZE && other > asked ? (side === "top" ? "bottom" : "top") : side;
+    asked < MIN_SIZE && other > asked
+      ? side === "top"
+        ? "bottom"
+        : "top"
+      : side;
 
   // Opening upward pins the panel's BOTTOM edge above the trigger, so it grows towards
   // the top of the screen; the room it has is whatever sits above the trigger.

@@ -238,6 +238,20 @@ function endKey(value: string | undefined): string {
 }
 
 /**
+ * The end of a Meeting or Task moved to start at `dueAt`, keeping its length; null when it has
+ * no end. Sent with every reschedule: without it a later day put the end before the start, which
+ * the API refuses, and an earlier one stretched the meeting across days.
+ */
+export function rescheduledEnd(
+  activity: { dueAt: string; endAt: string | null },
+  dueAt: string,
+): string | null {
+  if (!activity.endAt) return null;
+  const length = Date.parse(activity.endAt) - Date.parse(activity.dueAt);
+  return new Date(Date.parse(dueAt) + length).toISOString();
+}
+
+/**
  * The inverse of `dateOperatorBoundaries` — a saved preset's or deep link's stored
  * boundaries back to the day(s) and times a builder row shows. Boundaries may be
  * instants or calendar days; presets saved before times existed hold only midnight

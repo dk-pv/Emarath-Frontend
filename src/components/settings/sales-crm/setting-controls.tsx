@@ -108,10 +108,7 @@ export function RadioCard({
         />
       </span>
       <span
-        className={cn(
-          "text-sm",
-          checked ? "font-medium text-ink" : "text-ink",
-        )}
+        className={cn("text-sm", checked ? "font-medium text-ink" : "text-ink")}
       >
         {children}
       </span>
@@ -156,10 +153,7 @@ export function ToggleField({
           {label}
         </SettingLabel>
       ) : (
-        <label
-          htmlFor={id}
-          className="cursor-pointer text-sm text-ink-muted"
-        >
+        <label htmlFor={id} className="cursor-pointer text-sm text-ink-muted">
           {label}
         </label>
       )}

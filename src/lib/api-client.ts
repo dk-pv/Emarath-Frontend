@@ -37,8 +37,9 @@ const AUTH_EXCLUDED = new Set([
  * populated — for a single shared `/auth/refresh` (`attemptRefresh` single-flights it, so
  * concurrent 401s cause just one refresh); if the session is renewed it retries the request
  * exactly once. The retry is a bare `fetch`, so a second 401 is returned as-is — no recursion,
- * no loop. If refresh fails, the session is cleared and the user redirected (via the bridge)
- * and the original 401 surfaces to the caller. Auth routes are excluded entirely.
+ * no loop. If the server has ended the session, it is cleared and the user redirected (via the
+ * bridge); if the refresh got no answer, the user stays. Either way the original 401 surfaces to
+ * the caller. Auth routes are excluded entirely.
  */
 async function fetchWithAuth(
   url: string,
@@ -50,13 +51,12 @@ async function fetchWithAuth(
     return response;
   }
 
-  const refreshed = await attemptRefresh();
-  if (!refreshed) {
-    notifySessionExpired();
-    return response;
-  }
-
-  return fetch(url, init);
+  const outcome = await attemptRefresh();
+  if (outcome === "renewed") return fetch(url, init);
+  // Only a session the server has ended goes back to /login. A refresh it could not answer
+  // leaves the user, and their unsaved input, on the page; this request fails as it is.
+  if (outcome === "expired") notifySessionExpired();
+  return response;
 }
 
 /**

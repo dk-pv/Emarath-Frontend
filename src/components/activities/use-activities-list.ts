@@ -53,7 +53,8 @@ export function useActivitiesList(query: ActivitiesQuery) {
       .catch((error: unknown) => {
         if (!active) return;
         // A superseded request aborts; that is expected, not a failure.
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setFailedQuery(query);
       });
 

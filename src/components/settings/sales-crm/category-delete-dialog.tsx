@@ -88,9 +88,8 @@ export function CategoryDeleteDialog({
                 {below > 0 && (
                   <>
                     {" "}
-                    holding <b className="font-semibold">
-                      {plural(below, "lead")}
-                    </b>
+                    holding{" "}
+                    <b className="font-semibold">{plural(below, "lead")}</b>
                   </>
                 )}
                 . Move or delete them first.

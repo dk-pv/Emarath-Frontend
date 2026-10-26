@@ -70,7 +70,8 @@ function CategoryFormPanel({
   const [busy, setBusy] = useState(false);
 
   const trimmed = name.trim();
-  const nameError = touched && trimmed === "" ? "Category name is required." : null;
+  const nameError =
+    touched && trimmed === "" ? "Category name is required." : null;
 
   const close = () => {
     setError(null);
@@ -153,7 +154,7 @@ function CategoryFormPanel({
               aria-invalid={nameError ? true : undefined}
               aria-describedby={nameError ? "category-name-error" : undefined}
               size="lg"
-                    className="text-sm"
+              className="text-sm"
               onChange={(event) => setName(event.target.value)}
               onBlur={() => setTouched(true)}
               onKeyDown={(event) => {
@@ -170,7 +171,11 @@ function CategoryFormPanel({
             )}
           </div>
           {nameError && (
-            <p id="category-name-error" role="alert" className="text-sm text-danger">
+            <p
+              id="category-name-error"
+              role="alert"
+              className="text-sm text-danger"
+            >
               {nameError}
             </p>
           )}

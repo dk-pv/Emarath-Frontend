@@ -107,7 +107,11 @@ function CreateSectionForm({
           }}
         />
         {touched && error && (
-          <p id="section-name-error" role="alert" className="text-sm text-danger">
+          <p
+            id="section-name-error"
+            role="alert"
+            className="text-sm text-danger"
+          >
             {error}
           </p>
         )}

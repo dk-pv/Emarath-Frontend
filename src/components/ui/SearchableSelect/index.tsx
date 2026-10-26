@@ -214,54 +214,55 @@ export function SearchableSelect({
             className={portal ? PORTAL_PANEL_CLASS : PANEL_CLASS}
             style={portal ? (anchor ?? undefined) : undefined}
           >
-          {searchable && (
-            <div className="border-b border-hairline p-2">
-              <PanelSearch
-                autoFocus
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Search options"
-              />
-            </div>
-          )}
-
-          <ul
-            role="listbox"
-            className="max-h-52 overflow-y-auto py-1 scrollbar-slim"
-          >
-            {filtered.length === 0 ? (
-              <li className="px-4 py-6 text-center text-sm text-ink-subtle">
-                No results found
-              </li>
-            ) : (
-              filtered.map((option) => (
-                <li key={option.value}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={option.value === value}
-                    disabled={option.disabled}
-                    onClick={() => choose(option.value)}
-                    // One rem per level on top of OPTION_CLASS's own px-4 (1rem). A
-                    // measurement, not a palette value, so it stays inline rather than
-                    // becoming a set of padding classes only this list would ever use.
-                    style={
-                      option.depth
-                        ? { paddingLeft: `${1 + option.depth}rem` }
-                        : undefined
-                    }
-                    className={cn(
-                      OPTION_CLASS,
-                      option.value === value && "bg-sidebar-active/40 text-ink",
-                      "disabled:cursor-not-allowed disabled:opacity-50",
-                    )}
-                  >
-                    <span className="truncate">{option.label}</span>
-                  </button>
-                </li>
-              ))
+            {searchable && (
+              <div className="border-b border-hairline p-2">
+                <PanelSearch
+                  autoFocus
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  aria-label="Search options"
+                />
+              </div>
             )}
-          </ul>
+
+            <ul
+              role="listbox"
+              className="max-h-52 overflow-y-auto py-1 scrollbar-slim"
+            >
+              {filtered.length === 0 ? (
+                <li className="px-4 py-6 text-center text-sm text-ink-subtle">
+                  No results found
+                </li>
+              ) : (
+                filtered.map((option) => (
+                  <li key={option.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={option.value === value}
+                      disabled={option.disabled}
+                      onClick={() => choose(option.value)}
+                      // One rem per level on top of OPTION_CLASS's own px-4 (1rem). A
+                      // measurement, not a palette value, so it stays inline rather than
+                      // becoming a set of padding classes only this list would ever use.
+                      style={
+                        option.depth
+                          ? { paddingLeft: `${1 + option.depth}rem` }
+                          : undefined
+                      }
+                      className={cn(
+                        OPTION_CLASS,
+                        option.value === value &&
+                          "bg-sidebar-active/40 text-ink",
+                        "disabled:cursor-not-allowed disabled:opacity-50",
+                      )}
+                    >
+                      <span className="truncate">{option.label}</span>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
 
             {canCreate && (
               <button

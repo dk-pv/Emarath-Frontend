@@ -90,7 +90,9 @@ export function buildRoleTree(rows: RoleNode[]): RoleTreeNode[] {
   }
 
   const sortByPosition = (nodes: RoleTreeNode[]) => {
-    nodes.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+    nodes.sort(
+      (a, b) => a.position - b.position || a.name.localeCompare(b.name),
+    );
     nodes.forEach((node) => sortByPosition(node.children));
   };
   sortByPosition(roots);

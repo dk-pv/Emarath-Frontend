@@ -135,8 +135,7 @@ function RuleWizard({
   const [deleting, setDeleting] = useState<DraftGroup | null>(null);
   const [dragKey, setDragKey] = useState<string | null>(null);
 
-  const nameError =
-    name.trim() === "" ? "Rule Name is required." : undefined;
+  const nameError = name.trim() === "" ? "Rule Name is required." : undefined;
 
   const next = () => {
     if (step === 0) {
@@ -227,7 +226,9 @@ function RuleWizard({
       open
       onClose={busy ? () => undefined : onClose}
       size="lg"
-      title={state.mode === "edit" ? "Edit Assignment Rule" : "Add Assignment Rule"}
+      title={
+        state.mode === "edit" ? "Edit Assignment Rule" : "Add Assignment Rule"
+      }
       footer={
         <>
           <Button
@@ -533,10 +534,15 @@ function RuleWizard({
                   label="Assignment Algorithm"
                   value={labelOf(ASSIGNMENT_ALGORITHMS, "ROUND_ROBIN")}
                 />
-                <Summary label="Status" value={isActive ? "Active" : "Inactive"} />
+                <Summary
+                  label="Status"
+                  value={isActive ? "Active" : "Inactive"}
+                />
                 <Summary
                   label="Created Date"
-                  value={formatDate(existing?.createdAt ?? new Date().toISOString())}
+                  value={formatDate(
+                    existing?.createdAt ?? new Date().toISOString(),
+                  )}
                 />
               </dl>
             </section>

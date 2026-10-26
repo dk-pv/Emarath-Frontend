@@ -82,6 +82,9 @@ export function TeamMembersView() {
 
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [creating, setCreating] = useState(false);
+  // Each create starts a fresh form: the drawer stays mounted while it closes, so without a new
+  // key it reopened on the last member's step, details and password.
+  const [createCount, setCreateCount] = useState(0);
   const [passwordFor, setPasswordFor] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState<TeamMember | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -325,7 +328,12 @@ export function TeamMembersView() {
               onChange={(event) => narrow(() => setRole(event.target.value))}
             />
           </div>
-          <Button onClick={() => setCreating(true)}>
+          <Button
+            onClick={() => {
+              setCreateCount((count) => count + 1);
+              setCreating(true);
+            }}
+          >
             <IconPlus size={16} stroke={2.5} aria-hidden="true" />
             Add New Team Member
           </Button>
@@ -348,7 +356,7 @@ export function TeamMembersView() {
       )}
 
       <TeamMemberFormDrawer
-        key={editing?.id ?? "new"}
+        key={editing?.id ?? `new-${createCount}`}
         open={creating || editing !== null}
         member={editing}
         onClose={() => {

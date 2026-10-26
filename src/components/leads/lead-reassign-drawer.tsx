@@ -42,7 +42,8 @@ export function LeadReassignDrawer({
       .catch((error: unknown) => {
         // A superseded request aborts; expected. Any other failure leaves the
         // list empty, and the Reassign button stays disabled until a pick is made.
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
       });
     return () => controller.abort();
   }, []);
@@ -74,10 +75,13 @@ export function LeadReassignDrawer({
     >
       <div className="flex flex-col gap-3">
         <p className="text-sm text-ink-muted">
-          Reassign {count} selected lead{count === 1 ? "" : "s"} to an agent. This
-          replaces the current assignment.
+          Reassign {count} selected lead{count === 1 ? "" : "s"} to an agent.
+          This replaces the current assignment.
         </p>
-        <label htmlFor="reassign-agent" className="text-sm font-medium text-ink">
+        <label
+          htmlFor="reassign-agent"
+          className="text-sm font-medium text-ink"
+        >
           Agent
         </label>
         <SearchableSelect

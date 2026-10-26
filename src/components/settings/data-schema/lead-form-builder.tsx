@@ -616,7 +616,9 @@ export function LeadFormBuilder({ formId }: { formId?: string }) {
           variant="ghost"
           aria-label="Cancel"
           disabled={busy}
-          onClick={() => router.push("/settings/data-schema/form-customization")}
+          onClick={() =>
+            router.push("/settings/data-schema/form-customization")
+          }
         >
           Cancel
         </Button>
@@ -728,9 +730,7 @@ function Panel({
         {children}
         {empty && (
           <li className="px-1 py-3 text-sm text-ink-muted">
-            {query.trim() === ""
-              ? "No fields"
-              : "No field matches that search"}
+            {query.trim() === "" ? "No fields" : "No field matches that search"}
           </li>
         )}
       </ul>

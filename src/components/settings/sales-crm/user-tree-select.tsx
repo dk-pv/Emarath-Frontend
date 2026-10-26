@@ -73,7 +73,9 @@ function flatten(
 ): Row[] {
   return nodes.flatMap((node) => [
     { node, depth },
-    ...(isExpanded(node.id) ? flatten(node.children, isExpanded, depth + 1) : []),
+    ...(isExpanded(node.id)
+      ? flatten(node.children, isExpanded, depth + 1)
+      : []),
   ]);
 }
 
@@ -137,7 +139,10 @@ export function UserTreeSelect({
       // scroller, not a full-height column, so the smaller of the two wins. It has to be
       // applied here rather than as a class: the hook's value is inline, and inline beats
       // a `max-h-*` class every time.
-      maxHeight: Math.min(Number(style.maxHeight) || PANEL_MAX_HEIGHT, PANEL_MAX_HEIGHT),
+      maxHeight: Math.min(
+        Number(style.maxHeight) || PANEL_MAX_HEIGHT,
+        PANEL_MAX_HEIGHT,
+      ),
       width: triggerRef.current?.getBoundingClientRect().width,
     });
   }, []);
@@ -280,7 +285,10 @@ export function UserTreeSelect({
       </button>
 
       {/* Portalled once anchored, so it never flashes at 0,0 on the first frame. */}
-      {isOpen && mounted && anchor !== null && createPortal(panel, document.body)}
+      {isOpen &&
+        mounted &&
+        anchor !== null &&
+        createPortal(panel, document.body)}
     </div>
   );
 }

@@ -123,8 +123,9 @@ const dayName = (date: string) => `${weekdayOf(date)} ${formatDateOnly(date)}`;
 /** What a bucket's tile says under its name: the days it covers, measured on the business day. */
 function bucketCaption(bucket: DeliveryBucket, day: BusinessDay): string {
   switch (bucket) {
+    // Overdue leaves out cancelled and returned orders as well as delivered ones: still open.
     case "overdue":
-      return `Before ${formatDateOnly(day.today)}, not delivered`;
+      return `Before ${formatDateOnly(day.today)}, still open`;
     case "today":
       return dayName(day.today);
     case "tomorrow":

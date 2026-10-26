@@ -77,8 +77,7 @@ export function followUpFieldOrder(
 
   if (!configured) {
     return SHIPPED_FIELD_ORDER.filter(
-      (key) =>
-        key !== "END_TIME" || type === "MEETING" || type === "TASK",
+      (key) => key !== "END_TIME" || type === "MEETING" || type === "TASK",
     );
   }
 

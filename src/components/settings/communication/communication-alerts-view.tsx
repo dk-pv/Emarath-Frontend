@@ -136,7 +136,9 @@ export function CommunicationAlertsView() {
               use. No tooltip copy is invented: no capture shows one open (§16.4).
             */}
             <div className="flex items-center gap-3">
-              <SettingLabel htmlFor="emarath-alerts">Emarath Alert</SettingLabel>
+              <SettingLabel htmlFor="emarath-alerts">
+                Emarath Alert
+              </SettingLabel>
               <Switch
                 id="emarath-alerts"
                 aria-label="Emarath Alert"

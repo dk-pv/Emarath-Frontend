@@ -92,8 +92,7 @@ export function TreeMoveDrawer<T extends TreeMoveNode<T>>({
   const [busy, setBusy] = useState(false);
 
   const options = useMemo(
-    () =>
-      node ? parentOptions(tree, node.id, heightOf(node), maxLevel) : [],
+    () => (node ? parentOptions(tree, node.id, heightOf(node), maxLevel) : []),
     [tree, node, maxLevel],
   );
 

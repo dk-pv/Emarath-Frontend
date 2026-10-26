@@ -76,8 +76,8 @@ export function ChangePipelineModal({
     >
       <fieldset className="space-y-1" disabled={busy}>
         <legend className="mb-2 text-sm text-ink-muted">
-          Move “{lead.name}” to another pipeline. It lands on the pipeline’s first
-          stage.
+          Move “{lead.name}” to another pipeline. It lands on the pipeline’s
+          first stage.
         </legend>
         {options.map((option) => (
           <label

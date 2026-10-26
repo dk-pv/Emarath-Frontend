@@ -28,7 +28,7 @@ import { DEFAULT_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/constants/table";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useLocalDay } from "@/hooks/use-local-day";
-import { boundEnd, boundStart } from "@/lib/date-time-range";
+import { boundEnd, boundStart, rescheduledEnd } from "@/lib/date-time-range";
 import {
   activityColumns,
   ActivityRowProvider,
@@ -634,13 +634,8 @@ export function ActivitiesListView() {
    * sparse-patch variant. Optimistic, and reverted if the server rejects it.
    */
   const handleSaveDueDate = async (row: ActivityListItem, dueAt: string) => {
-    // A Meeting/Task's end time moves with its start, keeping its length — otherwise
-    // moving it to a later day would put the end before the start, which the API refuses.
-    const endAt = row.endAt
-      ? new Date(
-          Date.parse(row.endAt) + Date.parse(dueAt) - Date.parse(row.dueAt),
-        ).toISOString()
-      : null;
+    // A Meeting/Task's end time moves with its start, keeping its length.
+    const endAt = rescheduledEnd(row, dueAt);
     if (row.description === null) {
       // The API requires a description on update, so a note-less row cannot be
       // saved from here without inventing one — send the user to the drawer, which
@@ -654,7 +649,7 @@ export function ActivitiesListView() {
         type: row.type,
         description: row.description,
         dueAt,
-        endAt: row.endAt ?? undefined,
+        endAt: endAt ?? undefined,
         assigneeIds: row.assignees.map((assignee) => assignee.id),
       });
       refetch();

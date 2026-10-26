@@ -135,7 +135,9 @@ function TemplateForm({
   const [draft, setDraft] = useState<Draft>(() =>
     state.template ? toDraft(state.template) : EMPTY,
   );
-  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
+  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>(
+    {},
+  );
   const [apiErrors, setApiErrors] = useState<Partial<Record<FieldKey, string>>>(
     {},
   );

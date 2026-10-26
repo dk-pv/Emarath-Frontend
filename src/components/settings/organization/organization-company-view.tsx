@@ -148,7 +148,9 @@ export function OrganizationCompanyView() {
 
   const [saved, setSaved] = useState<Draft | null>(null);
   const [value, setValue] = useState<Draft | null>(null);
-  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
+  const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>(
+    {},
+  );
   const [apiErrors, setApiErrors] = useState<Partial<Record<FieldKey, string>>>(
     {},
   );

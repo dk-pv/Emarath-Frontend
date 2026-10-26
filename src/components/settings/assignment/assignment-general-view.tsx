@@ -391,9 +391,7 @@ export function AssignmentGeneralView() {
                 id="whatsapp-first-note"
                 label="Do you want to save the first incoming message as note?"
                 checked={value.saveFirstIncomingMessageAsNote}
-                onChange={(next) =>
-                  set("saveFirstIncomingMessageAsNote", next)
-                }
+                onChange={(next) => set("saveFirstIncomingMessageAsNote", next)}
               />
             </section>
           </div>

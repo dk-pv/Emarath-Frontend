@@ -19,6 +19,7 @@ import { LeadEmailDrawer } from "@/components/leads/lead-email-drawer";
 import { LeadWhatsappDrawer } from "@/components/leads/lead-whatsapp-drawer";
 import { DEFAULT_PAGE_SIZE } from "@/constants/table";
 import { isAbortError } from "@/lib/api-client";
+import { rescheduledEnd } from "@/lib/date-time-range";
 import { dayBoundaries } from "@/lib/day-boundaries";
 import { formatDate, formatTime } from "@/lib/format";
 import { whatsappUrl } from "@/lib/whatsapp";
@@ -325,7 +326,8 @@ export function ActivitiesTracker() {
         type: row.type,
         description: row.description,
         dueAt,
-        endAt: row.endAt ?? undefined,
+        // A Meeting/Task's end time moves with its start, keeping its length.
+        endAt: rescheduledEnd(row, dueAt) ?? undefined,
         assigneeIds: row.assignees.map((assignee) => assignee.id),
       });
       refetch();

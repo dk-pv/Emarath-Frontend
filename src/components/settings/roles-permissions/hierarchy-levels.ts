@@ -19,11 +19,23 @@ export interface LevelStyle {
 }
 
 const LEVEL_STYLES: LevelStyle[] = [
-  { row: "border-purple-300 bg-purple-50", swatch: "border-purple-300 bg-purple-50" },
+  {
+    row: "border-purple-300 bg-purple-50",
+    swatch: "border-purple-300 bg-purple-50",
+  },
   { row: "border-blue-300 bg-blue-50", swatch: "border-blue-300 bg-blue-50" },
-  { row: "border-yellow-300 bg-yellow-50", swatch: "border-yellow-300 bg-yellow-50" },
-  { row: "border-orange-300 bg-orange-50", swatch: "border-orange-300 bg-orange-50" },
-  { row: "border-green-300 bg-green-50", swatch: "border-green-300 bg-green-50" },
+  {
+    row: "border-yellow-300 bg-yellow-50",
+    swatch: "border-yellow-300 bg-yellow-50",
+  },
+  {
+    row: "border-orange-300 bg-orange-50",
+    swatch: "border-orange-300 bg-orange-50",
+  },
+  {
+    row: "border-green-300 bg-green-50",
+    swatch: "border-green-300 bg-green-50",
+  },
   { row: "border-pink-300 bg-pink-50", swatch: "border-pink-300 bg-pink-50" },
 ];
 

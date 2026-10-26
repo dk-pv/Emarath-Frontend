@@ -74,7 +74,8 @@ export function useLeadFormLayout(): LeadFormLayout {
     const byKey = new Map(form.fields.map((field) => [field.fieldKey, field]));
     // A key the form does not mention is a field created since it was saved: it shows,
     // exactly as it did before the form existed. Only an explicit Hidden hides a field.
-    const shows = (fieldKey: string) => byKey.get(fieldKey)?.isVisible !== false;
+    const shows = (fieldKey: string) =>
+      byKey.get(fieldKey)?.isVisible !== false;
 
     return {
       shows,

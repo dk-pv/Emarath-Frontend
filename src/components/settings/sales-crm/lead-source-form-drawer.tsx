@@ -102,7 +102,8 @@ function LeadSourceFormPanel({
     }
   };
 
-  const heading = state.mode === "edit" ? "Edit Lead Source" : "Add Lead Source";
+  const heading =
+    state.mode === "edit" ? "Edit Lead Source" : "Add Lead Source";
 
   return (
     <Drawer

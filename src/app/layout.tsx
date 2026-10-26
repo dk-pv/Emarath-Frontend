@@ -20,7 +20,6 @@ const jakarta = Plus_Jakarta_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
-
 export const metadata: Metadata = {
   title: "Emarath",
   description: "Emarath ERP / CRM platform",

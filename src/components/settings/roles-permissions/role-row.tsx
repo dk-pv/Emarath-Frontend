@@ -148,7 +148,10 @@ export function RoleRow({
           {node.name}
         </span>
 
-        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-ink-muted/30" />
+        <span
+          aria-hidden="true"
+          className="h-5 w-px shrink-0 bg-ink-muted/30"
+        />
 
         <button
           type="button"
@@ -225,7 +228,9 @@ export function RoleRow({
               </div>
               <div className="flex gap-1">
                 <dt className="text-ink-muted">Created date :</dt>
-                <dd className="min-w-0 text-ink">{formatCreated(node.createdAt)}</dd>
+                <dd className="min-w-0 text-ink">
+                  {formatCreated(node.createdAt)}
+                </dd>
               </div>
             </dl>
           </Popover>

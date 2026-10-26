@@ -251,7 +251,9 @@ export function ColumnStageMenu({
       >
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-ink">Name</span>
+            <span className="mb-1 block text-sm font-medium text-ink">
+              Name
+            </span>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}

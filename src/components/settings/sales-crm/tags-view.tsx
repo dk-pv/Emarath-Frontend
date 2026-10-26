@@ -225,7 +225,8 @@ export function TagsView() {
           <h2 className="text-xl font-semibold text-ink">Tags</h2>
           {/* Reference wording, kept verbatim including its capital "And" (CLAUDE.md §1). */}
           <p className="mt-0.5 text-sm text-ink-muted">
-            Configure your company&apos;s basic settings And regional preferences
+            Configure your company&apos;s basic settings And regional
+            preferences
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

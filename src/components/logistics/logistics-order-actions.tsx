@@ -438,7 +438,7 @@ export function LogisticsOrderActions({
           <p className="text-ink-muted">
             The day the customer asked for. QC can’t verify the order without
             it. It can change until QC verifies the order; after that, the
-            Logistics Manager edits it.
+            Logistics team corrects it, with a reason.
           </p>
           <FormField
             label="Delivery Date"

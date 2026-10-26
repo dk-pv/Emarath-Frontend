@@ -84,7 +84,8 @@ export function toSettingsInput(form: SettingsForm): PipelineSettingsInput {
  */
 export function validateSettings(form: SettingsForm): SettingsErrors {
   const errors: SettingsErrors = {};
-  if (!form.defaultStageId) errors.defaultStageId = "Default Stage is required.";
+  if (!form.defaultStageId)
+    errors.defaultStageId = "Default Stage is required.";
   if (!form.expiryEnabled) return errors;
 
   if (!form.expiryScope) errors.expiryScope = "Choose what expiry applies to.";
@@ -215,7 +216,10 @@ export function PipelineWizardSettings({
             />
           </Field>
 
-          <Field id="pipeline-qualified-stage" label="Stages Marked as Qualified">
+          <Field
+            id="pipeline-qualified-stage"
+            label="Stages Marked as Qualified"
+          >
             <SearchableSelect
               portal
               size="lg"

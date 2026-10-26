@@ -39,10 +39,24 @@ export async function login(
  * user. Used to restore a session on app load: the access cookie is short-lived, so a
  * reload relies on the long-lived refresh cookie to mint a fresh one. Throws `ApiError`
  * (401) when there is no valid session — the caller reads that as "not logged in".
+ *
+ * Tabs take turns. Each refresh spends the presented token, and one presented after it was spent
+ * looks stolen, so the server ends the session in every tab. Two tabs opened together share the
+ * cookie: under a lock, the second sends the token the first has just rotated in. A browser
+ * without Web Locks refreshes as before.
  */
 export async function fetchSession(signal?: AbortSignal): Promise<AuthUser> {
-  const { user } = await apiPost<SessionResponse>("/auth/refresh", {}, signal);
-  return user;
+  const refresh = async (): Promise<AuthUser> => {
+    const { user } = await apiPost<SessionResponse>(
+      "/auth/refresh",
+      {},
+      signal,
+    );
+    return user;
+  };
+  return typeof navigator !== "undefined" && navigator.locks
+    ? navigator.locks.request("emarath-session-refresh", { signal }, refresh)
+    : refresh();
 }
 
 /** Ends the session server-side and clears the cookies (AUTH-01.5). Idempotent. */

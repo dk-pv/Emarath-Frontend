@@ -2,12 +2,7 @@ import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
 
 /** The six custom-field types (LEAD-05.1 + ADR-0072), mirroring the backend enum. */
 export type LeadCustomFieldType =
-  | "TEXT"
-  | "TEXTBOX"
-  | "NUMBER"
-  | "DATE"
-  | "DATETIME"
-  | "DROP_DOWN";
+  "TEXT" | "TEXTBOX" | "NUMBER" | "DATE" | "DATETIME" | "DROP_DOWN";
 
 /** One selectable value of a DROP_DOWN field, in its configured order. */
 export interface LeadCustomFieldOption {

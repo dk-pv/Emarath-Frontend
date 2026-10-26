@@ -19,7 +19,11 @@ export function StageSwatches({
   onChange: (colorKey: string) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="Stage colour" className="flex flex-wrap gap-2">
+    <div
+      role="radiogroup"
+      aria-label="Stage colour"
+      className="flex flex-wrap gap-2"
+    >
       {STAGE_COLOR_KEYS.map((key) => {
         const selected = key === value;
         return (

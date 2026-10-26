@@ -162,9 +162,7 @@ export function ActivityGeneralView() {
                 id="auto-prompt-follow-up"
                 label="Enable automatic prompt to create a follow up on completion"
                 checked={value.autoPromptFollowUpOnCompletion}
-                onChange={(next) =>
-                  set("autoPromptFollowUpOnCompletion", next)
-                }
+                onChange={(next) => set("autoPromptFollowUpOnCompletion", next)}
               />
               <ToggleRow
                 id="follow-up-mandatory"

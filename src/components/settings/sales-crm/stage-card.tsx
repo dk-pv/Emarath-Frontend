@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { IconCheck, IconGripVertical, IconPencil, IconTrash } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconGripVertical,
+  IconPencil,
+  IconTrash,
+} from "@tabler/icons-react";
 import { Input } from "@/components/ui/Input";
 import { Popover } from "@/components/ui/Popover";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";

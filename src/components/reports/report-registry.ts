@@ -3,18 +3,20 @@ import {
   IconAffiliate,
   IconAlertTriangle,
   IconCalendar,
+  IconCalendarCancel,
   IconCalendarEvent,
   IconCalendarUp,
   IconCalendarX,
+  IconChartBarPopular,
   IconClockBolt,
   IconCopyCheck,
+  IconFilter,
   IconFilterDollar,
   IconFilterX,
   IconHourglassLow,
   IconReportAnalytics,
-  IconReportMoney,
   IconStatusChange,
-  IconTrendingUp,
+  IconUserBolt,
   IconUsers,
   IconUsersGroup,
 } from "@tabler/icons-react";
@@ -36,7 +38,17 @@ import {
 
 /** A hue key → literal Tailwind classes. Literal so Tailwind emits them (see stage-palette.ts, CLAUDE.md §7). */
 export type ReportAccent =
-  "rose" | "green" | "sky" | "violet" | "orange" | "amber" | "emerald";
+  | "rose"
+  | "green"
+  | "sky"
+  | "violet"
+  | "orange"
+  | "amber"
+  | "emerald"
+  | "teal"
+  | "indigo"
+  | "purple"
+  | "peach";
 
 export interface ReportAccentClasses {
   /** Icon tile: light tint fill + saturated glyph. */
@@ -82,6 +94,28 @@ export const REPORT_ACCENTS: Record<ReportAccent, ReportAccentClasses> = {
     tile: "bg-emerald-100 text-emerald-600",
     hoverBorder: "hover:border-emerald-300",
     hoverText: "group-hover:text-emerald-600",
+  },
+  // The Analytics hub's sampled tiles (`--color-tile-*`). No hover capture exists for them, so
+  // they follow the Reports hub's rule: border and label take the glyph's hue.
+  teal: {
+    tile: "bg-tile-teal text-tile-teal-ink",
+    hoverBorder: "hover:border-tile-teal-ink",
+    hoverText: "group-hover:text-tile-teal-ink",
+  },
+  indigo: {
+    tile: "bg-tile-indigo text-tile-indigo-ink",
+    hoverBorder: "hover:border-tile-indigo-ink",
+    hoverText: "group-hover:text-tile-indigo-ink",
+  },
+  purple: {
+    tile: "bg-tile-purple text-tile-purple-ink",
+    hoverBorder: "hover:border-tile-purple-ink",
+    hoverText: "group-hover:text-tile-purple-ink",
+  },
+  peach: {
+    tile: "bg-tile-peach text-tile-peach-ink",
+    hoverBorder: "hover:border-tile-peach-ink",
+    hoverText: "group-hover:text-tile-peach-ink",
   },
 };
 
@@ -271,9 +305,10 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
 
 /**
  * The Sales catalogue. Workpex shows these under its separate **Analytics** module (`/analytics`,
- * "3 Sales Reports"); Emarath's Reports hub lists every business area, so the same cards appear
- * on both hubs and the reports' one home is `/reports/sales/<slug>`. Titles and descriptions
- * are transcribed verbatim from `ui-reference/analytics/analytics-hub-sales-reports-default.png`.
+ * "4 Sales Reports"), and the reports' one home is `/reports/sales/<slug>`. Order, titles and
+ * descriptions are transcribed verbatim from
+ * `ui-reference/analytics/analytics-hub-available-categories-default.png` (2026-10-26), which
+ * supersedes the July capture's three cards; the glyphs are the nearest Tabler icons to Workpex's.
  * These are hub cards (navigation only); the report screens themselves are future/unticketed, so
  * the `taskId`s are the roadmap-proposed Analytics ids (Revenue maps to the backlog's RPT-04.1).
  */
@@ -287,16 +322,16 @@ export const ANALYTICS_CATEGORIES: readonly ReportCategory[] = [
         slug: "sales-funnel",
         title: "Sales Funnel Report",
         description: "Analyze full pipeline conversion and funnel ratios",
-        icon: IconFilterDollar,
-        accent: "sky",
+        icon: IconFilter,
+        accent: "teal",
       },
       {
         taskId: "ANLY-01.2",
         slug: "sales-pipeline-analysis",
         title: "Sales Pipeline Analysis",
         description: "Revenue predictability, pipeline health & forecast",
-        icon: IconTrendingUp,
-        accent: "violet",
+        icon: IconUserBolt,
+        accent: "indigo",
       },
       {
         taskId: "RPT-04.1",
@@ -304,12 +339,36 @@ export const ANALYTICS_CATEGORIES: readonly ReportCategory[] = [
         title: "Revenue Report",
         description:
           "Total revenue, deal trends & target achievement in one view.",
-        icon: IconReportMoney,
-        accent: "emerald",
+        icon: IconChartBarPopular,
+        accent: "purple",
+      },
+      // New in Workpex since the July captures; neither the backlog nor the client spec has a
+      // task for it yet, so no taskId.
+      {
+        slug: "user-scorecard",
+        title: "User Scorecard",
+        description:
+          "User performance, key metrics & score achievement in one view.",
+        icon: IconCalendarCancel,
+        accent: "peach",
       },
     ]),
   },
 ];
+
+/** The hubs' search: a case-insensitive match on a card's title or description. */
+export function filterReports(
+  reports: readonly ReportDefinition[],
+  query: string,
+): readonly ReportDefinition[] {
+  const term = query.trim().toLowerCase();
+  if (!term) return reports;
+  return reports.filter(
+    (report) =>
+      report.title.toLowerCase().includes(term) ||
+      report.description.toLowerCase().includes(term),
+  );
+}
 
 /** A resolved report plus the category it belongs to (its siblings drive the shell's header dropdown). */
 export interface ResolvedReport {

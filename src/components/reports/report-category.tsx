@@ -8,7 +8,10 @@ import {
 } from "@tabler/icons-react";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { ReportCard } from "./report-card";
-import type { ReportCategory as ReportCategoryModel } from "./report-registry";
+import {
+  filterReports,
+  type ReportCategory as ReportCategoryModel,
+} from "./report-registry";
 
 /**
  * One collapsible hub section (RPT-01.1), traced from `reports-hub-leads-category-card-hover.png`
@@ -29,15 +32,10 @@ export function ReportCategory({
   const [query, setQuery] = useState("");
   const bodyId = useId();
 
-  const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return category.reports;
-    return category.reports.filter(
-      (report) =>
-        report.title.toLowerCase().includes(term) ||
-        report.description.toLowerCase().includes(term),
-    );
-  }, [category.reports, query]);
+  const filtered = useMemo(
+    () => filterReports(category.reports, query),
+    [category.reports, query],
+  );
 
   const Chevron = open ? IconChevronUp : IconChevronDown;
 

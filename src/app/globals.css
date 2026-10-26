@@ -212,6 +212,22 @@
   --color-total-card-ink: #0f0e62;
 
   /*
+   * Analytics hub report cards, sampled from
+   * ui-reference/analytics/analytics-hub-available-categories-default.png (2026-10-26). The
+   * outline is darker than --color-hairline. Each tile is a pale fill under its glyph's hue; the
+   * purple glyph's strokes are too thin to reach full colour there, so it is the darkest pixel.
+   */
+  --color-card-outline: #c4c4c4;
+  --color-tile-teal: #d1f2f0;
+  --color-tile-teal-ink: #4ecdc4;
+  --color-tile-indigo: #d7d7fb;
+  --color-tile-indigo-ink: #6366f1;
+  --color-tile-purple: #f3e2ff;
+  --color-tile-purple-ink: #d79cff;
+  --color-tile-peach: #ffebcf;
+  --color-tile-peach-ink: #ffb16d;
+
+  /*
    * The navbar notification count is smaller than the text-xs floor. Named "count",
    * not "badge": `--color-badge` already exists and `text-badge` would resolve to the
    * colour utility instead of a font size.

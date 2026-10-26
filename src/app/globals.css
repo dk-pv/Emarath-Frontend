@@ -228,6 +228,22 @@
   --color-tile-peach-ink: #ffb16d;
 
   /*
+   * The Analytics reports' KPI card accents, sampled from the 2026-10-26 Sales Funnel and Sales
+   * Pipeline captures (border and icon badge). Amber and red are --color-warning/--color-danger.
+   */
+  --color-kpi-blue: #3060ff;
+  --color-kpi-green: #1cd26d;
+  --color-kpi-purple: #ad65ca;
+  /* The Sales Funnel's low stage-to-stage badge (July 2026 capture, "↓5.6%"). */
+  --color-funnel-warn: #ffa14e;
+  --color-funnel-warn-tint: #ffeedf;
+  /* Sales Pipeline Analysis' 3× coverage track zones and its achieved-target gauge (July). */
+  --color-coverage-critical: #f2d1d3;
+  --color-coverage-risk: #f3e3c7;
+  --color-coverage-ok: #c5e8df;
+  --color-gauge: #10b981;
+
+  /*
    * The navbar notification count is smaller than the text-xs floor. Named "count",
    * not "badge": `--color-badge` already exists and `text-badge` would resolve to the
    * colour utility instead of a font size.

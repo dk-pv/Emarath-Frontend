@@ -393,12 +393,23 @@ export function findReport(
   return undefined;
 }
 
-/** The `[category]`/`[slug]` pairs for every report, for static route generation. */
+/**
+ * The `[category]`/`[slug]` pairs for the Reports hub's reports, for static route generation. The
+ * Sales reports are not among them: they open in their own shell, `(report)/reports/sales/[slug]`,
+ * and a page generating the same paths would collide with it.
+ */
 export function reportRouteParams(): { category: string; slug: string }[] {
-  return [...REPORT_CATEGORIES, ...ANALYTICS_CATEGORIES].flatMap((cat) =>
+  return REPORT_CATEGORIES.flatMap((cat) =>
     cat.reports.map((report) => {
       const [, , category, slug] = report.href.split("/");
       return { category, slug };
     }),
+  );
+}
+
+/** The `[slug]`s of the Analytics Sales reports, for that shell's static route generation. */
+export function salesReportParams(): { slug: string }[] {
+  return ANALYTICS_CATEGORIES.flatMap((cat) =>
+    cat.reports.map((report) => ({ slug: report.slug })),
   );
 }

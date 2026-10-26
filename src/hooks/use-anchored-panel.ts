@@ -27,9 +27,10 @@ export type AnchoredPanelPosition = {
  * the (portaled) panel.
  *
  * Lifted out of the Leads filter builder so the report date panel is positioned by the
- * same code, not a second copy that could drift.
+ * same code, not a second copy that could drift. `minWidth` lets a narrow menu (the Analytics
+ * Lead Pipeline list, 200px) stay narrow.
  */
-export function useAnchoredPanel(maxWidth: number) {
+export function useAnchoredPanel(maxWidth: number, minWidth = 280) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<AnchoredPanelPosition | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -45,7 +46,7 @@ export function useAnchoredPanel(maxWidth: number) {
     const mainLeft = main ? main.left : 0;
     const vw = window.innerWidth;
     const available = vw - mainLeft - GAP * 2;
-    const width = Math.max(280, Math.min(maxWidth, available));
+    const width = Math.max(minWidth, Math.min(maxWidth, available));
     // Centred on the trigger, which is what Workpex does: in the references the panel's
     // centre sits within half a pixel of the chip's centre. The clamps then keep it inside
     // the content column and the viewport, so a trigger near either edge slides the panel
@@ -54,7 +55,7 @@ export function useAnchoredPanel(maxWidth: number) {
     left = Math.min(left, vw - GAP - width);
     left = Math.max(left, mainLeft + GAP);
     setPos({ top: t.bottom + TRIGGER_GAP, left, width });
-  }, [maxWidth]);
+  }, [maxWidth, minWidth]);
 
   useLayoutEffect(() => {
     if (!open) return;

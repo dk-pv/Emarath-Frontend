@@ -328,7 +328,8 @@ function filterValues(condition: FilterCondition): string[] {
 export interface LeadFilterOptions {
   sources: string[];
   statuses: string[];
-  agents: { id: string; name: string }[];
+  /** `reportingToId`: the manager they report to, when that manager is in the list too. */
+  agents: { id: string; name: string; reportingToId?: string | null }[];
   /** Tags present on the caller's scoped leads (LEAD-12.1 AC4). */
   tags: { id: string; name: string }[];
 }

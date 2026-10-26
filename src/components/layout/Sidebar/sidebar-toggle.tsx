@@ -1,8 +1,11 @@
 import { IconCaretLeftFilled, IconCaretRightFilled } from "@tabler/icons-react";
+import { cn } from "@/lib/cn";
 
 type SidebarToggleProps = {
   collapsed: boolean;
   onToggle: () => void;
+  /** Position overrides — the report shell's handle sits higher and, once hidden, at x 0. */
+  className?: string;
 };
 
 /**
@@ -12,7 +15,11 @@ type SidebarToggleProps = {
  * absolutely positioned rather than centred: its y-position is identical across
  * 869px and 842px viewports and in both sidebar states.
  */
-export function SidebarToggle({ collapsed, onToggle }: SidebarToggleProps) {
+export function SidebarToggle({
+  collapsed,
+  onToggle,
+  className,
+}: SidebarToggleProps) {
   const Caret = collapsed ? IconCaretRightFilled : IconCaretLeftFilled;
 
   return (
@@ -21,7 +28,10 @@ export function SidebarToggle({ collapsed, onToggle }: SidebarToggleProps) {
       onClick={onToggle}
       aria-expanded={!collapsed}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-      className="absolute top-toggle-top right-0 flex h-toggle-h w-toggle-w items-center justify-center rounded-l-full bg-brand focus-ring"
+      className={cn(
+        "absolute top-toggle-top right-0 flex h-toggle-h w-toggle-w items-center justify-center rounded-l-full bg-brand focus-ring",
+        className,
+      )}
     >
       <Caret size={10} className="text-toggle-glyph" />
     </button>

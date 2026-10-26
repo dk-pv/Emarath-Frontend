@@ -97,6 +97,8 @@ export interface TeamRevenue {
   totalCalls: number;
   /** Decimal string — money precision must survive the wire. */
   totalConversion: string;
+  /** The goals the percentage divides by (decimal string); null when none is set. */
+  revenueTarget: string | null;
   /** Uncapped; null when the team has no revenue target set, rendered as NA. */
   pctRevenueTargetAchieved: number | null;
 }

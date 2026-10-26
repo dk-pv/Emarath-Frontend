@@ -59,6 +59,13 @@ export type DatePeriodKey =
   | "lastMonth"
   | "thisYear"
   | "lastYear"
+  /** The Analytics Sales reports' presets (Workpex's Oct 2026 date menu), offered there only. */
+  | "last7Days"
+  | "last30Days"
+  | "thisQuarter"
+  | "lastQuarter"
+  | "thisFinancialYear"
+  | "lastFinancialYear"
   | "custom";
 
 /** The "By Date" presets in the reference's order; "custom" opens the From/To pickers. */
@@ -82,6 +89,12 @@ export function isDatePeriodKey(value: string | null): value is DatePeriodKey {
 const WEEK_STARTS_ON = 1;
 
 /**
+ * January: the calendar year, the usual UAE financial year. Workpex never shows the range its
+ * "This Financial Year" means, so this is an assumption awaiting the client (ADR-0099).
+ */
+const FINANCIAL_YEAR_STARTS_IN = 0;
+
+/**
  * The half-open [from, to) window of instants a preset means, computed in the client's
  * timezone (matching day-boundaries.ts) so "today" is the user's today. Custom takes the
  * picker's date keys — a day, or a day with a time (`YYYY-MM-DD[THH:mm]`, see
@@ -97,6 +110,20 @@ export function periodRange(
   const month = (offset = 0) =>
     new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const year = (offset = 0) => new Date(now.getFullYear() + offset, 0, 1);
+  const quarter = (offset = 0) =>
+    new Date(
+      now.getFullYear(),
+      Math.floor(now.getMonth() / 3) * 3 + offset * 3,
+      1,
+    );
+  const financialYear = (offset = 0) =>
+    new Date(
+      now.getFullYear() -
+        (now.getMonth() < FINANCIAL_YEAR_STARTS_IN ? 1 : 0) +
+        offset,
+      FINANCIAL_YEAR_STARTS_IN,
+      1,
+    );
   const today = day(now);
   const week = day(today, -((today.getDay() - WEEK_STARTS_ON + 7) % 7));
   const window = (from: Date, to: Date) => ({
@@ -120,6 +147,18 @@ export function periodRange(
       return window(year(), year(1));
     case "lastYear":
       return window(year(-1), year());
+    case "last7Days":
+      return window(day(today, -6), day(today, 1));
+    case "last30Days":
+      return window(day(today, -29), day(today, 1));
+    case "thisQuarter":
+      return window(quarter(), quarter(1));
+    case "lastQuarter":
+      return window(quarter(-1), quarter());
+    case "thisFinancialYear":
+      return window(financialYear(), financialYear(1));
+    case "lastFinancialYear":
+      return window(financialYear(-1), financialYear());
     case "custom":
       return keyRange(custom.from, custom.to);
   }

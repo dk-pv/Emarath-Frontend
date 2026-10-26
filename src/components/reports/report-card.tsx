@@ -18,6 +18,7 @@ const VARIANTS = {
     description: "mt-1 text-sm text-ink-muted",
     action: "gap-1.5 pt-6 text-sm font-semibold text-ink",
     actionIcon: 16,
+    newTab: false,
   },
   analytics: {
     card: "rounded-[20px] border-card-outline px-5.5 pt-4.5 pb-5.5",
@@ -28,6 +29,8 @@ const VARIANTS = {
     description: "text-xs leading-4.5 text-ink-soft",
     action: "gap-1 pt-2.5 text-xs font-medium text-ink-soft",
     actionIcon: 14,
+    // Workpex opens an Analytics report in its own tab, in the report shell.
+    newTab: true,
   },
 } as const;
 
@@ -53,6 +56,8 @@ export function ReportCard({
   return (
     <Link
       href={report.href}
+      target={look.newTab ? "_blank" : undefined}
+      rel={look.newTab ? "noopener" : undefined}
       className={cn(
         "group flex flex-col border bg-surface transition-colors duration-(--duration-shell) ease-shell focus-ring",
         look.card,
@@ -89,6 +94,7 @@ export function ReportCard({
           stroke={1.75}
           aria-hidden="true"
         />
+        {look.newTab && <span className="sr-only">(opens in a new tab)</span>}
       </span>
     </Link>
   );

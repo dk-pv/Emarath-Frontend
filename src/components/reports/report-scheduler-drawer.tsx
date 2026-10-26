@@ -13,7 +13,10 @@ import {
   MINUTE_OPTIONS,
   composeIso,
 } from "@/components/activities/activity-form-parts";
-import { REPORT_CATEGORIES } from "@/components/reports/report-registry";
+import {
+  ANALYTICS_CATEGORIES,
+  REPORT_CATEGORIES,
+} from "@/components/reports/report-registry";
 import { cn } from "@/lib/cn";
 import { EMAIL_PATTERN } from "@/lib/validation";
 
@@ -43,6 +46,8 @@ export type ReportSchedulerDrawerProps = {
   /** Preselects the report the menu was opened from. */
   defaultReportSlug?: string;
   onSubmit: (payload: ReportSchedulePayload) => Promise<void> | void;
+  /** The panel width; the Reports hub's ~512px unless a shell draws another. */
+  width?: string;
 };
 
 type Errors = Partial<Record<string, string>>;
@@ -62,10 +67,11 @@ export function ReportSchedulerDrawer({
   onClose,
   defaultReportSlug,
   onSubmit,
+  width = "max-w-lg",
 }: ReportSchedulerDrawerProps) {
   const reportOptions = useMemo(
     () =>
-      REPORT_CATEGORIES.flatMap((category) =>
+      [...REPORT_CATEGORIES, ...ANALYTICS_CATEGORIES].flatMap((category) =>
         category.reports.map((report) => ({
           value: report.slug,
           label: report.title,
@@ -147,7 +153,7 @@ export function ReportSchedulerDrawer({
       onClose={onClose}
       title="Scheduler"
       // The reference panel is ~512px wide with a hairline under its title.
-      width="max-w-lg"
+      width={width}
       header={
         <header className="border-b border-hairline p-5">
           <h2 className="text-lg font-medium text-ink">Scheduler</h2>

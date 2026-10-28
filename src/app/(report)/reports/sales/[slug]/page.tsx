@@ -5,6 +5,7 @@ import {
   findReport,
   salesReportParams,
 } from "@/components/reports/report-registry";
+import { RevenueReport } from "@/components/reports/sales/revenue-report";
 import { SalesFunnelReport } from "@/components/reports/sales/sales-funnel-report";
 import { SalesPipelineReport } from "@/components/reports/sales/sales-pipeline-report";
 import { SalesReportPlaceholder } from "@/components/reports/sales/sales-report-placeholder";
@@ -32,8 +33,8 @@ export async function generateMetadata({
 
 /**
  * An Analytics Sales report, opened from the Analytics hub in its own tab. The reports read
- * their filters from the URL, so each client body sits under Suspense. Revenue Report and User
- * Scorecard have no Workpex capture yet, so they render the shell with a plain notice.
+ * their filters from the URL, so each client body sits under Suspense. User Scorecard has no
+ * Workpex capture yet, so it renders the shell with a plain notice.
  */
 export default async function SalesReportPage({
   params,
@@ -48,7 +49,9 @@ export default async function SalesReportPage({
       ? SalesFunnelReport
       : slug === "sales-pipeline-analysis"
         ? SalesPipelineReport
-        : SalesReportPlaceholder;
+        : slug === "revenue-report"
+          ? RevenueReport
+          : SalesReportPlaceholder;
 
   return (
     <Suspense>

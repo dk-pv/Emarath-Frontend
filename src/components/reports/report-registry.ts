@@ -133,6 +133,12 @@ export interface ReportDefinition {
   accent: ReportAccent;
   /** `${category.basePath}/${slug}` — the report screen (built later, RPT-01.2+). */
   href: string;
+  /**
+   * Keeps the card, its search match and its share of the count off the Analytics hub. The report
+   * stays registered: its route, its row in the report shell's rail and the scheduler's report
+   * list all read this entry.
+   */
+  hubHidden?: boolean;
 }
 
 export interface ReportCategory {
@@ -286,7 +292,7 @@ export const REPORT_CATEGORIES: readonly ReportCategory[] = [
     ]),
   },
   // Client-requested (Financial Dashboard v1, acceptance criterion 13): no backlog task, no
-  // Workpex card. Workpex's own Revenue Report stays the Sales placeholder below.
+  // Workpex card. Workpex's own Revenue Report is the Sales report below.
   {
     key: "financial",
     title: "Financial",
@@ -343,7 +349,7 @@ export const ANALYTICS_CATEGORIES: readonly ReportCategory[] = [
         accent: "purple",
       },
       // New in Workpex since the July captures; neither the backlog nor the client spec has a
-      // task for it yet, so no taskId.
+      // task for it yet, so no taskId. Not listed on the hub (removed on request, 2026-10-27).
       {
         slug: "user-scorecard",
         title: "User Scorecard",
@@ -351,6 +357,7 @@ export const ANALYTICS_CATEGORIES: readonly ReportCategory[] = [
           "User performance, key metrics & score achievement in one view.",
         icon: IconCalendarCancel,
         accent: "peach",
+        hubHidden: true,
       },
     ]),
   },

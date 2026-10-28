@@ -18,7 +18,7 @@ import {
  * icons are components, which cannot cross the Server→Client boundary.
  *
  * The search filters every category; a category's count names the section, so it stays the
- * category total, as on the Reports hub.
+ * total of its listed cards (`hubHidden` ones excluded), as on the Reports hub.
  */
 export function AnalyticsHub() {
   const [query, setQuery] = useState("");
@@ -62,7 +62,8 @@ function AnalyticsCategory({
 }) {
   const [open, setOpen] = useState(true);
   const bodyId = useId();
-  const reports = filterReports(category.reports, query);
+  const listed = category.reports.filter((report) => !report.hubHidden);
+  const reports = filterReports(listed, query);
   const Chevron = open ? IconChevronUp : IconChevronDown;
 
   return (
@@ -74,7 +75,7 @@ function AnalyticsCategory({
             |
           </span>
           <p className="text-[14px]">
-            {category.reports.length} {category.title} Reports
+            {listed.length} {category.title} Reports
           </p>
         </div>
         <button

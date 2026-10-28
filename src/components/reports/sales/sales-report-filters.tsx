@@ -42,7 +42,7 @@ const PANEL_CLASS =
  * A toolbar chip: glyph, label, and the chevron behind a white rule. The rule always shows on
  * the date chip; on the others only while hovered or open — as the captures draw them.
  */
-function Chip({
+export function Chip({
   icon: Glyph,
   label,
   set,

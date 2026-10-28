@@ -10,6 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "@/components/auth/auth-context";
+import { can } from "@/constants/permissions";
 import { STAGES_CHANGED } from "@/lib/catalog-events";
 import { stageColorClasses, type StageColorClasses } from "@/lib/stage-palette";
 import { DEFAULT_PIPELINE } from "@/services/leads-board-service";
@@ -57,6 +59,11 @@ export function StagesProvider({
   const [nonce, setNonce] = useState(0);
   const attempt = `${pipeline}#${nonce}`;
 
+  // The catalogue is a sales-module read: the backend refuses it to the post-sale roles
+  // (ADR-0084), so for them it is empty and ready instead of a 403 on every page they open.
+  const { user } = useAuth();
+  const readable = can(user?.role, "useSalesModules");
+
   // The pipeline currently shown, for refreshes that resolve after a switch.
   const currentPipeline = useRef(pipeline);
   useEffect(() => {
@@ -64,6 +71,7 @@ export function StagesProvider({
   }, [pipeline]);
 
   useEffect(() => {
+    if (!readable) return;
     const controller = new AbortController();
     fetchStages(pipeline, controller.signal)
       .then((list) => setLoaded({ pipeline, stages: list }))
@@ -73,7 +81,7 @@ export function StagesProvider({
         setFailedFor(`${pipeline}#${nonce}`);
       });
     return () => controller.abort();
-  }, [pipeline, nonce]);
+  }, [pipeline, nonce, readable]);
 
   // Reset in the handler (not the effect), so a retry re-shows loading and refetches.
   const reload = useCallback(() => {
@@ -85,6 +93,7 @@ export function StagesProvider({
   // board down — the board and badges re-render with the new stages immediately. A
   // result for a pipeline that is no longer shown is dropped.
   const refresh = useCallback(() => {
+    if (!readable) return;
     fetchStages(pipeline)
       .then((list) => {
         if (currentPipeline.current === pipeline) {
@@ -94,7 +103,7 @@ export function StagesProvider({
       .catch(() => {
         // The mutation already succeeded; keep the current catalogue on a refetch miss.
       });
-  }, [pipeline]);
+  }, [pipeline, readable]);
 
   // A stage or pipeline edit made anywhere (the board, another board, Settings) reaches
   // this catalogue too — the app-level one behind the Leads badges included.
@@ -108,7 +117,7 @@ export function StagesProvider({
     [loaded, pipeline],
   );
   const status: StagesContextValue["status"] =
-    loaded?.pipeline === pipeline
+    !readable || loaded?.pipeline === pipeline
       ? "ready"
       : failedFor === attempt
         ? "error"

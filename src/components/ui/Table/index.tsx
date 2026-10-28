@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   IconChevronDown,
   IconChevronUp,
@@ -59,6 +60,14 @@ type TableProps<TRow> = {
    * must not appear on Leads, Activities or anywhere else without its own evidence.
    */
   sortTooltips?: boolean;
+  /**
+   * Splits the rows under full-width group headings — the Revenue Report's Data Grid "Group
+   * by" (`OTHER (572)`). A heading opens wherever a row's group key differs from the row above,
+   * so rows arrive already in group order. Omit it and rows render as before.
+   */
+  groupHeading?: (
+    row: TRow,
+  ) => { key: string; label: React.ReactNode } | undefined;
 };
 
 type Align = NonNullable<TableColumn<unknown>["align"]>;
@@ -200,6 +209,7 @@ export function Table<TRow>({
   emptyState,
   errorState,
   sortTooltips,
+  groupHeading,
 }: TableProps<TRow>) {
   const pageIds = rows.map(getRowId);
   const selectedOnPage = selection
@@ -235,52 +245,67 @@ export function Table<TRow>({
       <MessageRow columnCount={columnCount}>{emptyState}</MessageRow>
     ) : null;
   } else {
-    body = rows.map((row) => {
+    body = rows.map((row, index) => {
       const id = getRowId(row);
+      const group = groupHeading?.(row);
+      const opensGroup =
+        group !== undefined &&
+        (index === 0 || groupHeading?.(rows[index - 1])?.key !== group.key);
 
       return (
-        <tr
-          key={id}
-          // `group` lets a sticky column's own background follow the row hover
-          // (via group-hover on that column's className); harmless otherwise.
-          className={cn(
-            "group border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas",
-            onRowClick && "focus-ring-inset cursor-pointer",
-            rowClassName?.(row),
+        <Fragment key={id}>
+          {group && opensGroup && (
+            <tr className="border-b border-hairline bg-canvas">
+              <td
+                colSpan={columnCount}
+                className="px-3.5 py-1 text-sm font-medium whitespace-nowrap text-ink"
+              >
+                {group.label}
+              </td>
+            </tr>
           )}
-          {...(onRowClick && {
-            tabIndex: 0,
-            role: "button" as const,
-            onClick: () => onRowClick(row),
-            onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              onRowClick(row);
-            },
-          })}
-        >
-          {selection && (
-            <td className={cn(SELECT_CELL_CLASS, selection.cellClassName)}>
-              <Checkbox
-                checked={selection.selectedIds.has(id)}
-                onChange={() => selection.onToggleRow(id)}
-                aria-label={selection.rowLabel?.(row) ?? `Select ${id}`}
-              />
-            </td>
-          )}
-          {columns.map((column) => (
-            <td
-              key={column.key}
-              className={cn(
-                CELL_CLASS,
-                CELL_ALIGN[column.align ?? "left"],
-                column.className,
-              )}
-            >
-              {column.render(row)}
-            </td>
-          ))}
-        </tr>
+          <tr
+            // `group` lets a sticky column's own background follow the row hover
+            // (via group-hover on that column's className); harmless otherwise.
+            className={cn(
+              "group border-b border-hairline transition-colors duration-(--duration-shell) ease-shell last:border-b-0 hover:bg-canvas",
+              onRowClick && "focus-ring-inset cursor-pointer",
+              rowClassName?.(row),
+            )}
+            {...(onRowClick && {
+              tabIndex: 0,
+              role: "button" as const,
+              onClick: () => onRowClick(row),
+              onKeyDown: (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                onRowClick(row);
+              },
+            })}
+          >
+            {selection && (
+              <td className={cn(SELECT_CELL_CLASS, selection.cellClassName)}>
+                <Checkbox
+                  checked={selection.selectedIds.has(id)}
+                  onChange={() => selection.onToggleRow(id)}
+                  aria-label={selection.rowLabel?.(row) ?? `Select ${id}`}
+                />
+              </td>
+            )}
+            {columns.map((column) => (
+              <td
+                key={column.key}
+                className={cn(
+                  CELL_CLASS,
+                  CELL_ALIGN[column.align ?? "left"],
+                  column.className,
+                )}
+              >
+                {column.render(row)}
+              </td>
+            ))}
+          </tr>
+        </Fragment>
       );
     });
   }

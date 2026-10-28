@@ -90,6 +90,18 @@ export function useAdvancedFilter({
   );
 
   /**
+   * Replace the draft and apply it at once — a report's drill-down adding one condition to
+   * the filter already applied, so the panel shows what the query now holds.
+   */
+  const applyRows = useCallback(
+    (next: LeadFilterRow[]) => {
+      setRows(next.length > 0 ? next : [emptyRow()]);
+      publish(buildConditionsPayload(next));
+    },
+    [publish],
+  );
+
+  /**
    * "Clear All" — reset the draft, the applied query and the preset selection. It
    * never deletes a preset: this is a reset control, not a destructive one (ADR-0052).
    */
@@ -147,6 +159,7 @@ export function useAdvancedFilter({
     saved,
     selectedId,
     apply,
+    applyRows,
     clear,
     selectPreset,
     savePreset,

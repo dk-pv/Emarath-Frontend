@@ -55,7 +55,7 @@ export const SALES_PERIODS: readonly { key: DatePeriodKey; label: string }[] = [
 ];
 
 /** `?period=all` keeps a cleared window cleared; no `period` at all means the default. */
-const ALL_TIME = "all";
+export const ALL_TIME = "all";
 
 export interface SalesReportFilters {
   period: DatePeriodKey | null;
@@ -140,7 +140,7 @@ export type ReportState<R> =
  * the query it answers, so a slower earlier one never shows under newer filters; `retry` re-runs
  * a failed load.
  */
-function useServerReport<Q, R>(
+export function useServerReport<Q, R>(
   query: Q,
   fetch: (query: Q, signal: AbortSignal) => Promise<R>,
 ) {

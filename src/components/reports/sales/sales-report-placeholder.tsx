@@ -5,9 +5,9 @@ import { SalesReportFrame } from "./sales-report-frame";
 import { SalesPanelEmpty } from "./sales-report-parts";
 
 /**
- * Revenue Report and User Scorecard: no Workpex capture shows either page, so they get the
- * shared shell — sidebar, title and report switcher — and the notice every unbuilt report
- * shows, with no toolbar, cards or figures guessed from elsewhere.
+ * User Scorecard: no Workpex capture shows the page, so it gets the shared shell — sidebar,
+ * title and report switcher — and the notice every unbuilt report shows, with no toolbar,
+ * cards or figures guessed from elsewhere.
  */
 export function SalesReportPlaceholder({ slug }: { slug: string }) {
   return (

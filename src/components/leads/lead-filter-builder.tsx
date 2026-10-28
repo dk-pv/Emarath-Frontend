@@ -44,6 +44,12 @@ type LeadFilterBuilderProps = {
   filter: AdvancedFilterState;
   /** Names the panel for assistive tech; the surface it filters ("Leads"/"Board"). */
   label?: string;
+  /**
+   * Draws the trigger's face in place of the toolbar pill — the Analytics reports' chip,
+   * "Filter/1" in the Revenue Report capture. Given the panel's open state and the applied
+   * count; omit it and the trigger is the pill every other surface shows.
+   */
+  renderTrigger?: (state: { open: boolean; count: number }) => React.ReactNode;
 };
 
 /**
@@ -73,6 +79,7 @@ const MAX_PANEL = 774;
 export function LeadFilterBuilder({
   filter,
   label = "Leads",
+  renderTrigger,
 }: LeadFilterBuilderProps) {
   const {
     rows,
@@ -457,20 +464,39 @@ export function LeadFilterBuilder({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
-        className={cn(
-          TOOLBAR_BUTTON_CLASS,
-          "relative",
-          // Workpex tints the chip while its panel is open.
-          open && "bg-brand-subtle",
-        )}
+        aria-label={
+          renderTrigger && activeCount > 0
+            ? `Filter, ${activeCount} active`
+            : undefined
+        }
+        className={
+          renderTrigger
+            ? "focus-ring block rounded-control"
+            : cn(
+                TOOLBAR_BUTTON_CLASS,
+                "relative",
+                // Workpex tints the chip while its panel is open.
+                open && "bg-brand-subtle",
+              )
+        }
       >
-        <IconFilter size={16} stroke={1.75} />
-        Filter
-        <IconChevronDown size={14} stroke={1.75} className="text-ink-muted" />
-        {activeCount > 0 && (
-          <Badge tone="brand" aria-label={`${activeCount} active filters`}>
-            {activeCount}
-          </Badge>
+        {renderTrigger ? (
+          renderTrigger({ open, count: activeCount })
+        ) : (
+          <>
+            <IconFilter size={16} stroke={1.75} />
+            Filter
+            <IconChevronDown
+              size={14}
+              stroke={1.75}
+              className="text-ink-muted"
+            />
+            {activeCount > 0 && (
+              <Badge tone="brand" aria-label={`${activeCount} active filters`}>
+                {activeCount}
+              </Badge>
+            )}
+          </>
         )}
       </button>
       {open && typeof document !== "undefined"

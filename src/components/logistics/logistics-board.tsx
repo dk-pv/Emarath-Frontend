@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconTruck } from "@tabler/icons-react";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -189,6 +190,7 @@ export function LogisticsBoard({
   summary,
   reloadToken,
   onOpen,
+  onReset,
 }: {
   /** The screen's filters and search, as every view and the counts send them. */
   filters: LogisticsFilters;
@@ -203,6 +205,8 @@ export function LogisticsBoard({
   /** Moves after an order action, so every column is read again. */
   reloadToken: number;
   onOpen: (order: LogisticsOrder) => void;
+  /** Clears the filters and the search — the empty board's way out. */
+  onReset: () => void;
 }) {
   const boardFilters = useMemo<BoardFilters>(
     () => ({ ...filters, sort, direction }),
@@ -243,6 +247,13 @@ export function LogisticsBoard({
           narrowed
             ? "Try other filters or another search."
             : "An order is created here when a lead is won."
+        }
+        action={
+          narrowed ? (
+            <Button variant="secondary" onClick={onReset}>
+              Clear filters
+            </Button>
+          ) : undefined
         }
       />
     );
@@ -364,7 +375,10 @@ function BoardColumn({
   );
 }
 
-/** One order: its number, customer and shipment at a glance. Opens the order panel. */
+/**
+ * One order at a glance — the number and the day it is due first, as Logistics plans by them, then
+ * who and where, the shipment once there is one, and when it was created. Opens the order panel.
+ */
 function BoardCard({
   order,
   onOpen,
@@ -372,31 +386,30 @@ function BoardCard({
   order: LogisticsOrder;
   onOpen: (order: LogisticsOrder) => void;
 }) {
+  const area = order.state ?? order.city;
   return (
     <button
       type="button"
       onClick={() => onOpen(order)}
       className="focus-ring block w-full rounded-surface border border-hairline bg-surface p-2.5 text-left shadow-sm transition-colors duration-(--duration-shell) ease-shell hover:border-ink-subtle"
     >
-      <span className="flex items-center justify-between gap-2">
+      <span className="flex items-start justify-between gap-2">
         <span className="text-[13px] font-semibold text-ink">
           {orderNumberLabel(order.orderNumber)}
         </span>
-        <span className="text-xs text-ink-muted">
-          {formatDate(order.convertedAt)}
+        <span className="text-xs">
+          <LogisticsDeliveryDate
+            date={order.deliveryDate}
+            bucket={order.deliveryBucket}
+          />
         </span>
       </span>
-      <span className="mt-1 block truncate text-sm text-ink">
+      <span className="mt-1.5 block truncate text-sm text-ink">
         {order.customerName}
       </span>
       <span className="block truncate text-xs text-ink-muted">
         {order.primaryPhone}
-      </span>
-      <span className="mt-1 block text-xs">
-        <LogisticsDeliveryDate
-          date={order.deliveryDate}
-          bucket={order.deliveryBucket}
-        />
+        {area ? ` · ${area}` : ""}
       </span>
       {order.awbNumber && (
         <span className="mt-1 block truncate text-xs text-ink-muted">
@@ -404,6 +417,9 @@ function BoardCard({
           {order.courier ? ` · ${order.courier}` : ""}
         </span>
       )}
+      <span className="mt-1.5 block text-xs text-ink-muted">
+        Created {formatDate(order.convertedAt)}
+      </span>
     </button>
   );
 }

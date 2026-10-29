@@ -2,28 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  IconAlertTriangle,
-  IconCircleCheck,
-  IconCircleHalf2,
-  IconClockHour4,
-  IconEye,
-  IconInbox,
-  IconPackage,
-  IconReceipt,
-  type Icon,
-} from "@tabler/icons-react";
+import { IconEye, IconReceipt } from "@tabler/icons-react";
 import { FilterPanel } from "@/components/filters/filter-panel";
-import { MetricCardsRow } from "@/components/layout/MetricCardsRow";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
 import { ToolbarSearch } from "@/components/layout/Toolbar/toolbar-search";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { IconButton } from "@/components/ui/IconButton";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { StatCard } from "@/components/ui/StatCard";
+import { StatStrip } from "@/components/ui/StatStrip";
 import { Table } from "@/components/ui/Table";
-import { TabStrip } from "@/components/ui/Tabs";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useToast } from "@/components/ui/Toast";
 import { AccountsRecordDrawer } from "@/components/accounts/accounts-record-drawer";
@@ -55,7 +44,7 @@ import {
   type AccountsUrlState,
   type PaymentStatus,
 } from "@/lib/accounts-records";
-import { formatAED, formatDateTime } from "@/lib/format";
+import { formatAED, formatDate, formatTime } from "@/lib/format";
 import { orderNumberLabel } from "@/lib/logistics-orders";
 import {
   fetchAccountsFilterOptions,
@@ -72,29 +61,20 @@ const LIMITS = {
   searchMax: SEARCH_MAX_LENGTH,
 };
 
-const ALL = "ALL";
-const TABS = [
-  { id: ALL, label: "All" },
-  ...PAYMENT_STATUSES.map((status) => ({
-    id: status,
-    label: PAYMENT_STATUS_LABEL[status],
-  })),
-];
-
-const ICONS: Record<PaymentStatus, Icon> = {
-  INITIAL: IconInbox,
-  PAYMENT_PENDING: IconClockHour4,
-  PAYMENT_RECEIVED: IconCircleCheck,
-  PAYMENT_FAILED: IconAlertTriangle,
-  PARTIALLY_PAID: IconCircleHalf2,
-};
-
 const STATUS_OPTIONS = PAYMENT_STATUSES.map((status) => ({
   value: status,
   label: PAYMENT_STATUS_LABEL[status],
 }));
 
 const dash = <span className="text-ink-subtle">—</span>;
+
+/** The date over its time, as the Logistics list shows them. */
+const stamp = (iso: string) => (
+  <span className="flex flex-col">
+    {formatDate(iso)}
+    <span className="text-xs text-ink-muted">{formatTime(iso)}</span>
+  </span>
+);
 
 /** The screen's state, read from the address and written back to it, as the Logistics screen. */
 function useAccountsUrl() {
@@ -218,10 +198,10 @@ function choices(offered: readonly string[], chosen: readonly string[]) {
  * an order is what puts it here, at Initial; Accounts moves it as payment comes in, and the open
  * record's panel shows the order, its Journey and the moves the backend offers this caller.
  *
- * Its status tabs, filters, search, page, sort and open record live in the address, as on the
+ * Its status filter, filters, search, page, sort and open record live in the address, as on the
  * Logistics screen. No Workpex screen exists for Accounts, so it is built from the Emarath frame
- * the other lists use (CLAUDE.md §1A): `TablePageLayout`, the shared `Table`, `TabStrip`, the
- * filter popover and `StatCard`.
+ * the other lists use (CLAUDE.md §1A): `TablePageLayout`, the shared `Table`, the filter popover
+ * and the `StatStrip` the Logistics counts use.
  */
 export function AccountsView() {
   const [state, update] = useAccountsUrl();
@@ -307,6 +287,10 @@ export function AccountsView() {
     return () => controller.abort();
   }, [state.record, selected?.id, toast, update]);
   const open = selected && selected.id === state.record ? selected : null;
+  const openRecord = (record: AccountsRecord) => {
+    setSelected(record);
+    update({ record: record.id });
+  };
 
   const fields = useMemo<FilterField[]>(
     () => [
@@ -339,10 +323,16 @@ export function AccountsView() {
       key: "orderNumber",
       header: "Order #",
       sortable: true,
+      // Opens the record's panel, as the row's View Details does.
       render: (record) => (
-        <span className="font-medium text-ink">
+        <button
+          type="button"
+          onClick={() => openRecord(record)}
+          aria-label={`Open the payment of order ${orderNumberLabel(record.order.orderNumber)}`}
+          className="focus-ring rounded-sm font-medium text-ink underline decoration-ink-subtle decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:decoration-ink"
+        >
           {orderNumberLabel(record.order.orderNumber)}
-        </span>
+        </button>
       ),
     },
     {
@@ -367,6 +357,8 @@ export function AccountsView() {
     {
       key: "orderValue",
       header: "Order Value",
+      align: "right",
+      className: "tabular-nums",
       render: (record) =>
         record.order.orderValue ? formatAED(record.order.orderValue) : dash,
     },
@@ -378,6 +370,7 @@ export function AccountsView() {
     {
       key: "awbNumber",
       header: "AWB",
+      className: "tabular-nums",
       render: (record) => record.order.awbNumber ?? dash,
     },
     {
@@ -389,16 +382,16 @@ export function AccountsView() {
       key: "deliveredAt",
       header: "Delivered",
       sortable: true,
+      className: "tabular-nums",
       render: (record) =>
-        record.order.deliveredAt
-          ? formatDateTime(record.order.deliveredAt)
-          : dash,
+        record.order.deliveredAt ? stamp(record.order.deliveredAt) : dash,
     },
     {
       key: "statusChangedAt",
       header: "Updated",
       sortable: true,
-      render: (record) => formatDateTime(record.statusChangedAt),
+      className: "tabular-nums",
+      render: (record) => stamp(record.statusChangedAt),
     },
     {
       key: "actions",
@@ -407,10 +400,7 @@ export function AccountsView() {
         <Tooltip content="View Details">
           <IconButton
             aria-label="View Details"
-            onClick={() => {
-              setSelected(record);
-              update({ record: record.id });
-            }}
+            onClick={() => openRecord(record)}
           >
             <IconEye size={18} stroke={1.75} aria-hidden="true" />
           </IconButton>
@@ -440,24 +430,6 @@ export function AccountsView() {
       <TablePageLayout
         title="Accounts"
         tableLabel="Accounts records table"
-        toolbarLeft={
-          <TabStrip
-            tabs={TABS}
-            value={
-              state.status.length === 0
-                ? ALL
-                : state.status.length === 1
-                  ? state.status[0]
-                  : ""
-            }
-            onValueChange={(next) =>
-              update({
-                status: next === ALL ? [] : [next as PaymentStatus],
-                page: 1,
-              })
-            }
-          />
-        }
         toolbarActions={
           <>
             <ToolbarSearch
@@ -499,9 +471,11 @@ export function AccountsView() {
         }
         summary={
           <AccountsSummaryCards
+            status={state.status}
             summary={counts.summary}
             isError={counts.isError}
             onRetry={counts.retry}
+            onFilter={(status) => update({ status, page: 1 })}
           />
         }
         pagination={{
@@ -534,6 +508,13 @@ export function AccountsView() {
                 narrowed
                   ? "Try other filters or another search."
                   : "An order appears here when Logistics marks it as delivered."
+              }
+              action={
+                narrowed ? (
+                  <Button variant="secondary" onClick={reset}>
+                    Clear filters
+                  </Button>
+                ) : undefined
               }
             />
           }
@@ -569,18 +550,24 @@ export function AccountsView() {
 /**
  * The Accounts dashboard's counts (client specification §10) above the list: the delivered orders
  * the filters select, then how many hold each payment status. Database counts from
- * `GET /accounts/records/summary` under every filter but the status filter, so the status cards
- * add up to the Delivered Orders card whichever tab is open. Amounts — outstanding, collection
- * percentage — wait for the client's payment rules.
+ * `GET /accounts/records/summary` under every filter but the status filter, so the status cells
+ * add up to All delivered orders whichever status is chosen. The cells are the status filter
+ * itself, as on the Logistics screen: a status chooses it alone, choosing it again — or All —
+ * clears it. Amounts — outstanding, collection percentage — wait for the client's payment rules.
  */
 function AccountsSummaryCards({
+  status,
   summary,
   isError,
   onRetry,
+  onFilter,
 }: {
+  /** The status filter in force; empty is none. */
+  status: readonly PaymentStatus[];
   summary: AccountsSummary | null;
   isError: boolean;
   onRetry: () => void;
+  onFilter: (status: PaymentStatus[]) => void;
 }) {
   if (!summary && isError) {
     return (
@@ -596,48 +583,37 @@ function AccountsSummaryCards({
       </p>
     );
   }
-  const card = (
-    key: string,
-    label: string,
-    value: number | undefined,
-    tone: React.ComponentProps<typeof StatCard>["tone"],
-    icon: Icon,
-  ) =>
-    value === undefined ? (
-      <Skeleton
-        key={key}
-        className="h-[78px] min-w-[150px] flex-1 rounded-surface"
-      />
-    ) : (
-      <StatCard
-        key={key}
-        label={label}
-        value={value.toLocaleString("en-AE")}
-        tone={tone}
-        icon={icon}
-        className="min-w-[150px] flex-1"
-      />
-    );
+  if (!summary) {
+    return <Skeleton className="h-[60px] w-full rounded-surface" />;
+  }
+
+  const filtered = status.length > 0;
   return (
     <section aria-label="Payment counts">
-      <MetricCardsRow>
-        {card(
-          "total",
-          "Delivered Orders",
-          summary?.total,
-          "brand",
-          IconPackage,
-        )}
-        {PAYMENT_STATUSES.map((status) =>
-          card(
-            status,
-            PAYMENT_STATUS_LABEL[status],
-            summary?.counts[status],
-            PAYMENT_STATUS_TONE[status],
-            ICONS[status],
-          ),
-        )}
-      </MetricCardsRow>
+      <StatStrip
+        label="Delivered orders by payment status"
+        items={[
+          {
+            key: "ALL",
+            label: "All delivered orders",
+            value: summary.total.toLocaleString("en-AE"),
+            pressed: !filtered,
+            onClick: () => onFilter([]),
+          },
+          ...PAYMENT_STATUSES.map((each) => {
+            const pressed = filtered && status.includes(each);
+            return {
+              key: each,
+              label: PAYMENT_STATUS_LABEL[each],
+              value: summary.counts[each].toLocaleString("en-AE"),
+              tone: PAYMENT_STATUS_TONE[each],
+              pressed,
+              onClick: () =>
+                onFilter(pressed && status.length === 1 ? [] : [each]),
+            };
+          }),
+        ]}
+      />
     </section>
   );
 }

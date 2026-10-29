@@ -64,12 +64,13 @@ export function useDeliveryDatePrompt() {
           >
             Cancel
           </Button>
+          {/* Names what a press does; it waits for the date the order can't be created without. */}
           <Button
             variant="primary"
             onClick={() => settle(day)}
             disabled={day === ""}
           >
-            Confirm
+            Convert to WON
           </Button>
         </>
       }
@@ -77,7 +78,8 @@ export function useDeliveryDatePrompt() {
       <div className="flex flex-col gap-4">
         <p className="text-ink-muted">
           Converting “{pending.name}” sets its status to WON and creates its
-          Logistics order, which needs the delivery date the customer asked for.
+          Logistics order. Choose the delivery date the customer asked for — the
+          order can’t be created without one.
         </p>
         <FormField label="Delivery Date" required hint="Today or a later day.">
           {(control) => (

@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { DetailSection } from "@/components/ui/DetailSection";
 import { Drawer } from "@/components/ui/Drawer";
 import { FormField } from "@/components/ui/FormField";
 import { Modal } from "@/components/ui/Modal";
@@ -41,28 +42,7 @@ const TABS = [
   { id: "journey", label: "Journey" },
 ] as const;
 
-type Field = { label: string; value: React.ReactNode };
-
 const when = (iso: string | null) => (iso ? formatDateTime(iso) : null);
-
-/** A titled group of label/value rows, as the Logistics order panel lays them out. */
-function Section({ title, fields }: { title: string; fields: Field[] }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      <dl className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-        {fields.map((field) => (
-          <Fragment key={field.label}>
-            <dt className="text-ink-muted">{field.label}</dt>
-            <dd className="break-words text-ink">
-              {field.value ?? <span className="text-ink-subtle">—</span>}
-            </dd>
-          </Fragment>
-        ))}
-      </dl>
-    </section>
-  );
-}
 
 /** The statuses as options, in the pipeline's order; only `allowed` ones are offered. */
 const statusOptions = (allowed: readonly string[]) =>
@@ -250,8 +230,8 @@ export function AccountsRecordDrawer({
       {tab === "journey" ? (
         <CustomerJourney leadId={order.leadId} />
       ) : (
-        <div className="flex flex-col gap-6">
-          <Section
+        <div className="flex flex-col gap-4">
+          <DetailSection
             title="Payment"
             fields={[
               {
@@ -262,7 +242,7 @@ export function AccountsRecordDrawer({
               { label: "Entered Accounts", value: when(record.createdAt) },
             ]}
           />
-          <Section
+          <DetailSection
             title="Order"
             fields={[
               {
@@ -293,7 +273,7 @@ export function AccountsRecordDrawer({
               { label: "Courier", value: order.courier },
             ]}
           />
-          <Section
+          <DetailSection
             title="Customer"
             fields={[
               { label: "Customer Name", value: order.customerName },

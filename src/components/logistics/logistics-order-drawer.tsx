@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState } from "react";
+import { DetailSection } from "@/components/ui/DetailSection";
 import { Drawer } from "@/components/ui/Drawer";
 import { TabStrip } from "@/components/ui/Tabs";
 import { useAuth } from "@/components/auth/auth-context";
@@ -19,33 +20,12 @@ const TABS = [
   { id: "journey", label: "Journey" },
 ] as const;
 
-type Field = { label: string; value: React.ReactNode };
-
 const when = (iso: string | null) => (iso ? formatDateTime(iso) : null);
 
-/** A titled group of label/value rows; an empty value shows the tables' muted em dash. */
-function Section({ title, fields }: { title: string; fields: Field[] }) {
-  return (
-    <section className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      {/* A fixed label column, so values start on one line down the whole panel. */}
-      <dl className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
-        {fields.map((field) => (
-          <Fragment key={field.label}>
-            <dt className="text-ink-muted">{field.label}</dt>
-            <dd className="break-words text-ink">
-              {field.value ?? <span className="text-ink-subtle">—</span>}
-            </dd>
-          </Fragment>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
 /**
- * One order: what it is, who it is for, and — in the Journey tab — everything recorded about
- * it, through the same audit timeline the Lead Detail uses.
+ * One order: what it is, who it is for, where and when it goes, and — in the Journey tab —
+ * everything recorded about it, through the same audit timeline the Lead Detail uses. The number
+ * and the status stay in the panel's header while the details scroll.
  *
  * Its actions are the backend's `allowedActions` for this caller (`LogisticsOrderActions`): QC's
  * decisions, the Sales Manager's resubmit, the shipment steps and the Logistics Manager's two
@@ -114,64 +94,11 @@ export function LogisticsOrderDrawer({
       {tab === "journey" ? (
         <CustomerJourney leadId={order.leadId} />
       ) : (
-        <div className="flex flex-col gap-6">
-          <Section
-            title="Order"
-            fields={[
-              {
-                label: "Order Number",
-                value: orderNumberLabel(order.orderNumber),
-              },
-              {
-                label: "Status",
-                value: <LogisticsStatusBadge status={order.status} />,
-              },
-              {
-                label: "Delivery Date",
-                value: (
-                  <LogisticsDeliveryDate
-                    date={order.deliveryDate}
-                    bucket={order.deliveryBucket}
-                  />
-                ),
-              },
-              { label: "Created", value: when(order.convertedAt) },
-              { label: "Last Updated", value: when(order.statusChangedAt) },
-            ]}
-          />
-
-          <div className="flex flex-col gap-1">
-            <Section
-              title="Customer"
-              fields={[
-                {
-                  label: "Customer Name",
-                  value: canOpenLead ? (
-                    <CustomerNameLink
-                      leadId={order.leadId}
-                      name={order.customerName}
-                    />
-                  ) : (
-                    order.customerName
-                  ),
-                },
-                { label: "Primary Phone", value: order.primaryPhone },
-                { label: "Secondary Phone", value: order.secondaryPhone },
-                { label: "Email", value: order.email },
-                { label: "Street", value: order.street },
-                { label: "City", value: order.city },
-                { label: "State", value: order.state },
-                { label: "Country", value: order.country },
-                { label: "National Code", value: order.nationalCode },
-              ]}
-            />
-            <p className="text-xs text-ink-muted">
-              The order’s own copy, taken when the lead was won.
-            </p>
-          </div>
-
-          <Section
-            title="Products"
+        // The header already holds the number and the status, so the groups start with what
+        // was sold; each later group appears once the order has reached it.
+        <div className="flex flex-col gap-4">
+          <DetailSection
+            title="Order summary"
             fields={[
               {
                 label: "Product",
@@ -190,12 +117,59 @@ export function LogisticsOrderDrawer({
                 value: order.orderValue ? formatAED(order.orderValue) : null,
               },
               { label: "Payment Method", value: order.paymentMethod },
+              { label: "Created", value: when(order.convertedAt) },
+              { label: "Last Updated", value: when(order.statusChangedAt) },
             ]}
           />
 
+          <DetailSection
+            title="Customer"
+            fields={[
+              {
+                label: "Customer Name",
+                value: canOpenLead ? (
+                  <CustomerNameLink
+                    leadId={order.leadId}
+                    name={order.customerName}
+                  />
+                ) : (
+                  order.customerName
+                ),
+              },
+              { label: "Primary Phone", value: order.primaryPhone },
+              { label: "Secondary Phone", value: order.secondaryPhone },
+              { label: "Email", value: order.email },
+            ]}
+          />
+
+          <DetailSection
+            title="Delivery"
+            fields={[
+              {
+                label: "Delivery Date",
+                value: (
+                  <LogisticsDeliveryDate
+                    date={order.deliveryDate}
+                    bucket={order.deliveryBucket}
+                  />
+                ),
+              },
+              { label: "Street", value: order.street },
+              { label: "City", value: order.city },
+              { label: "State", value: order.state },
+              { label: "Country", value: order.country },
+              { label: "National Code", value: order.nationalCode },
+            ]}
+          >
+            <p className="text-xs text-ink-muted">
+              The customer and delivery details are the order’s own copy, taken
+              when the lead was won.
+            </p>
+          </DetailSection>
+
           {order.qcDecidedAt && (
-            <Section
-              title="QC"
+            <DetailSection
+              title="QC review"
               fields={[
                 { label: "Decided", value: when(order.qcDecidedAt) },
                 { label: "QC Remarks", value: order.qcRemarks },
@@ -204,8 +178,8 @@ export function LogisticsOrderDrawer({
           )}
 
           {order.dispatchedAt && (
-            <Section
-              title="Shipment"
+            <DetailSection
+              title="Tracking & courier"
               fields={[
                 { label: "AWB Number", value: order.awbNumber },
                 { label: "Courier", value: order.courier },
@@ -216,7 +190,7 @@ export function LogisticsOrderDrawer({
           )}
 
           {order.cancelledAt && (
-            <Section
+            <DetailSection
               title="Cancellation"
               fields={[
                 { label: "Cancelled", value: when(order.cancelledAt) },
@@ -226,7 +200,7 @@ export function LogisticsOrderDrawer({
           )}
 
           {order.rtoAt && (
-            <Section
+            <DetailSection
               title="Return to Origin"
               fields={[
                 { label: "Returned", value: when(order.rtoAt) },

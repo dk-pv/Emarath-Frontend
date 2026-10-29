@@ -28,6 +28,7 @@ import {
 import { LogisticsListView } from "@/components/logistics/logistics-list-view";
 import { LogisticsOrderDrawer } from "@/components/logistics/logistics-order-drawer";
 import {
+  LogisticsMatchingOrders,
   LogisticsSummaryCards,
   useLogisticsSummary,
 } from "@/components/logistics/logistics-summary-cards";
@@ -235,10 +236,16 @@ export function LogisticsView() {
       />
     </>
   );
+  // The same summary on the List and the Pipeline, in the order a user reads it: what is in view,
+  // when it is due, then where it stands.
   const summary = (
     <div className="flex flex-col gap-3">
-      {/* Choosing a bucket or a day is a Delivery Date filter change, so it starts again from
-          the first page like any other. */}
+      <LogisticsMatchingOrders
+        summary={counts.summary}
+        isError={counts.isError}
+      />
+      {/* Choosing a bucket, a day or a status is a filter change, so it starts again from the
+          first page like any other. */}
       <LogisticsDeliverySchedule
         choice={{ delivery: state.delivery, deliveryOn: state.deliveryOn }}
         schedule={schedule.schedule}
@@ -251,6 +258,7 @@ export function LogisticsView() {
         summary={counts.summary}
         isError={counts.isError}
         onRetry={counts.retry}
+        onFilter={(status) => update({ status, page: 1 })}
       />
     </div>
   );
@@ -291,6 +299,7 @@ export function LogisticsView() {
           summary={summary}
           reloadToken={reloadToken}
           onOpen={openOrder}
+          onReset={reset}
         />
       ) : (
         <LogisticsListView

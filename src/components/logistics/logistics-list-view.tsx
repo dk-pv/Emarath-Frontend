@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconEye, IconTruck } from "@tabler/icons-react";
 import { TablePageLayout } from "@/components/layout/TablePageLayout";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { IconButton } from "@/components/ui/IconButton";
 import { Table } from "@/components/ui/Table";
-import { TabStrip } from "@/components/ui/Tabs";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/components/auth/auth-context";
 import { CustomerNameLink } from "@/components/leads/customer-name-link";
@@ -15,16 +15,13 @@ import { LogisticsDeliveryDate } from "@/components/logistics/logistics-delivery
 import { LogisticsStatusBadge } from "@/components/logistics/logistics-status-badge";
 import { can } from "@/constants/permissions";
 import { ApiError, isAbortError } from "@/lib/api-client";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import {
-  LOGISTICS_STATUSES,
-  LOGISTICS_STATUS_LABEL,
   isLogisticsSortKey,
   orderNumberLabel,
   ordersLoadError,
   type LogisticsFilters,
   type LogisticsOrdersQuery,
-  type LogisticsStatus,
   type LogisticsUrlState,
 } from "@/lib/logistics-orders";
 import {
@@ -33,17 +30,15 @@ import {
 } from "@/services/logistics-service";
 import type { TableColumn } from "@/types";
 
-const ALL = "ALL";
-
-const TABS = [
-  { id: ALL, label: "All" },
-  ...LOGISTICS_STATUSES.map((status) => ({
-    id: status,
-    label: LOGISTICS_STATUS_LABEL[status],
-  })),
-];
-
 const dash = <span className="text-ink-subtle">—</span>;
+
+/** The date over its time, as the customer's name sits over the phone: narrower than one line. */
+const stamp = (iso: string) => (
+  <span className="flex flex-col">
+    {formatDate(iso)}
+    <span className="text-xs text-ink-muted">{formatTime(iso)}</span>
+  </span>
+);
 
 type Loaded = {
   query: LogisticsOrdersQuery;
@@ -104,12 +99,11 @@ function useLogisticsOrders(query: LogisticsOrdersQuery, reloadToken: number) {
  * the same page. The scope is the API's — the Logistics roles see every order, a sales role its
  * own converted leads' — and this view shows exactly what comes back.
  *
- * The status tabs are one-click forms of the Status filter: "All" clears it, a status tab
- * chooses that status alone, and with several statuses chosen in the Filter panel no tab is
- * selected.
+ * The status cells in the summary above are one-click forms of the Status filter (they replaced
+ * the status tabs): "All orders" clears it and a status chooses it alone.
  *
  * No Workpex screen exists for Logistics, so it is built from the Emarath frame the other lists
- * use (CLAUDE.md §1A): `TablePageLayout`, the shared `Table`, `TabStrip` and `ToolbarSearch`.
+ * use (CLAUDE.md §1A): `TablePageLayout`, the shared `Table` and `ToolbarSearch`.
  */
 export function LogisticsListView({
   state,
@@ -126,7 +120,7 @@ export function LogisticsListView({
   /** The screen's filters and search, as every view and the counts send them. */
   filters: LogisticsFilters;
   update: (changes: Partial<LogisticsUrlState>) => void;
-  /** The view toggle, ahead of the status tabs. */
+  /** The view toggle. */
   toolbarLeft: React.ReactNode;
   /** The screen's search box and Filter control. */
   toolbarActions: React.ReactNode;
@@ -172,23 +166,37 @@ export function LogisticsListView({
       key: "orderNumber",
       header: "Order #",
       sortable: true,
+      // Opens the order's panel, as the row's View Details does — the number is where the eye
+      // goes first.
       render: (order) => (
-        <span className="font-medium text-ink">
+        <button
+          type="button"
+          onClick={() => onOpen(order)}
+          aria-label={`Open order ${orderNumberLabel(order.orderNumber)}`}
+          className="focus-ring rounded-sm font-medium text-ink underline decoration-ink-subtle decoration-1 underline-offset-2 transition-colors duration-(--duration-shell) ease-shell hover:decoration-ink"
+        >
           {orderNumberLabel(order.orderNumber)}
-        </span>
+        </button>
       ),
     },
     {
       key: "customerName",
       header: "Customer",
       sortable: true,
+      // Capped, so one long name cannot widen the table into a sideways scroll; the whole name is
+      // the hover text, and the order's panel shows it in full.
       render: (order) => (
-        <div className="flex flex-col">
-          {canOpenLead ? (
-            <CustomerNameLink leadId={order.leadId} name={order.customerName} />
-          ) : (
-            <span className="text-ink">{order.customerName}</span>
-          )}
+        <div className="flex max-w-64 flex-col">
+          <span className="truncate" title={order.customerName}>
+            {canOpenLead ? (
+              <CustomerNameLink
+                leadId={order.leadId}
+                name={order.customerName}
+              />
+            ) : (
+              <span className="text-ink">{order.customerName}</span>
+            )}
+          </span>
           <span className="text-xs text-ink-muted">{order.primaryPhone}</span>
         </div>
       ),
@@ -207,12 +215,14 @@ export function LogisticsListView({
         <LogisticsDeliveryDate
           date={order.deliveryDate}
           bucket={order.deliveryBucket}
+          className="flex-nowrap"
         />
       ),
     },
     {
       key: "awbNumber",
       header: "AWB",
+      className: "tabular-nums",
       render: (order) => order.awbNumber ?? dash,
     },
     {
@@ -224,13 +234,15 @@ export function LogisticsListView({
       key: "convertedAt",
       header: "Created",
       sortable: true,
-      render: (order) => formatDateTime(order.convertedAt),
+      className: "tabular-nums",
+      render: (order) => stamp(order.convertedAt),
     },
     {
       key: "statusChangedAt",
       header: "Updated",
       sortable: true,
-      render: (order) => formatDateTime(order.statusChangedAt),
+      className: "tabular-nums",
+      render: (order) => stamp(order.statusChangedAt),
     },
     {
       key: "actions",
@@ -261,27 +273,7 @@ export function LogisticsListView({
     <TablePageLayout
       title="Logistics"
       tableLabel="Logistics orders table"
-      toolbarLeft={
-        <>
-          {toolbarLeft}
-          <TabStrip
-            tabs={TABS}
-            value={
-              state.status.length === 0
-                ? ALL
-                : state.status.length === 1
-                  ? state.status[0]
-                  : ""
-            }
-            onValueChange={(next) =>
-              update({
-                status: next === ALL ? [] : [next as LogisticsStatus],
-                page: 1,
-              })
-            }
-          />
-        </>
-      }
+      toolbarLeft={toolbarLeft}
       toolbarActions={toolbarActions}
       summary={summary}
       pagination={{
@@ -312,6 +304,13 @@ export function LogisticsListView({
               narrowed
                 ? "Try other filters or another search."
                 : "An order is created here when a lead is won."
+            }
+            action={
+              narrowed ? (
+                <Button variant="secondary" onClick={onReset}>
+                  Clear filters
+                </Button>
+              ) : undefined
             }
           />
         }

@@ -1,44 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  IconCircleX,
-  IconClockHour4,
-  IconPackage,
-  IconShieldCheck,
-  IconShieldX,
-  IconTruckDelivery,
-  IconTruckReturn,
-  type Icon,
-} from "@tabler/icons-react";
-import { MetricCardsRow } from "@/components/layout/MetricCardsRow";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { StatCard } from "@/components/ui/StatCard";
+import { StatStrip, type StatStripItem } from "@/components/ui/StatStrip";
 import { LOGISTICS_STATUS_TONE } from "@/components/logistics/logistics-status-badge";
 import { isAbortError } from "@/lib/api-client";
-import { cn } from "@/lib/cn";
 import {
   LOGISTICS_STATUSES,
   LOGISTICS_STATUS_LABEL,
   formatDateOnly,
   logisticsFilterParams,
+  weekdayOf,
   type LogisticsFilters,
   type LogisticsStatus,
   type LogisticsSummary,
   type RegionCount,
 } from "@/lib/logistics-orders";
 import { fetchLogisticsSummary } from "@/services/logistics-service";
-
-/** One card per status, in the order an order moves through them. */
-const ICONS: Record<LogisticsStatus, Icon> = {
-  INITIAL: IconClockHour4,
-  QC_VERIFIED: IconShieldCheck,
-  QC_REJECTED: IconShieldX,
-  DISPATCHED: IconTruckDelivery,
-  DELIVERED: IconPackage,
-  CANCELLED: IconCircleX,
-  RTO: IconTruckReturn,
-};
 
 /**
  * The counts for `filters`, re-read whenever `reloadToken` moves (after an order action). The
@@ -74,31 +52,40 @@ export function useLogisticsSummary(
   };
 }
 
+const NOT_IN_FILTER = "Not in the Status filter";
+
+const orders = (count: number) =>
+  `${count.toLocaleString("en-AE")} ${count === 1 ? "order" : "orders"}`;
+
 /**
- * The Logistics dashboard's counts (client specification §10) above both views: a card for every
- * status, then the total and the orders per country and per city. Database counts from
+ * The Logistics dashboard's counts (client specification §10) on every view: a cell for every
+ * status, in the order an order moves through them. Database counts from
  * `GET /logistics/orders/summary` under the caller's scope and every filter of the screen, so the
- * cards' numbers add up to the total — the List's own — each is its Pipeline column's count, and
- * each region row adds up to the total too. A status the Status filter (or tab) leaves out keeps
- * its card, greyed with "—": the filter excludes it, which a 0 would misstate.
+ * cells add up to the List's total and each is its Pipeline column's count. A status the Status
+ * filter leaves out keeps its cell, greyed with "—": the filter excludes it, which a 0 would misstate.
+ *
+ * On the List and the Pipeline (`onFilter`) the cells are the Status filter itself, led by All
+ * orders: a status chooses it alone, choosing it again — or All — clears it. All reads "—" too while
+ * a status is chosen, since every status is then no longer in view. On the Dashboard (`onChoose`) a
+ * cell opens the List of the orders it counts instead; one out of the filter opens nothing.
  */
 export function LogisticsSummaryCards({
   status,
   summary,
   isError,
   onRetry,
+  onFilter,
   onChoose,
-  regions = true,
 }: {
-  /** The Status filter: the statuses it leaves out read "Not in filter"; empty is none. */
+  /** The Status filter in force; empty is none. */
   status: readonly LogisticsStatus[];
   summary: LogisticsSummary | null;
   isError: boolean;
   onRetry: () => void;
-  /** The Dashboard's: a card opens the List of the orders it counts. A card out of the filter does not. */
+  /** The List's and the Pipeline's: sets the Status filter. */
+  onFilter?: (status: LogisticsStatus[]) => void;
+  /** The Dashboard's: opens the List of one status's orders. */
   onChoose?: (status: LogisticsStatus) => void;
-  /** The total and country/city lines; the Dashboard shows its own breakdowns instead. */
-  regions?: boolean;
 }) {
   if (!summary && isError) {
     return (
@@ -114,89 +101,107 @@ export function LogisticsSummaryCards({
       </p>
     );
   }
+  if (!summary) {
+    return <Skeleton className="h-[60px] w-full rounded-surface" />;
+  }
+
+  const filtered = status.length > 0;
+  const cells: StatStripItem[] = LOGISTICS_STATUSES.map((each) => {
+    const inFilter = !filtered || status.includes(each);
+    const count = summary.counts[each];
+    const label = LOGISTICS_STATUS_LABEL[each];
+    const cell: StatStripItem = {
+      key: each,
+      label,
+      value: inFilter ? count.toLocaleString("en-AE") : "—",
+      tone: inFilter ? LOGISTICS_STATUS_TONE[each] : "neutral",
+      muted: !inFilter,
+      title: inFilter ? undefined : NOT_IN_FILTER,
+    };
+    if (onFilter) {
+      const pressed = filtered && status.includes(each);
+      return {
+        ...cell,
+        pressed,
+        onClick: () => onFilter(pressed && status.length === 1 ? [] : [each]),
+      };
+    }
+    if (onChoose && inFilter) {
+      return {
+        ...cell,
+        ariaLabel: `${label}: ${orders(count)} — open the list`,
+        onClick: () => onChoose(each),
+      };
+    }
+    return cell;
+  });
 
   return (
-    <div className="flex flex-col gap-2">
-      <section aria-label="Order counts">
-        <MetricCardsRow>
-          {LOGISTICS_STATUSES.map((each) => {
-            if (!summary) {
-              return (
-                <Skeleton
-                  key={each}
-                  className="h-[78px] min-w-[150px] flex-1 rounded-surface"
-                />
-              );
-            }
-            const inFilter = status.length === 0 || status.includes(each);
-            const count = summary.counts[each];
-            // StatCard is a div; as a control it takes the button role and Enter/Space, the
-            // same contract the shared Table gives a clickable row.
-            const opens = inFilter && onChoose !== undefined;
-            return (
-              <StatCard
-                key={each}
-                label={LOGISTICS_STATUS_LABEL[each]}
-                value={inFilter ? count.toLocaleString("en-AE") : "—"}
-                caption={inFilter ? undefined : "Not in filter"}
-                tone={inFilter ? LOGISTICS_STATUS_TONE[each] : "neutral"}
-                icon={ICONS[each]}
-                className={cn(
-                  "min-w-[150px] flex-1",
-                  opens &&
-                    "focus-ring cursor-pointer transition-colors duration-(--duration-shell) ease-shell hover:border-brand/60",
-                )}
-                {...(opens && {
-                  role: "button",
-                  tabIndex: 0,
-                  "aria-label": `${LOGISTICS_STATUS_LABEL[each]}: ${count} ${count === 1 ? "order" : "orders"} — open the list`,
-                  onClick: () => onChoose(each),
-                  onKeyDown: (event: React.KeyboardEvent) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onChoose(each);
-                    }
-                  },
-                })}
-              />
-            );
-          })}
-        </MetricCardsRow>
-      </section>
-
-      {!regions ? null : !summary ? (
-        <Skeleton className="h-12 w-full rounded-surface" />
-      ) : (
-        summary.total > 0 && (
-          <section aria-label="Matching orders" className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs font-medium text-ink-muted">
-                Total
-              </span>
-              <span className="rounded-full border border-hairline bg-surface px-2.5 py-0.5 text-xs font-semibold text-ink">
-                {summary.total.toLocaleString("en-AE")}{" "}
-                {summary.total === 1 ? "order" : "orders"}
-              </span>
-              {/* The day "Today" means for the delivery buckets — the business timezone's,
-                  which may not be this browser's. */}
-              <span className="text-xs text-ink-muted">
-                Business day {formatDateOnly(summary.businessDay.today)} ·{" "}
-                {summary.businessDay.timeZone}
-              </span>
-            </div>
-            <RegionCounts label="Country" counts={summary.countries} />
-            <RegionCounts label="City" counts={summary.cities} />
-          </section>
-        )
-      )}
-    </div>
+    <section aria-label="Order counts">
+      <StatStrip
+        label="Orders per status"
+        items={
+          onFilter
+            ? [
+                {
+                  key: "ALL",
+                  label: "All orders",
+                  value: filtered ? "—" : summary.total.toLocaleString("en-AE"),
+                  muted: filtered,
+                  title: filtered ? "Clear the Status filter" : undefined,
+                  pressed: !filtered,
+                  onClick: () => onFilter([]),
+                },
+                ...cells,
+              ]
+            : cells
+        }
+      />
+    </section>
   );
 }
 
 /**
- * One region breakdown on a single line — most orders first, those with none recorded last —
- * scrolling sideways when it is longer than the screen.
+ * The line above the counts on every view: how many orders the filters match, and the business
+ * day that Today and Overdue are measured on — the business timezone's, which may not be this
+ * browser's. On the List and the Pipeline those orders follow per country and per city, most first
+ * and none recorded last; the Dashboard has its own region cards instead. Nothing while the counts
+ * have failed: the counts' own message says so.
  */
+export function LogisticsMatchingOrders({
+  summary,
+  isError,
+  regions = true,
+}: {
+  summary: LogisticsSummary | null;
+  isError: boolean;
+  regions?: boolean;
+}) {
+  if (!summary) {
+    return isError ? null : <Skeleton className="h-5 w-72 max-w-full" />;
+  }
+  const { today, timeZone } = summary.businessDay;
+
+  return (
+    <section
+      aria-label="Matching orders"
+      className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-ink-muted"
+    >
+      <p>
+        <span className="font-semibold text-ink">{orders(summary.total)}</span>{" "}
+        · Business day {weekdayOf(today)} {formatDateOnly(today)} · {timeZone}
+      </p>
+      {regions && summary.total > 0 && (
+        <>
+          <RegionCounts label="Country" counts={summary.countries} />
+          <RegionCounts label="City" counts={summary.cities} />
+        </>
+      )}
+    </section>
+  );
+}
+
+/** One region breakdown, scrolling sideways when it is longer than the line. */
 function RegionCounts({
   label,
   counts,
@@ -205,23 +210,21 @@ function RegionCounts({
   counts: readonly RegionCount[];
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <span className="w-14 shrink-0 text-xs font-medium text-ink-muted">
-        {label}
-      </span>
+    <div className="flex max-w-full min-w-0 items-center gap-2">
+      <span className="shrink-0 font-medium">{label}</span>
       <ul
         aria-label={`Orders by ${label.toLowerCase()}`}
-        className="scrollbar-slim flex min-w-0 gap-1.5 overflow-x-auto pb-1"
+        className="scrollbar-slim flex min-w-0 gap-1.5 overflow-x-auto"
       >
         {counts.map(({ value, count }) => (
           <li
             key={value ?? ""}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-hairline bg-surface px-2.5 py-0.5 text-xs"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-hairline bg-surface px-2 py-px"
           >
             <span className={value === null ? "text-ink-muted" : "text-ink"}>
               {value ?? "Not set"}
             </span>
-            <span className="font-semibold text-ink">
+            <span className="font-semibold text-ink tabular-nums">
               {count.toLocaleString("en-AE")}
             </span>
           </li>

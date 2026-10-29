@@ -39,6 +39,13 @@ const PRIMARY: ReadonlySet<OrderAction> = new Set([
   "DISPATCH",
 ]);
 
+/** The actions that turn an order back or end it: kept apart from the ones that move it on. */
+const ENDING: ReadonlySet<OrderAction> = new Set([
+  "QC_REJECT",
+  "CANCEL",
+  "RTO",
+]);
+
 const DONE: Record<OrderAction, string> = {
   QC_VERIFY: "verified by QC",
   QC_REJECT: "rejected by QC",
@@ -232,21 +239,26 @@ export function LogisticsOrderActions({
     </>
   );
 
+  const button = (action: OrderAction) => (
+    <Button
+      key={action}
+      variant={PRIMARY.has(action) ? "primary" : "secondary"}
+      disabled={busy}
+      onClick={() => begin(action)}
+    >
+      {ORDER_ACTION_LABEL[action]}
+    </Button>
+  );
+
   return (
-    // Its own wrapping row: the drawer's footer does not wrap, and four controls do not fit
-    // side by side on a phone.
-    <div className="flex flex-wrap items-center justify-end gap-3">
-      {/* `actions` is `renderableActions`' list, already in the footer's order. */}
-      {actions.map((action) => (
-        <Button
-          key={action}
-          variant={PRIMARY.has(action) ? "primary" : "secondary"}
-          disabled={busy}
-          onClick={() => begin(action)}
-        >
-          {ORDER_ACTION_LABEL[action]}
-        </Button>
-      ))}
+    // Its own wrapping row across the footer: the drawer's footer does not wrap, and four controls
+    // do not fit side by side on a phone. `actions` is `renderableActions`' list, already in the
+    // footer's order; the ending ones lead it at the start, the rest close it at the end.
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+      {actions.filter((action) => ENDING.has(action)).map(button)}
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+        {actions.filter((action) => !ENDING.has(action)).map(button)}
+      </div>
 
       <Modal
         open={open === "QC_VERIFY"}

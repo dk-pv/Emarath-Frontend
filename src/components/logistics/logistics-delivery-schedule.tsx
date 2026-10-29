@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MetricCardsRow } from "@/components/layout/MetricCardsRow";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { StatStrip } from "@/components/ui/StatStrip";
+import { DELIVERY_BUCKET_TONE } from "@/components/logistics/logistics-delivery-date";
 import { isAbortError } from "@/lib/api-client";
 import { cn } from "@/lib/cn";
 import { dateKey, keyBound } from "@/lib/date-time-range";
@@ -109,13 +110,6 @@ const BUCKETS: readonly DeliveryBucket[] = [
   "future",
   "none",
 ];
-const TONE: Record<DeliveryBucket, string> = {
-  overdue: "border-danger/40 bg-danger/10",
-  today: "border-warning/40 bg-warning/10",
-  tomorrow: "border-info/40 bg-info/10",
-  future: "border-hairline bg-surface",
-  none: "border-hairline bg-surface",
-};
 
 /** `Fri 16-10-2026` — a day as the schedule names it. */
 const dayName = (date: string) => `${weekdayOf(date)} ${formatDateOnly(date)}`;
@@ -153,6 +147,8 @@ function statusBreakdown(day: DeliveryScheduleDay | undefined): string {
  * the region rows then show those orders — and choosing it again clears it. The schedule never
  * narrows itself by that choice, so the other days stay in view; each of its numbers is the List's
  * total once that bucket or day is chosen.
+ *
+ * The buckets are the cells of one card and the days its footer, since both set the same filter.
  */
 export function LogisticsDeliverySchedule({
   choice,
@@ -183,7 +179,7 @@ export function LogisticsDeliverySchedule({
     );
   }
   if (!schedule) {
-    return <Skeleton className="h-[106px] w-full rounded-surface" />;
+    return <Skeleton className="h-[110px] w-full rounded-surface" />;
   }
 
   const { businessDay: day, buckets, days } = schedule;
@@ -202,102 +198,96 @@ export function LogisticsDeliverySchedule({
     buckets.overdue + buckets.today + buckets.tomorrow + buckets.future;
 
   return (
-    <section aria-label="Delivery schedule" className="flex flex-col gap-2">
-      <div role="group" aria-label="Orders by delivery bucket">
-        <MetricCardsRow>
-          {BUCKETS.map((bucket) => {
-            const chosen = isDeliveryChoice(choice, bucketChoice(bucket));
-            const breakdown =
+    <section aria-label="Delivery schedule" className="flex flex-col gap-1.5">
+      <StatStrip
+        label="Orders by delivery bucket"
+        items={BUCKETS.map((bucket) => {
+          const breakdown =
+            bucket === "tomorrow"
+              ? statusBreakdown(days.find((each) => each.date === day.tomorrow))
+              : "";
+          return {
+            key: bucket,
+            label:
               bucket === "tomorrow"
-                ? statusBreakdown(
-                    days.find((each) => each.date === day.tomorrow),
-                  )
-                : "";
-            return (
-              <button
-                key={bucket}
-                type="button"
-                aria-pressed={chosen}
-                onClick={() => toggle(bucketChoice(bucket))}
-                className={cn(
-                  "focus-ring flex min-w-[150px] flex-1 flex-col items-start gap-1 rounded-surface border px-3 py-2 text-left transition-colors duration-(--duration-shell) ease-shell hover:border-brand/60",
-                  TONE[bucket],
-                  chosen && "border-brand ring-2 ring-brand",
-                )}
-              >
-                <span className="text-xs font-medium text-ink">
-                  {bucket === "tomorrow"
-                    ? "Tomorrow’s Deliveries"
-                    : DELIVERY_BUCKET_LABEL[bucket]}
-                </span>
-                <span className="flex min-w-0 max-w-full items-baseline gap-2">
-                  <span className="text-xl leading-none font-semibold text-ink">
-                    {buckets[bucket].toLocaleString("en-AE")}
-                  </span>
-                  <span className="truncate text-xs text-ink-muted">
-                    {breakdown || bucketCaption(bucket, day)}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </MetricCardsRow>
-      </div>
-
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="w-14 shrink-0 text-xs font-medium text-ink-muted">
-          By day
-        </span>
-        <div
-          role="group"
-          aria-label="Orders by delivery day"
-          className="scrollbar-slim flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1"
-        >
-          {days.map(({ date, total }) => {
-            const next = dayChoice(date, day);
-            const chosen = isDeliveryChoice(choice, next);
-            const label =
-              date === day.today
-                ? "Today"
-                : date === day.tomorrow
-                  ? "Tomorrow"
-                  : `${weekdayOf(date)} ${formatDateOnly(date).slice(0, 5)}`;
-            return (
-              <button
-                key={date}
-                type="button"
-                aria-pressed={chosen}
-                aria-label={`${dayName(date)}: ${total} ${total === 1 ? "order" : "orders"}`}
-                onClick={() => toggle(next)}
-                className={cn(
-                  "focus-ring flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors duration-(--duration-shell) ease-shell",
-                  chosen
-                    ? "border-brand bg-brand text-white"
-                    : "border-hairline bg-surface text-ink hover:bg-canvas",
-                )}
-              >
-                <span className={chosen ? undefined : "text-ink-muted"}>
-                  {label}
-                </span>
-                <span className="font-semibold">
-                  {total.toLocaleString("en-AE")}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {/* Any day, beyond the two weeks too: a calendar day, kept as its YYYY-MM-DD parts and
-            never converted to an instant, so no timezone can move it. */}
-        <DatePicker
-          numeric
-          className="w-36 shrink-0"
-          value={keyBound(picked).day}
-          onChange={(date) =>
-            onChoose(date ? dayChoice(dateKey(date), day) : NO_DELIVERY_CHOICE)
-          }
-          placeholder="Pick a date"
-        />
-      </div>
+                ? "Tomorrow’s Deliveries"
+                : DELIVERY_BUCKET_LABEL[bucket],
+            value: buckets[bucket].toLocaleString("en-AE"),
+            caption: breakdown || bucketCaption(bucket, day),
+            tone: DELIVERY_BUCKET_TONE[bucket],
+            // The one bucket someone must act on is washed, and only while it holds orders.
+            highlight: bucket === "overdue" && buckets.overdue > 0,
+            pressed: isDeliveryChoice(choice, bucketChoice(bucket)),
+            onClick: () => toggle(bucketChoice(bucket)),
+          };
+        })}
+        footer={
+          // On a phone the chips take a line of their own, under the label and the picker.
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2">
+            <span className="text-xs font-medium text-ink-muted">By day</span>
+            <div
+              role="group"
+              aria-label="Orders by delivery day"
+              className="scrollbar-slim order-last flex min-w-0 basis-full gap-1.5 overflow-x-auto pb-1 sm:order-none sm:flex-1 sm:basis-0"
+            >
+              {days.map(({ date, total }) => {
+                const next = dayChoice(date, day);
+                const chosen = isDeliveryChoice(choice, next);
+                const label =
+                  date === day.today
+                    ? "Today"
+                    : date === day.tomorrow
+                      ? "Tomorrow"
+                      : `${weekdayOf(date)} ${formatDateOnly(date).slice(0, 5)}`;
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    aria-pressed={chosen}
+                    aria-label={`${dayName(date)}: ${total} ${total === 1 ? "order" : "orders"}`}
+                    onClick={() => toggle(next)}
+                    className={cn(
+                      "focus-ring flex h-7 shrink-0 items-center gap-1.5 rounded-control border pr-1 pl-2.5 text-xs transition-colors duration-(--duration-shell) ease-shell",
+                      chosen
+                        ? "border-brand bg-brand text-white"
+                        : "border-hairline bg-surface text-ink-soft hover:bg-canvas",
+                    )}
+                  >
+                    {label}
+                    {/* A day with orders stands out from the empty ones around it. */}
+                    <span
+                      className={cn(
+                        "min-w-5 rounded-[5px] px-1 text-center text-[11px] leading-4 font-semibold tabular-nums",
+                        chosen
+                          ? "bg-white/25 text-white"
+                          : total > 0
+                            ? "bg-hairline/60 text-ink"
+                            : "text-ink-muted",
+                      )}
+                    >
+                      {total.toLocaleString("en-AE")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* Any day, beyond the two weeks too: a calendar day, kept as its YYYY-MM-DD parts and
+                never converted to an instant, so no timezone can move it. Its trigger takes the
+                chips' height, so the row is no taller than they are. */}
+            <DatePicker
+              numeric
+              className="ml-auto w-36 shrink-0 sm:ml-0 [&>button]:h-7"
+              value={keyBound(picked).day}
+              onChange={(date) =>
+                onChoose(
+                  date ? dayChoice(dateKey(date), day) : NO_DELIVERY_CHOICE,
+                )
+              }
+              placeholder="Pick a date"
+            />
+          </div>
+        }
+      />
 
       {dated === 0 && (
         <p className="text-xs text-ink-muted">

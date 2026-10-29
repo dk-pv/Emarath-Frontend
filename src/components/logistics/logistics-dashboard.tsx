@@ -13,7 +13,10 @@ import { Table } from "@/components/ui/Table";
 import { LogisticsDeliveryDate } from "@/components/logistics/logistics-delivery-date";
 import { LogisticsDeliverySchedule } from "@/components/logistics/logistics-delivery-schedule";
 import { LogisticsStatusBadge } from "@/components/logistics/logistics-status-badge";
-import { LogisticsSummaryCards } from "@/components/logistics/logistics-summary-cards";
+import {
+  LogisticsMatchingOrders,
+  LogisticsSummaryCards,
+} from "@/components/logistics/logistics-summary-cards";
 import { ApiError, isAbortError } from "@/lib/api-client";
 import {
   barWidth,
@@ -204,14 +207,11 @@ export function LogisticsDashboard({
 
     return (
       <div className="flex flex-col gap-4">
-        {summary && (
-          <p className="text-xs text-ink-muted">
-            {summary.total.toLocaleString("en-AE")}{" "}
-            {summary.total === 1 ? "order" : "orders"} in these filters ·
-            Business day {formatDateOnly(summary.businessDay.today)} ·{" "}
-            {summary.businessDay.timeZone}
-          </p>
-        )}
+        <LogisticsMatchingOrders
+          summary={summary}
+          isError={counts.isError}
+          regions={false}
+        />
 
         <DashboardSection title="Delivery dates">
           {/* Choosing a bucket or a day opens the List with that Delivery Date filter. */}
@@ -231,44 +231,43 @@ export function LogisticsDashboard({
             isError={counts.isError}
             onRetry={counts.retry}
             onChoose={(status) => open({ kind: "status", status })}
-            regions={false}
           />
         </DashboardSection>
 
-        <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card className="flex min-w-0 flex-col overflow-hidden p-0">
-            <CardTitle
-              title="Deliveries by day"
-              description="The next two weeks, each day by status. A day opens its orders."
+        {/* Full width each: a day's row is its total and seven statuses, which half the page
+            cannot hold without hiding the last of them. */}
+        <Card className="flex min-w-0 flex-col overflow-hidden p-0">
+          <CardTitle
+            title="Deliveries by day"
+            description="The next two weeks, each day by status. A day opens its orders."
+          />
+          {plan ? (
+            <DaysTable
+              days={plan.days}
+              day={plan.businessDay}
+              onChoose={(date) =>
+                open({
+                  kind: "delivery",
+                  choice: dayChoice(date, plan.businessDay),
+                })
+              }
             />
-            {plan ? (
-              <DaysTable
-                days={plan.days}
-                day={plan.businessDay}
-                onChoose={(date) =>
-                  open({
-                    kind: "delivery",
-                    choice: dayChoice(date, plan.businessDay),
-                  })
-                }
-              />
-            ) : (
-              <SkeletonRows />
-            )}
-          </Card>
+          ) : (
+            <SkeletonRows />
+          )}
+        </Card>
 
-          <Card className="flex min-w-0 flex-col overflow-hidden p-0">
-            <CardTitle
-              title="Upcoming deliveries"
-              description="Due today or later, soonest first. An order opens its details."
-            />
-            <UpcomingTable
-              upcoming={upcoming}
-              onOpen={onOpen}
-              onViewAll={() => open({ kind: "upcoming" })}
-            />
-          </Card>
-        </div>
+        <Card className="flex min-w-0 flex-col overflow-hidden p-0">
+          <CardTitle
+            title="Upcoming deliveries"
+            description="Due today or later, soonest first. An order opens its details."
+          />
+          <UpcomingTable
+            upcoming={upcoming}
+            onOpen={onOpen}
+            onViewAll={() => open({ kind: "upcoming" })}
+          />
+        </Card>
 
         <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3">
           <RegionCard
@@ -368,6 +367,7 @@ function DaysTable({
       key: "total",
       header: "Total",
       align: "right",
+      className: "tabular-nums",
       render: (row) => (
         <span className="font-semibold">{zeroMuted(row.total)}</span>
       ),
@@ -376,6 +376,7 @@ function DaysTable({
       key: status,
       header: LOGISTICS_STATUS_LABEL[status],
       align: "right",
+      className: "tabular-nums",
       render: (row) => zeroMuted(row.counts[status]),
     })),
   ];
@@ -428,6 +429,7 @@ function UpcomingTable({
         <LogisticsDeliveryDate
           date={order.deliveryDate}
           bucket={order.deliveryBucket}
+          className="flex-nowrap"
         />
       ),
     },
